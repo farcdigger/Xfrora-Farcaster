@@ -47,9 +47,38 @@ export async function analyzeProfileImage(imageUrl: string): Promise<Traits> {
     const imageBase64 = Buffer.from(imageBuffer).toString("base64");
     const mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
 
+    // First, get available models using ListModels endpoint
+    let availableModels: string[] = [];
+    try {
+      const listModelsUrl = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+      const listResponse = await fetch(listModelsUrl);
+      
+      if (listResponse.ok) {
+        const listData = await listResponse.json();
+        availableModels = (listData.models || [])
+          .map((m: any) => m.name?.replace("models/", "") || "")
+          .filter((name: string) => name && name.includes("gemini"));
+        
+        console.log("📋 Available Gemini models:", availableModels);
+      } else {
+        console.warn("⚠️ Could not list models, using fallback list");
+      }
+    } catch (error) {
+      console.warn("⚠️ Error listing models, using fallback list:", error);
+    }
+
+    // Fallback model list if ListModels fails
+    if (availableModels.length === 0) {
+      availableModels = [
+        "gemini-1.5-flash-001",
+        "gemini-1.5-pro-001",
+        "gemini-pro",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+      ];
+    }
+
     // Use v1 API endpoint directly (not v1beta)
-    // Try different model names - v1 API uses different naming
-    // Common models: gemini-pro, gemini-1.5-pro, gemini-1.5-flash-latest
     const requestBody = {
       contents: [
         {
@@ -66,18 +95,11 @@ export async function analyzeProfileImage(imageUrl: string): Promise<Traits> {
       ],
     };
 
-    // Try multiple model names in order of preference
-    const modelNames = [
-      "gemini-1.5-flash-latest",
-      "gemini-1.5-pro",
-      "gemini-pro",
-      "gemini-1.5-flash",
-    ];
-
     let response: Response | null = null;
     let lastError: string | null = null;
 
-    for (const modelName of modelNames) {
+    // Try available models in order
+    for (const modelName of availableModels) {
       try {
         const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
         
@@ -107,6 +129,7 @@ export async function analyzeProfileImage(imageUrl: string): Promise<Traits> {
 
     if (!response || !response.ok) {
       console.error("Gemini API error - all models failed:", lastError);
+      console.error("Available models that were tried:", availableModels);
       throw new Error(`Gemini API error: ${lastError || "All models failed"}`);
     }
 
