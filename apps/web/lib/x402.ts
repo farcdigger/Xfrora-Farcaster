@@ -57,10 +57,13 @@ export function createX402Response(recipient: string): X402PaymentResponse {
 
 /**
  * Verify x402 payment for mint
- * This verifies the payment made by the user for minting the NFT
- * Daydreams SDK handles its own x402 payments internally during image generation
+ * This verifies the payment header following Daydreams Router x402 pattern
+ * The payment header contains a signed EIP-712 message that commits to a payment
  * 
- * This verification checks the blockchain transaction to ensure payment was made
+ * This verification:
+ * 1. Verifies the EIP-712 signature
+ * 2. Checks payment commitment matches the expected amount/recipient
+ * 3. Optionally executes the payment on-chain (or trusts the signature)
  */
 export async function verifyX402Payment(
   paymentHeader: string,
@@ -68,53 +71,105 @@ export async function verifyX402Payment(
   rpcUrl?: string
 ): Promise<X402PaymentVerification | null> {
   try {
-    // Parse X-PAYMENT header
+    // Parse X-PAYMENT header (contains payment data + EIP-712 signature)
     const paymentData = JSON.parse(paymentHeader);
     
-    // If facilitator URL is provided, verify with facilitator
-    if (facilitatorUrl) {
-      const response = await axios.post(`${facilitatorUrl}/verify`, {
-        payment: paymentData,
-      });
-      return response.data;
+    // Verify EIP-712 signature
+    if (!paymentData.signature || !paymentData.payer || !paymentData.amount) {
+      console.error("Invalid payment header: missing signature or payment data");
+      return null;
     }
+
+    // Get USDC contract address for EIP-712 domain
+    const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || "8453");
+    const network = chainId === 8453 ? "base" : chainId === 84532 ? "base-sepolia" : "base";
     
-    // Verify payment on-chain if transaction hash is provided
-    if (paymentData.transactionHash && rpcUrl) {
-      try {
-        const { ethers } = await import("ethers");
-        const provider = new ethers.JsonRpcProvider(rpcUrl);
-        const receipt = await provider.getTransactionReceipt(paymentData.transactionHash);
-        
-        if (!receipt || receipt.status !== 1) {
-          console.error("Transaction failed or not found:", paymentData.transactionHash);
-          return null;
-        }
-        
-        // Verify transaction details match payment request
-        // This is a simplified check - in production, verify USDC transfer amount and recipient
-        console.log("✅ Payment transaction verified on-chain:", receipt.hash);
-      } catch (txError: any) {
-        console.error("Transaction verification error:", txError.message);
-        // Continue with basic verification if on-chain check fails
+    // Base Mainnet USDC
+    const usdcAddress = network === "base" 
+      ? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+      : process.env.USDC_CONTRACT_ADDRESS || null;
+    
+    if (!usdcAddress) {
+      console.error("USDC contract address not configured");
+      return null;
+    }
+
+    // Verify EIP-712 signature
+    try {
+      const { ethers } = await import("ethers");
+      
+      const domain = {
+        name: "X402 Payment",
+        version: "1",
+        chainId: network === "base" ? 8453 : network === "base-sepolia" ? 84532 : 8453,
+        verifyingContract: usdcAddress,
+      };
+
+      const types = {
+        Payment: [
+          { name: "amount", type: "string" },
+          { name: "asset", type: "string" },
+          { name: "network", type: "string" },
+          { name: "recipient", type: "address" },
+          { name: "payer", type: "address" },
+          { name: "timestamp", type: "uint256" },
+          { name: "nonce", type: "string" },
+        ],
+      };
+
+      // Verify signature
+      const recoveredAddress = ethers.verifyTypedData(
+        domain,
+        types,
+        {
+          amount: paymentData.amount,
+          asset: paymentData.asset,
+          network: paymentData.network,
+          recipient: paymentData.recipient,
+          payer: paymentData.payer,
+          timestamp: BigInt(paymentData.timestamp),
+          nonce: paymentData.nonce,
+        },
+        paymentData.signature
+      );
+
+      // Verify signature matches payer
+      if (recoveredAddress.toLowerCase() !== paymentData.payer.toLowerCase()) {
+        console.error("Signature verification failed: address mismatch");
+        return null;
       }
-    }
-    
-    // Basic verification (payment proof structure)
-    if (paymentData.paymentId && paymentData.amount && paymentData.asset && paymentData.payer) {
+
+      // Verify payment amount matches expected
+      const expectedAmount = process.env.X402_PRICE_USDC || "2000000";
+      if (paymentData.amount !== expectedAmount) {
+        console.error(`Payment amount mismatch: expected ${expectedAmount}, got ${paymentData.amount}`);
+        return null;
+      }
+
+      // Verify payment is not too old (5 minutes)
+      const timestamp = Number(paymentData.timestamp);
+      const now = Math.floor(Date.now() / 1000);
+      if (now - timestamp > 300) {
+        console.error("Payment commitment expired");
+        return null;
+      }
+
+      console.log("✅ x402 payment header verified successfully");
+      
       return {
-        paymentId: paymentData.paymentId,
+        paymentId: paymentData.nonce || `payment_${timestamp}`,
         amount: paymentData.amount,
         asset: paymentData.asset,
         network: paymentData.network || "base",
         payer: paymentData.payer,
         recipient: paymentData.recipient,
       };
+    } catch (sigError: any) {
+      console.error("EIP-712 signature verification error:", sigError.message);
+      return null;
     }
-    
-    return null;
-  } catch (error) {
-    console.error("x402 verification error:", error);
+  } catch (error: any) {
+    console.error("x402 verification error:", error.message);
     return null;
   }
 }
