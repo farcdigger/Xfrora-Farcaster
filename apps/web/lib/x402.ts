@@ -130,25 +130,44 @@ export async function verifyX402Payment(
       };
 
       // Verify signature matches payer
+      // IMPORTANT: Ensure all data types match exactly with client-side signing
+      const message = {
+        amount: paymentData.amount,
+        asset: paymentData.asset,
+        network: paymentData.network,
+        recipient: paymentData.recipient,
+        payer: paymentData.payer,
+        timestamp: BigInt(paymentData.timestamp), // Convert to BigInt for uint256
+        nonce: paymentData.nonce,
+      };
+      
+      console.log("🔍 Verifying EIP-712 signature:");
+      console.log(`   Domain: ${domain.name} (v${domain.version})`);
+      console.log(`   Chain ID: ${domain.chainId}`);
+      console.log(`   Verifying Contract: ${domain.verifyingContract}`);
+      console.log(`   Payer: ${message.payer}`);
+      console.log(`   Recipient: ${message.recipient}`);
+      console.log(`   Amount: ${message.amount}`);
+      console.log(`   Timestamp: ${message.timestamp}`);
+      
       const recoveredAddress = ethers.verifyTypedData(
         domain,
         types,
-        {
-          amount: paymentData.amount,
-          asset: paymentData.asset,
-          network: paymentData.network,
-          recipient: paymentData.recipient,
-          payer: paymentData.payer,
-          timestamp: BigInt(paymentData.timestamp),
-          nonce: paymentData.nonce,
-        },
+        message,
         paymentData.signature
       );
 
+      console.log(`   Recovered Address: ${recoveredAddress}`);
+      console.log(`   Expected Payer: ${paymentData.payer}`);
+      
       if (recoveredAddress.toLowerCase() !== paymentData.payer.toLowerCase()) {
-        console.error("Signature verification failed: address mismatch");
+        console.error("❌ Signature verification failed: address mismatch");
+        console.error(`   Recovered: ${recoveredAddress.toLowerCase()}`);
+        console.error(`   Expected: ${paymentData.payer.toLowerCase()}`);
         return null;
       }
+      
+      console.log("✅ Signature verification successful!");
 
       // Verify payment amount matches expected
       const expectedAmount = process.env.X402_PRICE_USDC || "2000000";
