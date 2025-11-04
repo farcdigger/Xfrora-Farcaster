@@ -189,12 +189,16 @@ export async function generateX402PaymentHeader(
   
   try {
     // Generate payment header with Daydreams SDK (creates EIP-712 signature)
+    // Daydreams SDK only accepts specific network names
+    const sdkNetwork = paymentOption.network === "base-sepolia" ? "base-sepolia" : 
+                       paymentOption.network === "base" ? "base" : "base";
+    
     const paymentHeaderSignature = await generateX402PaymentBrowser(
       walletAddress,
       signTypedDataAsync,
       {
         amount: paymentOption.amount,
-        network: paymentOption.network,
+        network: sdkNetwork as "base" | "base-sepolia",
       }
     );
     
