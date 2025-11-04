@@ -122,11 +122,18 @@ if (env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
       }
     );
     console.log("✅ Supabase client initialized (using REST API)");
+    console.log(`   URL: ${env.NEXT_PUBLIC_SUPABASE_URL}`);
+    console.log(`   Service Role Key: ${env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 10)}...`);
   } catch (error: any) {
     console.error("❌ Failed to initialize Supabase client:", error);
   }
 } else {
   console.warn("⚠️ Supabase credentials not configured - using mock mode");
+  console.warn(`   NEXT_PUBLIC_SUPABASE_URL: ${env.NEXT_PUBLIC_SUPABASE_URL ? "✅ Set" : "❌ Missing"}`);
+  console.warn(`   SUPABASE_SERVICE_ROLE_KEY: ${env.SUPABASE_SERVICE_ROLE_KEY ? "✅ Set" : "❌ Missing"}`);
+  console.warn("   💡 Add these environment variables in Vercel:");
+  console.warn("      - NEXT_PUBLIC_SUPABASE_URL");
+  console.warn("      - SUPABASE_SERVICE_ROLE_KEY");
 }
 
 // Helper function to get table name from Drizzle table object
