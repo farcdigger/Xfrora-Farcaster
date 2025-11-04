@@ -40,35 +40,38 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
   const signer = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
   
   // Convert values to proper types for EIP-712 uint256
-  // CRITICAL FIX: To avoid BigInt mixing, we must ensure ALL uint256 values are the SAME type
-  // ethers.js signTypedData accepts string, number, or BigInt for uint256
-  // Problem: Mixing these types causes "Cannot mix BigInt and other types" error
-  // Solution: Use hex strings (0x...) for ALL uint256 values - ethers handles them consistently
+  // CRITICAL FIX: EIP-712 uint256 accepts:
+  // 1. BigInt (e.g., 12345n)
+  // 2. Decimal string (e.g., "12345")
+  // 3. Number (for small values)
+  // 
+  // PROBLEM: Hex strings (0x...) are NOT accepted directly for uint256
+  // Solution: Convert hex string to BigInt, keep decimal strings as strings
   
-  // xUserId is already a hex string (0x...) from ethers.id()
-  // Convert nonce and deadline to hex strings as well to ensure type consistency
-  let nonceHex: string;
-  let deadlineHex: string;
-  
+  // xUserId is a hex string (0x...) from ethers.id() - must convert to BigInt
+  let xUserIdValue: bigint;
   try {
-    // Convert number to hex string for nonce
-    // Use ethers.toBeHex() to ensure proper formatting
-    nonceHex = ethers.toBeHex(auth.nonce);
-    
-    // Convert number to hex string for deadline
-    deadlineHex = ethers.toBeHex(auth.deadline);
+    if (auth.xUserId.startsWith('0x')) {
+      // Hex string - convert to BigInt using JavaScript's BigInt constructor
+      // BigInt() can directly accept hex strings (0x...)
+      xUserIdValue = BigInt(auth.xUserId);
+    } else {
+      // Already a decimal string - convert to BigInt
+      xUserIdValue = BigInt(auth.xUserId);
+    }
   } catch (convertError: any) {
-    throw new Error(`Failed to convert nonce/deadline to hex: ${convertError.message}`);
+    throw new Error(`Failed to convert xUserId to BigInt: ${convertError.message}`);
   }
   
-  // All uint256 values are now hex strings - this ensures type consistency
+  // nonce and deadline are numbers - convert to decimal strings (NOT hex!)
+  // Decimal strings are accepted for uint256 in EIP-712
   const eip712Auth = {
     to: auth.to,
     payer: auth.payer,
-    xUserId: auth.xUserId, // Hex string (0x...) - already correct
+    xUserId: xUserIdValue, // BigInt - converted from hex string
     tokenURI: auth.tokenURI,
-    nonce: nonceHex, // Hex string (0x...) - converted from number
-    deadline: deadlineHex, // Hex string (0x...) - converted from number
+    nonce: String(auth.nonce), // Decimal string - converted from number
+    deadline: String(auth.deadline), // Decimal string - converted from number
   };
   
   console.log("EIP-712 Auth values (all strings for uint256):", {
@@ -103,28 +106,30 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
 }
 
 export function verifyMintAuth(auth: MintAuth, signature: string): string {
-  // Convert values to hex strings for verification (same as signing)
-  // All uint256 values must be hex strings to ensure type consistency
-  let nonceHex: string;
-  let deadlineHex: string;
+  // Convert values for verification (same as signing)
+  // xUserId: hex string → BigInt
+  // nonce/deadline: number → decimal string
   
+  let xUserIdValue: bigint;
   try {
-    // Convert number to hex string for nonce
-    nonceHex = ethers.toBeHex(auth.nonce);
-    
-    // Convert number to hex string for deadline
-    deadlineHex = ethers.toBeHex(auth.deadline);
+    if (auth.xUserId.startsWith('0x')) {
+      // Hex string - convert to BigInt
+      xUserIdValue = BigInt(auth.xUserId);
+    } else {
+      // Decimal string - convert to BigInt
+      xUserIdValue = BigInt(auth.xUserId);
+    }
   } catch (convertError: any) {
-    throw new Error(`Failed to convert nonce/deadline to hex: ${convertError.message}`);
+    throw new Error(`Failed to convert xUserId to BigInt: ${convertError.message}`);
   }
   
   const eip712Auth = {
     to: auth.to,
     payer: auth.payer,
-    xUserId: auth.xUserId, // Hex string (0x...) - already correct
+    xUserId: xUserIdValue, // BigInt - converted from hex string
     tokenURI: auth.tokenURI,
-    nonce: nonceHex, // Hex string (0x...) - converted from number
-    deadline: deadlineHex, // Hex string (0x...) - converted from number
+    nonce: String(auth.nonce), // Decimal string - converted from number
+    deadline: String(auth.deadline), // Decimal string - converted from number
   };
   
   const recovered = ethers.verifyTypedData(
