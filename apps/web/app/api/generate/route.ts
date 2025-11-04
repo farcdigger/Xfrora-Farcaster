@@ -324,9 +324,56 @@ export async function POST(request: NextRequest) {
         }
         
         // If it's a unique constraint violation, user already has a token
-        if (dbError?.code === "23505" || dbError?.message?.includes("unique") || dbError?.message?.includes("duplicate")) {
+        if (dbError?.code === "23505" || dbError?.message?.includes("unique") || dbError?.message?.includes("duplicate") || dbError?.message?.includes("duplicate key")) {
           console.warn("⚠️ User already has a token (unique constraint violation)");
-          // Fetch existing token and return it
+          console.log("   Error details:", {
+            code: dbError?.code,
+            message: dbError?.message,
+            constraint: dbError?.constraint || "tokens_x_user_id_unique",
+          });
+          
+          // Fetch existing token using direct Supabase client (bypass Drizzle condition parsing)
+          try {
+            const { supabaseClient } = await import("@/lib/db-supabase");
+            if (supabaseClient) {
+              const client = supabaseClient as any;
+              const { data: existingTokenData, error: selectError } = await client
+                .from("tokens")
+                .select("*")
+                .eq("x_user_id", x_user_id)
+                .limit(1)
+                .single();
+              
+              if (!selectError && existingTokenData) {
+                console.log("✅ Found existing token via direct Supabase query");
+                const existing = existingTokenData;
+                
+                // Convert IPFS URL to Pinata gateway URL for preview
+                let previewUrl = existing.image_uri;
+                if (existing.image_uri && existing.image_uri.startsWith("ipfs://")) {
+                  previewUrl = `https://gateway.pinata.cloud/ipfs/${existing.image_uri.replace("ipfs://", "")}`;
+                } else if (existing.image_uri) {
+                  previewUrl = existing.image_uri;
+                }
+                
+                return NextResponse.json({
+                  seed: existing.seed,
+                  traits: existing.traits,
+                  imageUrl: existing.image_uri,
+                  metadataUrl: existing.metadata_uri,
+                  preview: previewUrl, // Use Pinata gateway URL for preview
+                  alreadyExists: true,
+                  message: "NFT already generated for this user",
+                });
+              } else {
+                console.error("❌ Failed to fetch existing token via direct query:", selectError);
+              }
+            }
+          } catch (directQueryError: any) {
+            console.error("❌ Error fetching existing token via direct Supabase query:", directQueryError);
+          }
+          
+          // Fallback: Try Drizzle query (may fail due to condition parsing)
           const existingToken = await db
             .select()
             .from(tokens)
@@ -335,18 +382,29 @@ export async function POST(request: NextRequest) {
           
           if (existingToken.length > 0) {
             const existing = existingToken[0];
+            let previewUrl = existing.image_uri;
+            if (existing.image_uri && existing.image_uri.startsWith("ipfs://")) {
+              previewUrl = `https://gateway.pinata.cloud/ipfs/${existing.image_uri.replace("ipfs://", "")}`;
+            }
+            
             return NextResponse.json({
               seed: existing.seed,
               traits: existing.traits,
               imageUrl: existing.image_uri,
               metadataUrl: existing.metadata_uri,
-              preview: existing.image_uri.startsWith("ipfs://") 
-                ? `https://gateway.pinata.cloud/ipfs/${existing.image_uri.replace("ipfs://", "")}` 
-                : existing.image_uri,
+              preview: previewUrl,
               alreadyExists: true,
               message: "NFT already generated for this user",
             });
           }
+          
+          // If we can't fetch the existing token, return error
+          console.error("❌ CRITICAL: Duplicate key violation but could not fetch existing token");
+          return NextResponse.json({
+            error: "Duplicate NFT detected but could not retrieve existing data",
+            message: "Please try again or contact support",
+            code: "DUPLICATE_FETCH_FAILED",
+          }, { status: 500 });
         }
         
         console.error("❌ CRITICAL: Failed to save token to database:", {
