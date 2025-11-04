@@ -73,11 +73,16 @@ export async function POST(request: NextRequest) {
     }
     
     // Rate limiting (OPTIONAL - fail-open if KV unavailable)
-    // ... (Bu kısım aynı kaldı) ...
     try {
       const allowed = await checkGenerateRateLimit(x_user_id);
       if (!allowed) {
-        return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+        return NextResponse.json({ 
+          error: "Rate limit exceeded",
+          message: "You have reached the maximum number of NFT generations (10 per hour). Please try again later.",
+          limit: 10,
+          window: "1 hour",
+          retryAfter: "Please wait before generating another NFT"
+        }, { status: 429 });
       }
     } catch (rateLimitError) {
       console.warn("⚠️ Rate limit check failed, allowing request (fail-open):", rateLimitError);
