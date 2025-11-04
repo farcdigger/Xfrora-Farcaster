@@ -24,7 +24,7 @@ const envSchema = z.object({
   // If Vercel KV is not configured, falls back to Supabase KV (PostgreSQL)
   KV_REST_API_URL: z.string().url().optional().or(z.literal("http://localhost:6379")),
   KV_REST_API_TOKEN: z.string().optional(),
-  X402_FACILITATOR_URL: z.string().optional(),
+  X402_FACILITATOR_URL: z.string().optional(), // x402 facilitator URL (e.g., https://x402.org/facilitator for testnet, or CDP facilitator for mainnet)
   NEXT_PUBLIC_X402_FACILITATOR_URL: z.string().url().optional(), // Client-side facilitator URL (Coinbase CDP x402)
   CDP_API_KEY_ID: z.string().optional(), // Coinbase CDP API Key ID (for mainnet facilitator)
   CDP_API_KEY_SECRET: z.string().optional(), // Coinbase CDP API Key Secret (for mainnet facilitator)
