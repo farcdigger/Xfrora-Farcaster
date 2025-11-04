@@ -85,8 +85,22 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
   });
   
   try {
+    // Ensure domain chainId is a number (not BigInt)
+    const domain = {
+      ...EIP712_DOMAIN,
+      chainId: Number(EIP712_DOMAIN.chainId), // Explicitly convert to number
+    };
+    
+    console.log("EIP-712 Domain:", {
+      name: domain.name,
+      version: domain.version,
+      chainId: domain.chainId,
+      chainIdType: typeof domain.chainId,
+      verifyingContract: domain.verifyingContract,
+    });
+    
     const signature = await signer.signTypedData(
-      EIP712_DOMAIN,
+      domain,
       { MintAuth: EIP712_TYPES.MintAuth },
       eip712Auth
     );
@@ -96,9 +110,16 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
     console.error("EIP-712 signing error:", {
       error: error.message,
       errorStack: error.stack,
+      domain: EIP712_DOMAIN,
       auth: eip712Auth,
       originalAuth: auth,
       types: EIP712_TYPES.MintAuth,
+      // Log all values as strings for debugging
+      debugValues: {
+        xUserId: eip712Auth.xUserId.toString(),
+        nonce: eip712Auth.nonce.toString(),
+        deadline: eip712Auth.deadline.toString(),
+      },
     });
     throw new Error(`Failed to sign mint auth: ${error.message}`);
   }
