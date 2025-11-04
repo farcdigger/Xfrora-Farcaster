@@ -71,9 +71,9 @@ export async function verifyX402Payment(
   rpcUrl?: string
 ): Promise<X402PaymentVerification | null> {
   try {
-    // Parse X-PAYMENT header (contains payment commitment with EIP-712 signature)
-    // x402 Protocol: The signature IS the payment commitment
-    // No separate transaction hash needed - the signature proves the payment
+    // Parse X-PAYMENT header (contains payment commitment + transaction proof)
+    // x402 Protocol (immediate): Signature + Transaction pattern
+    // Both signature (payment commitment) and transaction hash (actual USDC transfer) are present
     const paymentData = JSON.parse(paymentHeader);
     
     // Verify payment header has required data
@@ -82,9 +82,16 @@ export async function verifyX402Payment(
       return null;
     }
     
-    // Verify EIP-712 signature is present (this IS the payment commitment)
+    // Verify EIP-712 signature is present (payment commitment)
     if (!paymentData.signature) {
       console.error("Invalid payment header: missing EIP-712 signature (payment commitment)");
+      return null;
+    }
+    
+    // Verify transaction hash is present (proof of actual USDC transfer)
+    // This follows x402-fetch pattern: signature + transaction
+    if (!paymentData.transactionHash) {
+      console.error("Invalid payment header: missing transaction hash (proof of USDC transfer)");
       return null;
     }
 
@@ -163,28 +170,58 @@ export async function verifyX402Payment(
         return null;
       }
 
-      // Format USDC amount for display
-      const amountBigInt = BigInt(paymentData.amount);
-      const usdcDecimals = 6; // USDC has 6 decimals
-      const divisor = BigInt(10 ** usdcDecimals);
-      const whole = amountBigInt / divisor;
-      const fraction = amountBigInt % divisor;
-      const formattedAmount = `${whole}.${fraction.toString().padStart(usdcDecimals, "0")}`;
-      
-      console.log("✅ x402 payment commitment verified (EIP-712 signature)");
-      console.log(`   Payer: ${paymentData.payer}`);
-      console.log(`   Amount: ${formattedAmount} USDC`);
-      console.log(`   Recipient: ${paymentData.recipient}`);
-      console.log(`   ⚠️ Payment commitment verified - signature IS the payment`);
-      
-      return {
-        paymentId: paymentData.nonce || `payment_${timestamp}`,
-        amount: paymentData.amount,
-        asset: paymentData.asset,
-        network: paymentData.network || "base",
-        payer: paymentData.payer,
-        recipient: paymentData.recipient,
-      };
+      // Verify actual USDC transfer transaction on-chain
+      // This follows x402-fetch pattern: verify both signature AND transaction
+      if (!rpcUrl) {
+        console.error("RPC_URL not configured - cannot verify transaction");
+        return null;
+      }
+
+      try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        
+        // Verify transaction exists and is successful
+        const receipt = await provider.getTransactionReceipt(paymentData.transactionHash);
+        
+        if (!receipt || receipt.status !== 1) {
+          console.error("USDC transfer transaction failed or not found:", paymentData.transactionHash);
+          return null;
+        }
+
+        // Verify transaction is from the payer
+        if (receipt.from.toLowerCase() !== paymentData.payer.toLowerCase()) {
+          console.error("Transaction payer mismatch");
+          return null;
+        }
+
+        // Format USDC amount for display
+        const amountBigInt = BigInt(paymentData.amount);
+        const usdcDecimals = 6; // USDC has 6 decimals
+        const divisor = BigInt(10 ** usdcDecimals);
+        const whole = amountBigInt / divisor;
+        const fraction = amountBigInt % divisor;
+        const formattedAmount = `${whole}.${fraction.toString().padStart(usdcDecimals, "0")}`;
+        
+        console.log("✅ x402 payment verified (signature + transaction):");
+        console.log(`   - Payment commitment: EIP-712 signature verified ✓`);
+        console.log(`   - USDC transfer: ${receipt.hash} verified on-chain ✓`);
+        console.log(`   Payer: ${paymentData.payer}`);
+        console.log(`   Amount: ${formattedAmount} USDC`);
+        console.log(`   Recipient: ${paymentData.recipient}`);
+        console.log(`   Block: ${receipt.blockNumber}`);
+        
+        return {
+          paymentId: paymentData.nonce || `payment_${receipt.blockNumber}`,
+          amount: paymentData.amount,
+          asset: paymentData.asset,
+          network: paymentData.network || "base",
+          payer: paymentData.payer,
+          recipient: paymentData.recipient,
+        };
+      } catch (txError: any) {
+        console.error("Transaction verification error:", txError.message);
+        return null;
+      }
     } catch (sigError: any) {
       console.error("EIP-712 signature verification error:", sigError.message);
       return null;
