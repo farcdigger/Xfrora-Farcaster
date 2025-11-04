@@ -473,14 +473,6 @@ function HomePageContent() {
                 >
                   {xUser ? "✅ X Account Connected" : "Connect X Account"}
                 </button>
-                <button
-                  onClick={checkXOAuthConfig}
-                  disabled={loading}
-                  className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg w-full"
-                  title="Check X OAuth Configuration"
-                >
-                  🔍 Check Config
-                </button>
               </div>
             </div>
           )}
