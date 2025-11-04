@@ -100,16 +100,29 @@ export async function POST(request: NextRequest) {
       const imageBase64 = imageBuffer.toString("base64");
       const previewDataUrl = `data:image/png;base64,${imageBase64}`;
       
-      // Pin image to IPFS
-      console.log("Pinning image to IPFS...");
-      const imageUrl = await pinToIPFS(imageBuffer, `${x_user_id}.png`);
-      console.log(`Image pinned: ${imageUrl}`);
+      // Pin image to Pinata (IPFS)
+      console.log(`📤 Pinning generated image to Pinata for user ${x_user_id}...`);
+      let imageUrl: string;
+      try {
+        imageUrl = await pinToIPFS(imageBuffer, `${x_user_id}.png`);
+        console.log(`✅ Image successfully pinned to Pinata: ${imageUrl}`);
+      } catch (ipfsError: any) {
+        console.error("❌ Failed to pin image to Pinata:", ipfsError);
+        return NextResponse.json(
+          { 
+            error: "Failed to upload image to Pinata",
+            details: ipfsError?.message || "Unknown IPFS error",
+            hint: "Check PINATA_JWT environment variable in Vercel"
+          },
+          { status: 500 }
+        );
+      }
       
-      // Create metadata
+      // Create metadata with Pinata IPFS URL for image
       const metadata = {
         name: `X Animal NFT #${x_user_id}`,
         description: `AI-generated NFT for X user ${x_user_id}`,
-        image: imageUrl,
+        image: imageUrl, // This will be ipfs://hash format from Pinata
         
         // DEĞİŞİKLİK: NFT metadata'sının 'main_colors' gibi array'leri
         // düzgün işlemesi için küçük bir düzeltme.
@@ -123,10 +136,23 @@ export async function POST(request: NextRequest) {
         version: env.MODEL_VERSION,
       };
       
-      // Pin metadata to IPFS
-      console.log("Pinning metadata to IPFS...");
-      const metadataUrl = await pinJSONToIPFS(metadata);
-      console.log(`Metadata pinned: ${metadataUrl}`);
+      // Pin metadata to Pinata (IPFS)
+      console.log(`📤 Pinning metadata to Pinata for user ${x_user_id}...`);
+      let metadataUrl: string;
+      try {
+        metadataUrl = await pinJSONToIPFS(metadata);
+        console.log(`✅ Metadata successfully pinned to Pinata: ${metadataUrl}`);
+      } catch (ipfsError: any) {
+        console.error("❌ Failed to pin metadata to Pinata:", ipfsError);
+        return NextResponse.json(
+          { 
+            error: "Failed to upload metadata to Pinata",
+            details: ipfsError?.message || "Unknown IPFS error",
+            hint: "Check PINATA_JWT environment variable in Vercel"
+          },
+          { status: 500 }
+        );
+      }
       
       // Save to database (OPTIONAL - for tracking/preventing duplicates)
       // ... (Bu kısım aynı kaldı) ...

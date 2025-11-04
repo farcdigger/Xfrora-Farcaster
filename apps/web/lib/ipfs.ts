@@ -28,6 +28,7 @@ export async function pinToIPFS(file: Buffer, filename: string): Promise<string>
   // Try Pinata first
   if (env.PINATA_JWT) {
     try {
+      console.log(`📤 Pinning image to Pinata: ${filename}`);
       const response = await axios.post<PinataResponse>(
         "https://api.pinata.cloud/pinning/pinFileToIPFS",
         formData,
@@ -35,11 +36,20 @@ export async function pinToIPFS(file: Buffer, filename: string): Promise<string>
           headers: {
             Authorization: `Bearer ${env.PINATA_JWT}`,
           },
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
         }
       );
-      return `ipfs://${response.data.IpfsHash}`;
-    } catch (error) {
-      console.error("Pinata error:", error);
+      const ipfsHash = response.data.IpfsHash;
+      console.log(`✅ Image pinned to Pinata: ipfs://${ipfsHash}`);
+      return `ipfs://${ipfsHash}`;
+    } catch (error: any) {
+      console.error("❌ Pinata pinFileToIPFS error:", {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+      });
+      throw error; // Re-throw to allow fallback or proper error handling
     }
   }
   
@@ -80,6 +90,7 @@ export async function pinJSONToIPFS(json: object): Promise<string> {
   // Try Pinata first
   if (env.PINATA_JWT) {
     try {
+      console.log(`📤 Pinning metadata to Pinata`);
       const response = await axios.post<PinataResponse>(
         "https://api.pinata.cloud/pinning/pinJSONToIPFS",
         json,
@@ -90,9 +101,16 @@ export async function pinJSONToIPFS(json: object): Promise<string> {
           },
         }
       );
-      return `ipfs://${response.data.IpfsHash}`;
-    } catch (error) {
-      console.error("Pinata error:", error);
+      const ipfsHash = response.data.IpfsHash;
+      console.log(`✅ Metadata pinned to Pinata: ipfs://${ipfsHash}`);
+      return `ipfs://${ipfsHash}`;
+    } catch (error: any) {
+      console.error("❌ Pinata pinJSONToIPFS error:", {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+      });
+      throw error; // Re-throw to allow fallback or proper error handling
     }
   }
   
