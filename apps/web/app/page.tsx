@@ -350,7 +350,7 @@ function HomePageContent() {
         console.log("Permit data received:", permitData);
         await mintNFT(permitData);
       } else if (response.status === 402) {
-        // x402 Payment Required - Execute payment using Daydreams SDK pattern
+        // x402 Payment Required - Execute payment using Coinbase CDP x402 protocol
         const paymentRequest: X402PaymentResponse = await response.json();
         console.log("💳 402 Payment request received:", paymentRequest);
         
@@ -361,8 +361,8 @@ function HomePageContent() {
         const paymentOption = paymentRequest.accepts[0];
         console.log(`💰 Payment required: ${paymentOption.amount} ${paymentOption.asset} on ${paymentOption.network}`);
         
-        // Generate x402 payment header using Daydreams SDK pattern
-        // This follows the x402 protocol: generate payment header, not direct transfer
+        // Generate x402 payment header using Coinbase CDP x402 protocol
+        // This follows the x402 protocol: generate payment header, facilitator executes transfer
         if (typeof window.ethereum === "undefined") {
           throw new Error("Wallet not connected. Please connect your wallet first.");
         }

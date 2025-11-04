@@ -1,14 +1,12 @@
 /**
  * x402 Payment Client - Frontend helper for x402 payments
- * Uses Daydreams SDK patterns for x402 payment handling
+ * Uses Coinbase CDP x402 protocol for payment handling
  * 
- * This handles x402 payments for NFT minting (separate from Daydreams image generation payments)
- * Reference: https://docs.daydreams.systems/docs/router/dreams-sdk
+ * This handles x402 payments for NFT minting
+ * Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
  */
 
 import { ethers } from "ethers";
-// Dynamic import to avoid bundling Node.js-only modules (ws) in client bundle
-// @daydreamsai/ai-sdk-provider contains ws which is Node.js-only
 
 export interface X402PaymentRequest {
   asset: string;
@@ -107,11 +105,10 @@ export async function createX402PaymentProof(
 }
 
 /**
- * Generate x402 payment header using Daydreams SDK
- * x402 Protocol: User signs payment commitment (permit) - server executes USDC transfer
- * Single approval: User only signs payment commitment, NO separate USDC transfer transaction
- * Server uses the signature/permit to execute the USDC transfer
- * Reference: https://docs.daydreams.systems/docs/router/dreams-sdk
+ * Generate x402 payment header using Coinbase CDP x402 protocol
+ * x402 Protocol: User signs payment commitment (EIP-712) - facilitator executes USDC transfer
+ * Single approval: User only signs payment commitment, facilitator handles USDC transfer
+ * Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
  * 
  * @param walletAddress - User's wallet address
  * @param signer - ethers signer (from wallet)
@@ -123,14 +120,14 @@ export async function generateX402PaymentHeader(
   signer: ethers.Signer,
   paymentOption: X402PaymentRequest
 ): Promise<string> {
-  console.log(`💰 Generating x402 payment using Daydreams SDK:`);
+  console.log(`💰 Generating x402 payment using Coinbase CDP x402 protocol:`);
   console.log(`   Amount: ${paymentOption.amount} ${paymentOption.asset}`);
   console.log(`   Network: ${paymentOption.network}`);
   console.log(`   Recipient: ${paymentOption.recipient}`);
   console.log(`   ⚠️ User will sign payment commitment ONCE`);
-  console.log(`   ⚠️ Server will execute USDC transfer using the payment commitment`);
+  console.log(`   ⚠️ Facilitator will execute USDC transfer using the payment commitment`);
   
-  // Get USDC contract address for balance check
+  // Get USDC contract address for balance check and EIP-712 domain
   const usdcAddress = getUSDCAddress(paymentOption.network);
   if (!usdcAddress) {
     throw new Error(
@@ -171,41 +168,67 @@ export async function generateX402PaymentHeader(
     console.warn(`⚠️ Could not verify USDC balance: ${balanceError.message}`);
   }
 
-  // Generate x402 payment header using Daydreams SDK
-  // Dynamic import to avoid bundling Node.js-only modules in client bundle
+  // Generate x402 payment header using Coinbase CDP x402 protocol
   // This creates EIP-712 payment commitment - user signs ONCE in wallet
-  // The signature IS the payment authorization - server will execute USDC transfer
-  // NO separate USDC transfer transaction needed - x402 handles it
-  const signTypedDataAsync = async (data: { domain: any; types: any; message: any }) => {
-    return await signer.signTypedData(data.domain, data.types, data.message);
+  // The signature authorizes the facilitator to execute USDC transfer
+  // Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
+  
+  // Determine chain ID from network
+  const chainId = paymentOption.network === "base" ? 8453 : 
+                  paymentOption.network === "base-sepolia" ? 84532 : 8453;
+  
+  // EIP-712 domain for x402 payment commitment
+  const domain = {
+    name: "x402 Payment",
+    version: "1",
+    chainId: chainId,
+    verifyingContract: usdcAddress as `0x${string}`,
+  };
+
+  // EIP-712 types for x402 payment
+  const types = {
+    Payment: [
+      { name: "amount", type: "string" },
+      { name: "asset", type: "string" },
+      { name: "network", type: "string" },
+      { name: "recipient", type: "address" },
+      { name: "payer", type: "address" },
+      { name: "timestamp", type: "uint256" },
+      { name: "nonce", type: "string" },
+    ],
+  };
+
+  // Payment message data
+  const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = Math.random().toString(36).substring(7);
+  
+  const message = {
+    amount: paymentOption.amount,
+    asset: paymentOption.asset,
+    network: paymentOption.network,
+    recipient: paymentOption.recipient,
+    payer: walletAddress,
+    timestamp: timestamp,
+    nonce: nonce,
+  };
+
+  // Sign EIP-712 payment commitment
+  console.log(`📝 Signing payment commitment (EIP-712)...`);
+  const signature = await signer.signTypedData(domain, types, message);
+  
+  // Create x402 payment header (Coinbase CDP format)
+  const paymentData = {
+    ...message,
+    signature,
   };
   
-  // Dynamic import to avoid bundling ws and other Node.js modules
-  const { generateX402PaymentBrowser } = await import("@daydreamsai/ai-sdk-provider");
+  const paymentHeader = JSON.stringify(paymentData);
   
-  const sdkNetwork = paymentOption.network === "base-sepolia" ? "base-sepolia" : "base";
-  const paymentHeader = await generateX402PaymentBrowser(
-    walletAddress,
-    signTypedDataAsync,
-    {
-      amount: paymentOption.amount,
-      network: sdkNetwork as "base" | "base-sepolia",
-    }
-  );
+  console.log(`✅ x402 Payment Header created (Coinbase CDP x402 protocol)`);
+  console.log(`   User signed payment commitment - facilitator will execute USDC transfer`);
+  console.log(`   ⚠️ NO separate USDC transfer transaction - facilitator handles it`);
   
-  if (!paymentHeader) {
-    throw new Error("Failed to generate x402 payment header");
-  }
-  
-  console.log(`✅ x402 Payment Header created (Daydreams SDK)`);
-  console.log(`   User signed payment commitment - this authorizes USDC transfer`);
-  console.log(`   ⚠️ NO separate USDC transfer transaction - server will execute it`);
-  
-  // Ensure recipient is set in payment header
-  const paymentData = JSON.parse(paymentHeader);
-  paymentData.recipient = paymentOption.recipient;
-  
-  return JSON.stringify(paymentData);
+  return paymentHeader;
 }
 
 /**

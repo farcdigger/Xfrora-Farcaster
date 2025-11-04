@@ -57,13 +57,14 @@ export function createX402Response(recipient: string): X402PaymentResponse {
 
 /**
  * Verify x402 payment for mint
- * This verifies the payment header following Daydreams Router x402 pattern
+ * This verifies the payment header following Coinbase CDP x402 protocol
  * The payment header contains a signed EIP-712 message that commits to a payment
+ * Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
  * 
  * This verification:
  * 1. Verifies the EIP-712 signature
  * 2. Checks payment commitment matches the expected amount/recipient
- * 3. Optionally executes the payment on-chain (or trusts the signature)
+ * 3. Facilitator executes the payment on-chain (via facilitator API)
  */
 export async function verifyX402Payment(
   paymentHeader: string,

@@ -25,7 +25,9 @@ const envSchema = z.object({
   KV_REST_API_URL: z.string().url().optional().or(z.literal("http://localhost:6379")),
   KV_REST_API_TOKEN: z.string().optional(),
   X402_FACILITATOR_URL: z.string().optional(),
-  NEXT_PUBLIC_X402_FACILITATOR_URL: z.string().url().optional(), // Client-side facilitator URL (Daydreams Router)
+  NEXT_PUBLIC_X402_FACILITATOR_URL: z.string().url().optional(), // Client-side facilitator URL (Coinbase CDP x402)
+  CDP_API_KEY_ID: z.string().optional(), // Coinbase CDP API Key ID (for mainnet facilitator)
+  CDP_API_KEY_SECRET: z.string().optional(), // Coinbase CDP API Key Secret (for mainnet facilitator)
   X402_PRICE_USDC: z.string().default("2000000"), // Amount in USDC (6 decimals, e.g., 2000000 = 2 USDC)
   USDC_CONTRACT_ADDRESS: z.string().startsWith("0x").optional(), // USDC contract address (optional, will use defaults)
   COLLECTION_THEME: z.string().default("frog"),

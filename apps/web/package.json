@@ -11,8 +11,9 @@
     "setup:supabase": "tsx scripts/setup-supabase.ts"
   },
   "dependencies": {
-    "@daydreamsai/ai-sdk-provider": "^0.1.0",
+    "@coinbase/x402": "^0.7.1",
     "@google/generative-ai": "0.24.1",
+    "x402-next": "^0.7.1",
     "@supabase/supabase-js": "^2.78.0",
     "@vercel/kv": "^1.0.0",
     "@vercel/postgres": "^0.5.0",
