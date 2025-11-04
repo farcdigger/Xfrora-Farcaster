@@ -418,8 +418,15 @@ function HomePageContent() {
         "function mintWithSig((address to, address payer, uint256 xUserId, string tokenURI, uint256 nonce, uint256 deadline) auth, bytes signature) external",
       ];
       
+      // Get contract address from environment variable
+      const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+      if (!contractAddress || contractAddress === "0x0000000000000000000000000000000000000000") {
+        throw new Error("Contract address not configured. Please set NEXT_PUBLIC_CONTRACT_ADDRESS in Vercel environment variables.");
+      }
+      
+      console.log("📝 Minting NFT with contract:", contractAddress);
       const contract = new ethers.Contract(
-        process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "",
+        contractAddress,
         contractABI,
         signer
       );
