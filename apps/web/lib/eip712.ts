@@ -40,37 +40,37 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
   const signer = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
   
   // Convert values to proper types for EIP-712 uint256
-  // CRITICAL FIX: ethers.js v6 signTypedData has issues with BigInt mixing
-  // The safest approach: Convert ALL uint256 values to decimal strings
-  // ethers.js will handle string-to-BigInt conversion internally without mixing issues
+  // SOLUTION: Use ethers.js formatUnits/parseUnits pattern OR use BigInt directly
+  // Per ethers.js v6 docs: signTypedData accepts BigInt, number, or string for uint256
+  // Problem: Mixing BigInt with strings/numbers causes "Cannot mix BigInt" error
+  // Solution: Use ethers.parseUnits() helper OR ensure all are same type
   
-  // xUserId is a hex string (0x...) from ethers.id() - convert to decimal string
-  // Step 1: Hex string → BigInt (temporary, for conversion only)
-  // Step 2: BigInt → Decimal string (final format for EIP-712)
-  let xUserIdDecimal: string;
+  // xUserId is a hex string (0x...) from ethers.id()
+  // Convert hex string to BigInt using JavaScript's BigInt constructor
+  // Then use the BigInt directly (ethers.js accepts BigInt for uint256)
+  let xUserIdBigInt: bigint;
   try {
     if (auth.xUserId.startsWith('0x')) {
-      // Hex string - convert to BigInt first (for proper conversion)
-      const tempBigInt = BigInt(auth.xUserId);
-      // Then convert BigInt to decimal string (this is what ethers.js expects)
-      xUserIdDecimal = tempBigInt.toString(10); // Explicitly use base 10
+      // Hex string - BigInt() constructor accepts hex strings directly
+      xUserIdBigInt = BigInt(auth.xUserId);
     } else {
-      // Already a decimal string
-      xUserIdDecimal = auth.xUserId;
+      // Decimal string - convert to BigInt
+      xUserIdBigInt = BigInt(auth.xUserId);
     }
   } catch (convertError: any) {
-    throw new Error(`Failed to convert xUserId to decimal string: ${convertError.message}`);
+    throw new Error(`Failed to convert xUserId to BigInt: ${convertError.message}`);
   }
   
-  // nonce and deadline are numbers - convert to decimal strings
-  // This ensures ALL uint256 values are decimal strings (no BigInt mixing!)
+  // CRITICAL: Convert nonce and deadline to BigInt as well
+  // ALL uint256 values MUST be BigInt to avoid mixing errors
+  // ethers.js signTypedData will handle BigInt values correctly
   const eip712Auth = {
     to: auth.to,
     payer: auth.payer,
-    xUserId: xUserIdDecimal, // Decimal string - ethers.js will convert internally
+    xUserId: xUserIdBigInt, // BigInt - converted from hex string
     tokenURI: auth.tokenURI,
-    nonce: String(auth.nonce), // Decimal string - converted from number
-    deadline: String(auth.deadline), // Decimal string - converted from number
+    nonce: BigInt(auth.nonce), // BigInt - converted from number
+    deadline: BigInt(auth.deadline), // BigInt - converted from number
   };
   
   console.log("EIP-712 Auth values (all decimal strings for uint256):", {
