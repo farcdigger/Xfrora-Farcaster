@@ -22,14 +22,49 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing x_user_id parameter" }, { status: 400 });
     }
     
-    // Fetch existing token from database
-    const existingToken = await db
-      .select()
-      .from(tokens)
-      .where(eq(tokens.x_user_id, x_user_id))
-      .limit(1);
+    console.log(`🔍 GET: Checking for existing NFT for user: ${x_user_id}`);
+    
+    // Use direct Supabase query (more reliable than Drizzle)
+    let existingToken: any[] = [];
+    
+    try {
+      const { supabaseClient } = await import("@/lib/db-supabase");
+      if (supabaseClient) {
+        const client = supabaseClient as any;
+        const { data: existingTokenData, error: selectError } = await client
+          .from("tokens")
+          .select("*")
+          .eq("x_user_id", x_user_id)
+          .limit(1);
+        
+        if (!selectError && existingTokenData && existingTokenData.length > 0) {
+          existingToken = Array.isArray(existingTokenData) ? existingTokenData : [existingTokenData];
+          console.log(`✅ GET: Found existing NFT via direct Supabase query`);
+        } else if (selectError) {
+          console.warn("⚠️ GET: Direct Supabase query failed, trying Drizzle fallback:", selectError);
+        }
+      }
+    } catch (directQueryError: any) {
+      console.warn("⚠️ GET: Direct Supabase query error, trying Drizzle fallback:", directQueryError);
+    }
+    
+    // Fallback to Drizzle query if direct query didn't find anything
+    if (existingToken.length === 0) {
+      try {
+        existingToken = await db
+          .select()
+          .from(tokens)
+          .where(eq(tokens.x_user_id, x_user_id))
+          .limit(1);
+        console.log(`📊 GET: Drizzle query result: ${existingToken.length} token(s) found`);
+      } catch (drizzleError: any) {
+        console.warn("⚠️ GET: Drizzle query failed:", drizzleError);
+        existingToken = [];
+      }
+    }
     
     if (existingToken.length === 0) {
+      console.log(`❌ GET: No NFT found for user ${x_user_id}`);
       return NextResponse.json({ 
         error: "No NFT found for this user",
         exists: false 
@@ -40,9 +75,13 @@ export async function GET(request: NextRequest) {
     
     // Convert IPFS URL to preview URL for display
     let previewUrl = token.image_uri;
-    if (token.image_uri.startsWith("ipfs://")) {
+    if (token.image_uri && token.image_uri.startsWith("ipfs://")) {
       previewUrl = `https://gateway.pinata.cloud/ipfs/${token.image_uri.replace("ipfs://", "")}`;
+    } else if (token.image_uri) {
+      previewUrl = token.image_uri;
     }
+    
+    console.log(`✅ GET: Returning existing NFT with preview URL: ${previewUrl.substring(0, 80)}...`);
     
     const response: GenerateResponse = {
       seed: token.seed,

@@ -32,10 +32,38 @@ function HomePageContent() {
         profile_image_url: profileImageUrl || "",
         bio: bio || undefined,
       });
+      // X connected - check for existing NFT before showing generate step
+      checkExistingNFT(xUserId);
       // X connected - move to generate step (wallet not needed yet)
       setStep("generate");
     }
   }, [searchParams]);
+
+  // Check for existing NFT
+  const checkExistingNFT = async (xUserId: string) => {
+    try {
+      console.log("🔍 Checking for existing NFT for user:", xUserId);
+      const response = await fetch(`/api/generate?x_user_id=${xUserId}`);
+      
+      if (response.ok) {
+        const data: GenerateResponse = await response.json();
+        if (data.alreadyExists) {
+          console.log("✅ Found existing NFT, displaying it");
+          setGenerated(data);
+          // Move to pay step if NFT already exists
+          setStep("pay");
+        }
+      } else if (response.status === 404) {
+        console.log("ℹ️ No existing NFT found for user");
+        // NFT not found, user can generate new one
+      } else {
+        console.warn("⚠️ Error checking for existing NFT:", response.status);
+      }
+    } catch (error) {
+      console.error("Error checking for existing NFT:", error);
+      // Don't block the flow if check fails
+    }
+  };
 
   // Check for existing X session and wallet connection on mount
   useEffect(() => {
@@ -48,6 +76,8 @@ function HomePageContent() {
         if (sessionData.authenticated && sessionData.user) {
           setXUser(sessionData.user);
           console.log("✅ Restored X session:", sessionData.user.username);
+          // Check for existing NFT when session is restored
+          await checkExistingNFT(sessionData.user.x_user_id);
           // X connected - move to generate step (wallet not needed yet)
           setStep("generate");
         }
