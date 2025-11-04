@@ -74,11 +74,16 @@ export async function createX402PaymentProof(
   // Check balance
   const balance = await usdcContract.balanceOf(walletAddress);
   const decimals = await usdcContract.decimals();
+  
+  // Ensure amount is converted to BigInt safely
   const requiredAmount = BigInt(paymentOption.amount);
+  
+  // Ensure decimals is a number (ERC20 decimals returns uint8, but might be BigInt from ethers)
+  const decimalsNum = typeof decimals === 'bigint' ? Number(decimals) : Number(decimals);
   
   if (balance < requiredAmount) {
     throw new Error(
-      `Insufficient USDC balance. Required: ${formatUSDC(requiredAmount, decimals)}, Available: ${formatUSDC(balance, decimals)}`
+      `Insufficient USDC balance. Required: ${formatUSDC(requiredAmount, decimalsNum)}, Available: ${formatUSDC(balance, decimalsNum)}`
     );
   }
 
@@ -256,13 +261,27 @@ function formatUSDC(amount: bigint, decimals: number): string {
   // CRITICAL: Convert 10 ** decimals to BigInt BEFORE exponentiation
   // This avoids "Cannot mix BigInt and other types" error
   // We need to calculate 10^decimals as BigInt
+  
+  // Ensure decimals is a number (not BigInt or string)
+  const decimalsNum = Number(decimals);
+  if (isNaN(decimalsNum) || decimalsNum < 0 || decimalsNum > 255) {
+    throw new Error(`Invalid decimals value: ${decimals}`);
+  }
+  
+  // Build divisor as BigInt from scratch (no Number operations)
   let divisor = 1n; // Start with BigInt 1
-  for (let i = 0; i < decimals; i++) {
+  for (let i = 0; i < decimalsNum; i++) {
     divisor = divisor * 10n; // Multiply by 10 (BigInt) for each decimal place
   }
   
+  // All operations are now BigInt - no mixing!
   const whole = amount / divisor;
   const fraction = amount % divisor;
-  return `${whole}.${fraction.toString().padStart(decimals, "0")}`;
+  
+  // Convert BigInt to string for padding (no Number operations)
+  const fractionStr = fraction.toString();
+  const paddedFraction = fractionStr.padStart(decimalsNum, "0");
+  
+  return `${whole}.${paddedFraction}`;
 }
 
