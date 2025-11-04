@@ -453,13 +453,24 @@ function HomePageContent() {
   };
 
   const mintNFT = async (permit: MintPermitResponse) => {
-    if (!wallet || typeof window.ethereum === "undefined") return;
+    if (!wallet || typeof window.ethereum === "undefined") {
+      console.error("❌ Cannot mint: Wallet not connected");
+      setError("Wallet not connected. Please connect your wallet first.");
+      return;
+    }
     
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log("🚀 Starting mint process...");
+      console.log("📋 Permit data:", permit);
       
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
+      const signerAddress = await signer.getAddress();
+      
+      console.log("👤 Signer address:", signerAddress);
       
       // Contract ABI (simplified)
       const contractABI = [
@@ -467,25 +478,81 @@ function HomePageContent() {
       ];
       
       // Get contract address from environment variable
+      // IMPORTANT: Use NEXT_PUBLIC_ prefix for client-side access
       const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+      
+      console.log("📝 Contract address from env:", contractAddress);
+      
       if (!contractAddress || contractAddress === "0x0000000000000000000000000000000000000000") {
-        throw new Error("Contract address not configured. Please set NEXT_PUBLIC_CONTRACT_ADDRESS in Vercel environment variables.");
+        const errorMsg = "Contract address not configured. Please set NEXT_PUBLIC_CONTRACT_ADDRESS in Vercel environment variables.";
+        console.error("❌", errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Validate contract address format
+      if (!ethers.isAddress(contractAddress)) {
+        const errorMsg = `Invalid contract address format: ${contractAddress}`;
+        console.error("❌", errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Check if contract address matches expected Base Mainnet address
+      const expectedAddress = "0xE0b735225971a8126f7f53A6cA1014984cA7fefb";
+      if (contractAddress.toLowerCase() !== expectedAddress.toLowerCase()) {
+        console.warn(`⚠️ Contract address mismatch! Expected: ${expectedAddress}, Got: ${contractAddress}`);
+        console.warn("⚠️ This might be using an old contract address. Continuing anyway...");
       }
       
       console.log("📝 Minting NFT with contract:", contractAddress);
+      console.log("📝 Auth data:", {
+        to: permit.auth.to,
+        payer: permit.auth.payer,
+        xUserId: permit.auth.xUserId,
+        tokenURI: permit.auth.tokenURI?.substring(0, 50) + "...",
+        nonce: permit.auth.nonce,
+        deadline: permit.auth.deadline,
+      });
+      console.log("📝 Signature:", permit.signature?.substring(0, 20) + "...");
+      
       const contract = new ethers.Contract(
         contractAddress,
         contractABI,
         signer
       );
       
+      // Verify contract code exists at address
+      const code = await provider.getCode(contractAddress);
+      if (!code || code === "0x") {
+        throw new Error(`No contract code found at address ${contractAddress}. Is the contract deployed?`);
+      }
+      console.log("✅ Contract code verified at address");
+      
+      // Call mintWithSig
+      console.log("📝 Calling mintWithSig...");
       const tx = await contract.mintWithSig(permit.auth, permit.signature);
-      await tx.wait();
+      console.log("✅ Transaction sent:", tx.hash);
+      console.log("⏳ Waiting for transaction confirmation...");
+      
+      const receipt = await tx.wait();
+      console.log("✅ Transaction confirmed:", receipt.hash);
+      console.log("✅ NFT minted successfully!");
       
       setStep("mint");
       setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Minting failed");
+    } catch (err: any) {
+      console.error("❌ Minting failed:", err);
+      const errorMessage = err instanceof Error ? err.message : "Minting failed";
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes("revert") || errorMessage.includes("execution reverted")) {
+        setError(`Minting failed: Transaction reverted. ${err.reason || err.data?.message || ""}\n\nPossible causes:\n- User already minted\n- Max supply reached\n- Invalid signature\n- Contract error`);
+      } else if (errorMessage.includes("user rejected") || errorMessage.includes("User denied")) {
+        setError("Minting cancelled by user");
+      } else if (errorMessage.includes("insufficient funds")) {
+        setError("Insufficient funds for gas. Please add ETH to your wallet.");
+      } else {
+        setError(`Minting failed: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
