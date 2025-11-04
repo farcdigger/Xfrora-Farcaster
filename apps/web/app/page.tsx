@@ -17,51 +17,77 @@ function HomePageContent() {
 
   // Handle OAuth callback
   useEffect(() => {
-    const xUserId = searchParams?.get("x_user_id");
-    const username = searchParams?.get("username");
-    const profileImageUrl = searchParams?.get("profile_image_url");
-    const bio = searchParams?.get("bio");
-    const errorParam = searchParams?.get("error");
+    const handleOAuthCallback = async () => {
+      const xUserId = searchParams?.get("x_user_id");
+      const username = searchParams?.get("username");
+      const profileImageUrl = searchParams?.get("profile_image_url");
+      const bio = searchParams?.get("bio");
+      const errorParam = searchParams?.get("error");
 
-    if (errorParam) {
-      setError(decodeURIComponent(errorParam));
-    } else if (xUserId && username) {
-      setXUser({
-        x_user_id: xUserId,
-        username,
-        profile_image_url: profileImageUrl || "",
-        bio: bio || undefined,
-      });
-      // X connected - check for existing NFT before showing generate step
-      checkExistingNFT(xUserId);
-      // X connected - move to generate step (wallet not needed yet)
-      setStep("generate");
-    }
+      if (errorParam) {
+        setError(decodeURIComponent(errorParam));
+      } else if (xUserId && username) {
+        setXUser({
+          x_user_id: xUserId,
+          username,
+          profile_image_url: profileImageUrl || "",
+          bio: bio || undefined,
+        });
+        
+        // X connected - check for existing NFT FIRST, then set step accordingly
+        await checkExistingNFT(xUserId);
+        
+        // If no NFT was found, move to generate step
+        // If NFT was found, checkExistingNFT will set step to "pay"
+        // But we need to check generated state to see if NFT was found
+        // Since state updates are async, we'll set step after a small delay or check in checkExistingNFT
+      }
+    };
+    
+    handleOAuthCallback();
   }, [searchParams]);
 
   // Check for existing NFT
-  const checkExistingNFT = async (xUserId: string) => {
+  const checkExistingNFT = async (xUserId: string): Promise<boolean> => {
     try {
       console.log("🔍 Checking for existing NFT for user:", xUserId);
       const response = await fetch(`/api/generate?x_user_id=${xUserId}`);
       
       if (response.ok) {
         const data: GenerateResponse = await response.json();
-        if (data.alreadyExists) {
+        console.log("📦 NFT data received:", {
+          hasPreview: !!data.preview,
+          hasImageUrl: !!data.imageUrl,
+          previewUrl: data.preview?.substring(0, 80) + "...",
+          alreadyExists: data.alreadyExists,
+        });
+        
+        if (data.preview || data.imageUrl) {
           console.log("✅ Found existing NFT, displaying it");
           setGenerated(data);
           // Move to pay step if NFT already exists
           setStep("pay");
+          return true;
+        } else {
+          console.warn("⚠️ NFT data received but no preview or imageUrl");
+          setStep("generate");
+          return false;
         }
       } else if (response.status === 404) {
         console.log("ℹ️ No existing NFT found for user");
         // NFT not found, user can generate new one
+        setStep("generate");
+        return false;
       } else {
         console.warn("⚠️ Error checking for existing NFT:", response.status);
+        setStep("generate");
+        return false;
       }
     } catch (error) {
       console.error("Error checking for existing NFT:", error);
       // Don't block the flow if check fails
+      setStep("generate");
+      return false;
     }
   };
 
@@ -77,9 +103,12 @@ function HomePageContent() {
           setXUser(sessionData.user);
           console.log("✅ Restored X session:", sessionData.user.username);
           // Check for existing NFT when session is restored
-          await checkExistingNFT(sessionData.user.x_user_id);
-          // X connected - move to generate step (wallet not needed yet)
-          setStep("generate");
+          // checkExistingNFT will set step to "pay" if NFT exists, "generate" if not
+          const hasNFT = await checkExistingNFT(sessionData.user.x_user_id);
+          if (!hasNFT) {
+            // Only set to generate if no NFT was found
+            setStep("generate");
+          }
         }
       } catch (error) {
         console.log("No X session found");

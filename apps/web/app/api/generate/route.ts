@@ -73,12 +73,22 @@ export async function GET(request: NextRequest) {
     
     const token = existingToken[0];
     
+    // Use image_uri if available, otherwise fallback to token_uri (for backward compatibility)
+    const imageUri = token.image_uri || token.token_uri || "";
+    const metadataUri = token.metadata_uri || token.token_uri || "";
+    
+    console.log(`📦 Token data:`, {
+      hasImageUri: !!token.image_uri,
+      hasTokenUri: !!token.token_uri,
+      imageUri: imageUri?.substring(0, 50) + "...",
+    });
+    
     // Convert IPFS URL to preview URL for display
-    let previewUrl = token.image_uri;
-    if (token.image_uri && token.image_uri.startsWith("ipfs://")) {
-      previewUrl = `https://gateway.pinata.cloud/ipfs/${token.image_uri.replace("ipfs://", "")}`;
-    } else if (token.image_uri) {
-      previewUrl = token.image_uri;
+    let previewUrl = imageUri;
+    if (imageUri && imageUri.startsWith("ipfs://")) {
+      previewUrl = `https://gateway.pinata.cloud/ipfs/${imageUri.replace("ipfs://", "")}`;
+    } else if (imageUri) {
+      previewUrl = imageUri;
     }
     
     console.log(`✅ GET: Returning existing NFT with preview URL: ${previewUrl.substring(0, 80)}...`);
@@ -86,8 +96,8 @@ export async function GET(request: NextRequest) {
     const response: GenerateResponse = {
       seed: token.seed,
       traits: token.traits as any,
-      imageUrl: token.image_uri,
-      metadataUrl: token.metadata_uri,
+      imageUrl: imageUri,
+      metadataUrl: metadataUri,
       preview: previewUrl,
       alreadyExists: true,
     };
