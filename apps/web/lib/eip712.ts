@@ -40,28 +40,33 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
   const signer = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
   
   // Convert values to proper types for EIP-712 uint256
-  // ethers.js v6 signTypedData expects uint256 as: number, string, or BigInt
-  // To avoid BigInt mixing issues, convert ALL uint256 values to strings
-  // This ensures consistent type handling
-  let xUserIdString: string;
+  // ethers.js v6 signTypedData can handle number, string, or BigInt for uint256
+  // To avoid BigInt mixing issues, we use ethers utilities to convert values
+  // IMPORTANT: Use ethers.getBytes() and ethers.toBigInt() for consistent conversion
+  
+  let xUserIdValue: string | number | bigint;
   try {
     // Convert hex string (0x...) to decimal string for uint256
-    // ethers.id() returns hex string (0x...), we need to convert it to BigInt then to decimal string
+    // ethers.id() returns hex string (0x...), convert using ethers utilities
     if (auth.xUserId.startsWith('0x')) {
-      // Hex string - convert to BigInt then to decimal string
-      xUserIdString = BigInt(auth.xUserId).toString();
+      // Use ethers.toBigInt() to convert hex string to BigInt, then to string
+      // This ensures proper conversion without type mixing
+      const bigIntValue = ethers.toBigInt(auth.xUserId);
+      xUserIdValue = bigIntValue.toString(); // Convert BigInt to decimal string
     } else {
       // Already a decimal string
-      xUserIdString = auth.xUserId;
+      xUserIdValue = auth.xUserId;
     }
   } catch (convertError: any) {
-    throw new Error(`Failed to convert xUserId to uint256 string: ${convertError.message}`);
+    throw new Error(`Failed to convert xUserId to uint256: ${convertError.message}`);
   }
   
+  // Convert nonce and deadline to strings as well
+  // Use explicit String() conversion to avoid BigInt mixing
   const eip712Auth = {
     to: auth.to,
     payer: auth.payer,
-    xUserId: xUserIdString, // Decimal string for uint256
+    xUserId: xUserIdValue, // Decimal string for uint256
     tokenURI: auth.tokenURI,
     nonce: String(auth.nonce), // Convert number to string for uint256
     deadline: String(auth.deadline), // Convert number to string for uint256
@@ -100,12 +105,14 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
 
 export function verifyMintAuth(auth: MintAuth, signature: string): string {
   // Convert values to strings for verification (same as signing)
-  let xUserIdString: string;
+  let xUserIdValue: string;
   try {
     if (auth.xUserId.startsWith('0x')) {
-      xUserIdString = BigInt(auth.xUserId).toString();
+      // Use ethers.toBigInt() for consistent conversion
+      const bigIntValue = ethers.toBigInt(auth.xUserId);
+      xUserIdValue = bigIntValue.toString();
     } else {
-      xUserIdString = auth.xUserId;
+      xUserIdValue = auth.xUserId;
     }
   } catch (convertError: any) {
     throw new Error(`Failed to convert xUserId to uint256 string: ${convertError.message}`);
@@ -114,7 +121,7 @@ export function verifyMintAuth(auth: MintAuth, signature: string): string {
   const eip712Auth = {
     to: auth.to,
     payer: auth.payer,
-    xUserId: xUserIdString,
+    xUserId: xUserIdValue,
     tokenURI: auth.tokenURI,
     nonce: String(auth.nonce),
     deadline: String(auth.deadline),
