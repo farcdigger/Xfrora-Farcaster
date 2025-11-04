@@ -103,27 +103,28 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
 }
 
 export function verifyMintAuth(auth: MintAuth, signature: string): string {
-  // Convert values to strings for verification (same as signing)
-  let xUserIdValue: string;
+  // Convert values to hex strings for verification (same as signing)
+  // All uint256 values must be hex strings to ensure type consistency
+  let nonceHex: string;
+  let deadlineHex: string;
+  
   try {
-    if (auth.xUserId.startsWith('0x')) {
-      // Use ethers.toBigInt() for consistent conversion
-      const bigIntValue = ethers.toBigInt(auth.xUserId);
-      xUserIdValue = bigIntValue.toString();
-    } else {
-      xUserIdValue = auth.xUserId;
-    }
+    // Convert number to hex string for nonce
+    nonceHex = ethers.toBeHex(auth.nonce);
+    
+    // Convert number to hex string for deadline
+    deadlineHex = ethers.toBeHex(auth.deadline);
   } catch (convertError: any) {
-    throw new Error(`Failed to convert xUserId to uint256 string: ${convertError.message}`);
+    throw new Error(`Failed to convert nonce/deadline to hex: ${convertError.message}`);
   }
   
   const eip712Auth = {
     to: auth.to,
     payer: auth.payer,
-    xUserId: xUserIdValue,
+    xUserId: auth.xUserId, // Hex string (0x...) - already correct
     tokenURI: auth.tokenURI,
-    nonce: String(auth.nonce),
-    deadline: String(auth.deadline),
+    nonce: nonceHex, // Hex string (0x...) - converted from number
+    deadline: deadlineHex, // Hex string (0x...) - converted from number
   };
   
   const recovered = ethers.verifyTypedData(
