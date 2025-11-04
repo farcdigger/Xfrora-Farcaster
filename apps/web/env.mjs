@@ -14,6 +14,10 @@ const envSchema = z.object({
   PINATA_JWT: z.string().optional(),
   WEB3_STORAGE_TOKEN: z.string().optional(),
   INFERENCE_API_KEY: z.string().optional(),
+  // Supabase REST API (no PostgreSQL connection string needed)
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  // Legacy: DATABASE_URL is optional now (Supabase REST API is preferred)
   DATABASE_URL: z.string().url().optional().or(z.literal("mock://localhost")),
   // Vercel KV (Redis) - Preferred for rate limiting (faster, more reliable)
   // If Vercel KV is not configured, falls back to Supabase KV (PostgreSQL)

@@ -1,10 +1,13 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import { pgTable, serial, varchar, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
-import { env, isMockMode } from "../env.mjs";
-import { eq, and } from "drizzle-orm";
+// Use Supabase REST API instead of direct PostgreSQL connection
+// This is more reliable on Vercel and doesn't require DATABASE_URL
+import { db as supabaseDb, tokens, users, payments, getTableName } from "./db-supabase";
+import { env } from "../env.mjs";
+import { eq } from "drizzle-orm";
 
-// Mock database için in-memory storage
+// Check if Supabase is configured
+const isSupabaseConfigured = !!(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+
+// Mock database için in-memory storage (fallback)
 const mockDb: {
   users: any[];
   tokens: any[];
@@ -90,7 +93,6 @@ const mockDbFunctions = {
   select: () => ({
     from: (table: any) => {
       // Extract table name from Drizzle table object
-      // Drizzle uses Symbol(drizzle:Name) for table name
       let tableName: string = "tokens"; // Default fallback
       
       if (typeof table === "string") {
@@ -217,103 +219,14 @@ const mockDbFunctions = {
   }),
 };
 
-// Real database connection
-let realDb: ReturnType<typeof drizzle> | null = null;
-let realClient: ReturnType<typeof postgres> | null = null;
+// Use Supabase REST API if configured, otherwise fall back to mock
+export const db = isSupabaseConfigured ? supabaseDb : (mockDbFunctions as any);
 
-if (!isMockMode && env.DATABASE_URL && !env.DATABASE_URL.startsWith("mock://")) {
-  try {
-    let connectionString = env.DATABASE_URL;
-    
-    // Fix connection string: Remove 'ipv4:' prefix if present (not valid in PostgreSQL connection string)
-    // The 'ipv4:' prefix is sometimes added to force IPv4 DNS resolution, but postgres client doesn't support it
-    // We'll parse the URL and reconstruct it properly
-    if (connectionString.includes("ipv4:")) {
-      try {
-        // Parse the connection string
-        const url = new URL(connectionString.replace("postgresql://", "http://").replace("postgres://", "http://"));
-        const hostname = url.hostname.replace("ipv4:", "");
-        const port = url.port || "5432";
-        const username = url.username || "postgres";
-        const password = url.password || "";
-        const database = url.pathname.replace("/", "") || "postgres";
-        
-        // Reconstruct connection string without ipv4: prefix
-        connectionString = `postgresql://${username}${password ? `:${password}` : ""}@${hostname}:${port}/${database}`;
-        console.log("✅ Fixed connection string (removed ipv4: prefix)");
-      } catch (parseError) {
-        console.warn("⚠️ Could not parse connection string, using as-is:", parseError);
-      }
-    }
-    
-    // Create postgres client with connection options
-    // Add connection timeout and retry logic for better reliability
-    // For Vercel, connection pooling is recommended for better DNS resolution
-    realClient = postgres(connectionString, {
-      max: 10, // Maximum number of connections
-      idle_timeout: 20, // Close idle connections after 20 seconds
-      connect_timeout: 10, // Connection timeout in seconds
-      onnotice: () => {}, // Suppress notices
-      // Enable connection retry on DNS errors
-      connection: {
-        application_name: "aura-creatures-web",
-      },
-    });
-    realDb = drizzle(realClient);
-    // Note: Connection is lazy - actual connection will be established on first query
-    // This allows the module to load even if DNS resolution fails initially
-    console.log("✅ Database client initialized (connection will be established on first query)");
-  } catch (error: any) {
-    console.error("❌ Failed to initialize database client:", {
-      code: error?.code,
-      hostname: error?.hostname,
-      message: error?.message,
-      syscall: error?.syscall,
-    });
-    console.warn("⚠️ Using mock mode due to connection failure");
-    console.warn("💡 TIP: For Vercel, use connection pooling URL:");
-    console.warn("   Format: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres");
-  }
-}
-
-export const db = isMockMode || !realDb ? (mockDbFunctions as any) : realDb!;
-
-// Schema definitions using Drizzle ORM
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  x_user_id: varchar("x_user_id", { length: 255 }).notNull().unique(),
-  username: varchar("username", { length: 255 }).notNull(),
-  profile_image_url: text("profile_image_url"),
-  wallet_address: varchar("wallet_address", { length: 255 }),
-  created_at: timestamp("created_at").defaultNow(),
-  updated_at: timestamp("updated_at").defaultNow(),
-});
-
-export const tokens = pgTable("tokens", {
-  id: serial("id").primaryKey(),
-  x_user_id: varchar("x_user_id", { length: 255 }).notNull().unique(), // UNIQUE to prevent duplicate NFT generation
-  token_id: integer("token_id").notNull().unique(),
-  seed: varchar("seed", { length: 64 }).notNull(),
-  token_uri: text("token_uri").notNull(),
-  metadata_uri: text("metadata_uri").notNull(),
-  image_uri: text("image_uri").notNull(),
-  traits: jsonb("traits").notNull(),
-  created_at: timestamp("created_at").defaultNow(),
-});
-
-export const payments = pgTable("payments", {
-  id: serial("id").primaryKey(),
-  x_user_id: varchar("x_user_id", { length: 255 }).notNull(),
-  wallet_address: varchar("wallet_address", { length: 255 }).notNull(),
-  amount: varchar("amount", { length: 100 }).notNull(),
-  transaction_hash: varchar("transaction_hash", { length: 255 }),
-  status: varchar("status", { length: 50 }).notNull(),
-  x402_payment_id: varchar("x402_payment_id", { length: 255 }),
-  created_at: timestamp("created_at").defaultNow(),
-});
+// Export table objects (for backward compatibility)
+export { tokens, users, payments };
 
 // Export mock DB for debugging (only in development)
-if (isMockMode && typeof global !== "undefined") {
+if (!isSupabaseConfigured && typeof global !== "undefined") {
   (global as any).mockDb = mockDb;
   console.log("🐛 Mock database mode enabled. Access mockDb via global.mockDb");
 }
