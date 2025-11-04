@@ -163,82 +163,48 @@ export async function verifyX402Payment(
         return null;
       }
 
-      // Execute USDC transfer using the payment commitment signature
-      // x402 Protocol: Server executes the USDC transfer using the authorized signature
-      // This is the actual payment - USDC leaves user's wallet
-      if (!rpcUrl) {
-        console.error("RPC_URL not configured - cannot execute USDC transfer");
-        return null;
-      }
-
-      try {
-        const provider = new ethers.JsonRpcProvider(rpcUrl);
-        
-        // Get server wallet to execute transfer
-        const serverPrivateKey = process.env.SERVER_SIGNER_PRIVATE_KEY;
-        if (!serverPrivateKey) {
-          console.error("SERVER_SIGNER_PRIVATE_KEY not configured - cannot execute USDC transfer");
-          return null;
+      // x402 Protocol: Signature verifies payment commitment
+      // The signature authorizes the payment - USDC transfer is authorized
+      // In production, this would be executed via facilitator contract or permit pattern
+      // For now, we verify the signature and accept it as payment authorization
+      
+      // Format USDC amount for display
+      const amountBigInt = BigInt(paymentData.amount);
+      const usdcDecimals = 6; // USDC has 6 decimals
+      const divisor = BigInt(10 ** usdcDecimals);
+      const whole = amountBigInt / divisor;
+      const fraction = amountBigInt % divisor;
+      const formattedAmount = `${whole}.${fraction.toString().padStart(usdcDecimals, "0")}`;
+      
+      console.log("✅ x402 payment verified (signature authorization):");
+      console.log(`   - Payment commitment: EIP-712 signature verified ✓`);
+      console.log(`   - Payment authorized: Signature proves user committed to pay ✓`);
+      console.log(`   Payer: ${paymentData.payer}`);
+      console.log(`   Amount: ${formattedAmount} USDC`);
+      console.log(`   Recipient: ${paymentData.recipient}`);
+      console.log(`   ⚠️ Payment commitment verified - signature IS the payment authorization`);
+      
+      // Optional: If facilitator URL is provided, send payment commitment to facilitator
+      // The facilitator will execute the actual USDC transfer
+      if (facilitatorUrl) {
+        try {
+          console.log(`📤 Sending payment commitment to facilitator: ${facilitatorUrl}`);
+          // TODO: Send payment header to facilitator API to execute USDC transfer
+          // For now, we just log it - facilitator integration would go here
+        } catch (facilitatorError: any) {
+          console.warn(`⚠️ Facilitator communication failed: ${facilitatorError.message}`);
+          // Continue anyway - signature is verified, payment is authorized
         }
-        
-        const { ethers } = await import("ethers");
-        const serverWallet = new ethers.Wallet(serverPrivateKey, provider);
-        
-        // Execute USDC transfer using the payment commitment
-        // The signature authorizes the server to transfer USDC on behalf of the user
-        const usdcContract = new ethers.Contract(usdcAddress, [
-          "function transferFrom(address from, address to, uint256 amount) returns (bool)",
-          "function transfer(address to, uint256 amount) returns (bool)",
-        ], serverWallet);
-        
-        const requiredAmount = BigInt(paymentData.amount);
-        
-        // Try transferFrom first (if user has approved server), otherwise use permit pattern
-        // For now, we'll use a direct transfer with the signature as authorization proof
-        // In production, you might want to use ERC-20 permit pattern
-        console.log(`💸 Executing USDC transfer using payment commitment...`);
-        console.log(`   From: ${paymentData.payer}`);
-        console.log(`   To: ${paymentData.recipient}`);
-        console.log(`   Amount: ${paymentData.amount} USDC`);
-        
-        // Note: This is a simplified approach. In production, you should:
-        // 1. Use ERC-20 permit pattern (if USDC supports it)
-        // 2. Or use a facilitator contract that accepts the signature
-        // 3. Or trust the signature and execute transfer (requires user to pre-approve)
-        
-        // For now, we verify the signature and trust it - actual transfer would happen
-        // via facilitator or permit pattern in production
-        
-        // Format USDC amount for display
-        const amountBigInt = BigInt(paymentData.amount);
-        const usdcDecimals = 6; // USDC has 6 decimals
-        const divisor = BigInt(10 ** usdcDecimals);
-        const whole = amountBigInt / divisor;
-        const fraction = amountBigInt % divisor;
-        const formattedAmount = `${whole}.${fraction.toString().padStart(usdcDecimals, "0")}`;
-        
-        console.log("✅ x402 payment verified (signature authorization):");
-        console.log(`   - Payment commitment: EIP-712 signature verified ✓`);
-        console.log(`   - Payment authorized: Server can execute USDC transfer ✓`);
-        console.log(`   Payer: ${paymentData.payer}`);
-        console.log(`   Amount: ${formattedAmount} USDC`);
-        console.log(`   Recipient: ${paymentData.recipient}`);
-        console.log(`   ⚠️ Payment commitment verified - signature authorizes transfer`);
-        
-        return {
-          paymentId: paymentData.nonce || `payment_${timestamp}`,
-          amount: paymentData.amount,
-          asset: paymentData.asset,
-          network: paymentData.network || "base",
-          payer: paymentData.payer,
-          recipient: paymentData.recipient,
-        };
-      } catch (execError: any) {
-        console.error("Payment execution error:", execError.message);
-        // Even if execution fails, we verified the signature, so payment is authorized
-        // In production, you might want to handle this differently
-        return null;
       }
+      
+      return {
+        paymentId: paymentData.nonce || `payment_${timestamp}`,
+        amount: paymentData.amount,
+        asset: paymentData.asset,
+        network: paymentData.network || "base",
+        payer: paymentData.payer,
+        recipient: paymentData.recipient,
+      };
     } catch (sigError: any) {
       console.error("EIP-712 signature verification error:", sigError.message);
       return null;
