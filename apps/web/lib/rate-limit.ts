@@ -15,8 +15,9 @@ export async function checkRateLimit(
 }
 
 export async function checkGenerateRateLimit(xUserId: string): Promise<boolean> {
-  // Increased limit: 10 per hour (was 5) to allow more testing
-  return checkRateLimit(`generate:${xUserId}`, 10, 3600000); // 10 per hour
+  // Rate limit: 20 per hour (increased for better testing experience)
+  // You can adjust this limit or disable rate limiting during development
+  return checkRateLimit(`generate:${xUserId}`, 20, 3600000); // 20 per hour (1 hour window)
 }
 
 export async function checkMintRateLimit(wallet: string): Promise<boolean> {

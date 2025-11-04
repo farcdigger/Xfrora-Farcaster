@@ -78,10 +78,11 @@ export async function POST(request: NextRequest) {
       if (!allowed) {
         return NextResponse.json({ 
           error: "Rate limit exceeded",
-          message: "You have reached the maximum number of NFT generations (10 per hour). Please try again later.",
-          limit: 10,
+          message: "You have reached the maximum number of NFT generations (20 per hour). Please try again later.",
+          limit: 20,
           window: "1 hour",
-          retryAfter: "Please wait before generating another NFT"
+          retryAfter: "Please wait before generating another NFT",
+          tip: "If you need to clear rate limit for testing, use /api/admin/clear-rate-limit endpoint"
         }, { status: 429 });
       }
     } catch (rateLimitError) {
