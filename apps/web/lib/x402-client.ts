@@ -173,11 +173,11 @@ export async function executeX402Payment(
   
   // Check balance (with better error handling)
   let balance: bigint;
-  let decimals: number;
+  let decimalsRaw: bigint | number;
   
   try {
     balance = await usdcContract.balanceOf(walletAddress);
-    decimals = await usdcContract.decimals();
+    decimalsRaw = await usdcContract.decimals();
   } catch (balanceError: any) {
     // If balanceOf fails, the contract might not be a valid ERC20 token
     throw new Error(
@@ -188,6 +188,12 @@ export async function executeX402Payment(
       `2. Check NEXT_PUBLIC_USDC_CONTRACT_ADDRESS is correct\n` +
       `3. For Base Mainnet, USDC should be at 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
     );
+  }
+  
+  // Ensure decimals is always a number (ethers.js might return BigInt)
+  const decimals = typeof decimalsRaw === 'bigint' ? Number(decimalsRaw) : Number(decimalsRaw);
+  if (isNaN(decimals) || decimals < 0 || decimals > 255) {
+    throw new Error(`Invalid decimals value from contract: ${decimalsRaw}`);
   }
   
   const requiredAmount = BigInt(paymentOption.amount);
