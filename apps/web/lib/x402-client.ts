@@ -253,7 +253,14 @@ function getUSDCAddress(network: string): string | null {
  * Format USDC amount for display
  */
 function formatUSDC(amount: bigint, decimals: number): string {
-  const divisor = BigInt(10 ** decimals);
+  // CRITICAL: Convert 10 ** decimals to BigInt BEFORE exponentiation
+  // This avoids "Cannot mix BigInt and other types" error
+  // We need to calculate 10^decimals as BigInt
+  let divisor = 1n; // Start with BigInt 1
+  for (let i = 0; i < decimals; i++) {
+    divisor = divisor * 10n; // Multiply by 10 (BigInt) for each decimal place
+  }
+  
   const whole = amount / divisor;
   const fraction = amount % divisor;
   return `${whole}.${fraction.toString().padStart(decimals, "0")}`;
