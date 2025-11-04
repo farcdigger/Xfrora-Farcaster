@@ -105,36 +105,80 @@ export async function POST(request: NextRequest) {
     
     try {
       // Check if user already has a generated NFT (prevent duplicate generation and cost)
+      // IMPORTANT: Use direct Supabase query to bypass Drizzle condition parsing issues
       console.log(`🔍 Checking for existing NFT for user: ${x_user_id}`);
-      const existingToken = await db
-        .select()
-        .from(tokens)
-        .where(eq(tokens.x_user_id, x_user_id))
-        .limit(1);
       
-      console.log(`📊 Existing token check result: ${existingToken.length} token(s) found`);
+      let existingToken: any[] = [];
+      
+      // Try direct Supabase query first (more reliable)
+      try {
+        const { supabaseClient } = await import("@/lib/db-supabase");
+        if (supabaseClient) {
+          const client = supabaseClient as any;
+          const { data: existingTokenData, error: selectError } = await client
+            .from("tokens")
+            .select("*")
+            .eq("x_user_id", x_user_id)
+            .limit(1);
+          
+          if (!selectError && existingTokenData && existingTokenData.length > 0) {
+            existingToken = Array.isArray(existingTokenData) ? existingTokenData : [existingTokenData];
+            console.log(`✅ Found existing NFT via direct Supabase query`);
+          } else if (selectError) {
+            console.warn("⚠️ Direct Supabase query failed, trying Drizzle fallback:", selectError);
+          }
+        }
+      } catch (directQueryError: any) {
+        console.warn("⚠️ Direct Supabase query error, trying Drizzle fallback:", directQueryError);
+      }
+      
+      // Fallback to Drizzle query if direct query didn't find anything
+      if (existingToken.length === 0) {
+        try {
+          existingToken = await db
+            .select()
+            .from(tokens)
+            .where(eq(tokens.x_user_id, x_user_id))
+            .limit(1);
+          console.log(`📊 Drizzle query result: ${existingToken.length} token(s) found`);
+        } catch (drizzleError: any) {
+          console.warn("⚠️ Drizzle query failed, assuming no existing NFT:", drizzleError);
+          existingToken = [];
+        }
+      }
+      
+      // If we found an existing token, return it immediately
       if (existingToken.length > 0) {
-        console.log(`⚠️ User ${x_user_id} already has a generated NFT. Token details:`, {
-          id: existingToken[0].id,
-          x_user_id: existingToken[0].x_user_id,
-          token_id: existingToken[0].token_id,
-          created_at: existingToken[0].created_at,
-        });
         const existing = existingToken[0];
+        console.log(`⚠️ User ${x_user_id} already has a generated NFT. Token details:`, {
+          id: existing.id,
+          x_user_id: existing.x_user_id,
+          token_id: existing.token_id,
+          created_at: existing.created_at,
+          image_uri: existing.image_uri?.substring(0, 50) + "...",
+        });
         
         // Verify x_user_id matches (safety check)
         if (existing.x_user_id !== x_user_id) {
           console.error(`❌ CRITICAL: x_user_id mismatch! Expected: ${x_user_id}, Got: ${existing.x_user_id}`);
           // Continue with generation instead of returning wrong data
+          console.log("⚠️ Continuing with generation due to x_user_id mismatch");
         } else {
+          // Convert IPFS URL to Pinata gateway URL for preview
+          let previewUrl = existing.image_uri;
+          if (existing.image_uri && existing.image_uri.startsWith("ipfs://")) {
+            previewUrl = `https://gateway.pinata.cloud/ipfs/${existing.image_uri.replace("ipfs://", "")}`;
+          } else if (existing.image_uri) {
+            previewUrl = existing.image_uri;
+          }
+          
+          console.log(`✅ Returning existing NFT with preview URL: ${previewUrl.substring(0, 80)}...`);
           return NextResponse.json({
             seed: existing.seed,
             traits: existing.traits,
             imageUrl: existing.image_uri,
             metadataUrl: existing.metadata_uri,
-            preview: existing.image_uri.startsWith("ipfs://") 
-              ? `https://gateway.pinata.cloud/ipfs/${existing.image_uri.replace("ipfs://", "")}` 
-              : existing.image_uri,
+            preview: previewUrl,
             alreadyExists: true,
             message: "NFT already generated for this user",
           });
