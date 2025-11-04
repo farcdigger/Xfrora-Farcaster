@@ -41,15 +41,17 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
   
   // Convert values to proper types for EIP-712 uint256
   // ethers.js v6 signTypedData expects uint256 as: number, string, or BigInt
-  // We use numbers for nonce and deadline to avoid BigInt mixing issues
-  // xUserId is a hex string (0x...) which ethers will convert to uint256
+  // To avoid BigInt mixing issues, convert ALL uint256 values to strings
+  // This ensures consistent type handling
   const eip712Auth = {
     to: auth.to,
     payer: auth.payer,
-    xUserId: auth.xUserId, // Hex string (0x...) - ethers will convert to uint256
+    // Convert hex string to decimal string for uint256
+    // ethers.id() returns hex string (0x...), convert to BigInt then to decimal string
+    xUserId: BigInt(auth.xUserId).toString(), // Convert hex string to decimal string
     tokenURI: auth.tokenURI,
-    nonce: auth.nonce, // Number - ethers v6 will convert to uint256
-    deadline: auth.deadline, // Number - ethers v6 will convert to uint256
+    nonce: auth.nonce.toString(), // Convert number to string for uint256
+    deadline: auth.deadline.toString(), // Convert number to string for uint256
   };
   
   try {

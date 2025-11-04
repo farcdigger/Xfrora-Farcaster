@@ -123,9 +123,9 @@ export async function POST(request: NextRequest) {
       const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour (number)
     
       // Convert values to proper types for EIP-712
-      // ethers.js signTypedData expects uint256 as number, string, or BigInt
-      // We'll use numbers for nonce and deadline to avoid BigInt mixing issues
-      // xUserId: hash string (0x...) - ethers will convert to uint256
+      // IMPORTANT: We keep these as numbers/strings here, but signMintAuth will convert to strings
+      // This avoids BigInt mixing issues in EIP-712 signing
+      // xUserId: hash string (0x...) - will be converted to decimal string in signMintAuth
       // nonce: BigInt from contract - convert to number (safe for nonce values)
       // deadline: number - already a number
       const nonceNumber = Number(nonce);
@@ -136,14 +136,14 @@ export async function POST(request: NextRequest) {
       const auth: MintAuth = {
         to: wallet,
         payer: paymentVerification.payer,
-        xUserId: hash, // Hash string (0x...) - ethers will convert to uint256
+        xUserId: hash, // Hash string (0x...) - will be converted to decimal string in signMintAuth
         tokenURI,
-        nonce: nonceNumber, // Convert BigInt to number for EIP-712
-        deadline, // Number - ethers will convert to uint256
+        nonce: nonceNumber, // Number - will be converted to string in signMintAuth
+        deadline, // Number - will be converted to string in signMintAuth
       };
       
       // Log values to debug BigInt conversion issues
-      console.log("MintAuth values:", {
+      console.log("MintAuth values (before EIP-712 conversion):", {
         to: auth.to,
         payer: auth.payer,
         xUserId: auth.xUserId,
