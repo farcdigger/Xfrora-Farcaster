@@ -105,26 +105,42 @@ export async function POST(request: NextRequest) {
     
     try {
       // Check if user already has a generated NFT (prevent duplicate generation and cost)
+      console.log(`🔍 Checking for existing NFT for user: ${x_user_id}`);
       const existingToken = await db
         .select()
         .from(tokens)
         .where(eq(tokens.x_user_id, x_user_id))
         .limit(1);
       
+      console.log(`📊 Existing token check result: ${existingToken.length} token(s) found`);
       if (existingToken.length > 0) {
-        console.log(`⚠️ User ${x_user_id} already has a generated NFT. Returning existing data.`);
-        const existing = existingToken[0];
-        return NextResponse.json({
-          seed: existing.seed,
-          traits: existing.traits,
-          imageUrl: existing.image_uri,
-          metadataUrl: existing.metadata_uri,
-          preview: existing.image_uri.startsWith("ipfs://") 
-            ? `https://gateway.pinata.cloud/ipfs/${existing.image_uri.replace("ipfs://", "")}` 
-            : existing.image_uri,
-          alreadyExists: true,
-          message: "NFT already generated for this user",
+        console.log(`⚠️ User ${x_user_id} already has a generated NFT. Token details:`, {
+          id: existingToken[0].id,
+          x_user_id: existingToken[0].x_user_id,
+          token_id: existingToken[0].token_id,
+          created_at: existingToken[0].created_at,
         });
+        const existing = existingToken[0];
+        
+        // Verify x_user_id matches (safety check)
+        if (existing.x_user_id !== x_user_id) {
+          console.error(`❌ CRITICAL: x_user_id mismatch! Expected: ${x_user_id}, Got: ${existing.x_user_id}`);
+          // Continue with generation instead of returning wrong data
+        } else {
+          return NextResponse.json({
+            seed: existing.seed,
+            traits: existing.traits,
+            imageUrl: existing.image_uri,
+            metadataUrl: existing.metadata_uri,
+            preview: existing.image_uri.startsWith("ipfs://") 
+              ? `https://gateway.pinata.cloud/ipfs/${existing.image_uri.replace("ipfs://", "")}` 
+              : existing.image_uri,
+            alreadyExists: true,
+            message: "NFT already generated for this user",
+          });
+        }
+      } else {
+        console.log(`✅ No existing NFT found for user ${x_user_id}. Proceeding with generation.`);
       }
       
       // --- DEĞİŞİKLİK BAŞLANGICI ---
