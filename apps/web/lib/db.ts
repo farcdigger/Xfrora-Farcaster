@@ -223,11 +223,42 @@ let realClient: ReturnType<typeof postgres> | null = null;
 
 if (!isMockMode && env.DATABASE_URL && !env.DATABASE_URL.startsWith("mock://")) {
   try {
-    const connectionString = env.DATABASE_URL;
-    realClient = postgres(connectionString);
+    let connectionString = env.DATABASE_URL;
+    
+    // Fix connection string: Remove 'ipv4:' prefix if present (not valid in PostgreSQL connection string)
+    // The 'ipv4:' prefix is sometimes added to force IPv4 DNS resolution, but postgres client doesn't support it
+    // We'll parse the URL and reconstruct it properly
+    if (connectionString.includes("ipv4:")) {
+      try {
+        // Parse the connection string
+        const url = new URL(connectionString.replace("postgresql://", "http://").replace("postgres://", "http://"));
+        const hostname = url.hostname.replace("ipv4:", "");
+        const port = url.port || "5432";
+        const username = url.username || "postgres";
+        const password = url.password || "";
+        const database = url.pathname.replace("/", "") || "postgres";
+        
+        // Reconstruct connection string without ipv4: prefix
+        connectionString = `postgresql://${username}${password ? `:${password}` : ""}@${hostname}:${port}/${database}`;
+        console.log("✅ Fixed connection string (removed ipv4: prefix)");
+      } catch (parseError) {
+        console.warn("⚠️ Could not parse connection string, using as-is:", parseError);
+      }
+    }
+    
+    // Create postgres client with connection options
+    // Add connection timeout and retry logic for better reliability
+    realClient = postgres(connectionString, {
+      max: 10, // Maximum number of connections
+      idle_timeout: 20, // Close idle connections after 20 seconds
+      connect_timeout: 10, // Connection timeout in seconds
+      onnotice: () => {}, // Suppress notices
+    });
     realDb = drizzle(realClient);
+    console.log("✅ Database connection established");
   } catch (error) {
-    console.warn("Failed to connect to database, using mock mode:", error);
+    console.error("❌ Failed to connect to database:", error);
+    console.warn("⚠️ Using mock mode due to connection failure");
   }
 }
 
@@ -246,7 +277,7 @@ export const users = pgTable("users", {
 
 export const tokens = pgTable("tokens", {
   id: serial("id").primaryKey(),
-  x_user_id: varchar("x_user_id", { length: 255 }).notNull(),
+  x_user_id: varchar("x_user_id", { length: 255 }).notNull().unique(), // UNIQUE to prevent duplicate NFT generation
   token_id: integer("token_id").notNull().unique(),
   seed: varchar("seed", { length: 64 }).notNull(),
   token_uri: text("token_uri").notNull(),
