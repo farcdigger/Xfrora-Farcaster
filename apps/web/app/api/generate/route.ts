@@ -256,6 +256,22 @@ export async function POST(request: NextRequest) {
           throw new Error("Failed to verify token save to database");
         }
       } catch (dbError: any) {
+        // Check for authentication errors (Tenant or user not found)
+        if (dbError?.code === "XX000" || dbError?.message?.includes("Tenant or user not found") || dbError?.message?.includes("password authentication failed")) {
+          console.error("❌ DATABASE AUTHENTICATION ERROR:", {
+            code: dbError?.code,
+            message: dbError?.message,
+            hint: "Check DATABASE_URL in Vercel environment variables",
+            suggestion: "Verify password and username format in connection string",
+            connectionPoolingFormat: "postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres",
+            directFormat: "postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres",
+          });
+          return NextResponse.json({ 
+            error: "Database connection failed. Please check DATABASE_URL configuration.",
+            details: "Authentication error - verify username and password in connection string"
+          }, { status: 500 });
+        }
+        
         // If it's a unique constraint violation, user already has a token
         if (dbError?.code === "23505" || dbError?.message?.includes("unique") || dbError?.message?.includes("duplicate")) {
           console.warn("⚠️ User already has a token (unique constraint violation)");
@@ -282,7 +298,11 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        console.error("❌ CRITICAL: Failed to save token to database:", dbError);
+        console.error("❌ CRITICAL: Failed to save token to database:", {
+          code: dbError?.code,
+          message: dbError?.message,
+          severity: dbError?.severity,
+        });
         throw new Error(`Failed to save NFT to database: ${dbError?.message || "Unknown error"}`);
       }
       

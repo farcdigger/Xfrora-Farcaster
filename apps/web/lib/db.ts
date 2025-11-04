@@ -264,7 +264,7 @@ if (!isMockMode && env.DATABASE_URL && !env.DATABASE_URL.startsWith("mock://")) 
     // This allows the module to load even if DNS resolution fails initially
     console.log("✅ Database client initialized (connection will be established on first query)");
   } catch (error: any) {
-    console.error("❌ Failed to connect to database:", {
+    console.error("❌ Failed to initialize database client:", {
       code: error?.code,
       hostname: error?.hostname,
       message: error?.message,
