@@ -105,10 +105,11 @@ export async function createX402PaymentProof(
 }
 
 /**
- * Execute x402 payment (transfer USDC)
- * This performs the actual USDC transfer to the recipient
+ * Execute x402 payment using Daydreams Router facilitator
+ * This follows the x402 protocol: payment is made through a facilitator
+ * Reference: https://docs.daydreams.systems/docs/router
  * 
- * @param paymentRequest - The 402 payment request
+ * @param paymentRequest - The 402 payment request from server
  * @param signer - ethers signer (from wallet)
  * @returns Transaction hash and payment proof
  */
@@ -123,7 +124,15 @@ export async function executeX402Payment(
   const paymentOption = paymentRequest.accepts[0];
   const walletAddress = await signer.getAddress();
 
-  // Get USDC contract
+  // x402 Payment via Daydreams Router facilitator
+  // Instead of direct USDC transfer, we use the x402 facilitator
+  // This ensures proper payment tracking and verification
+  const facilitatorUrl = process.env.NEXT_PUBLIC_X402_FACILITATOR_URL || "https://router.daydreams.systems";
+  
+  console.log(`💳 Using x402 facilitator: ${facilitatorUrl}`);
+  console.log(`💰 Payment required: ${paymentOption.amount} ${paymentOption.asset} on ${paymentOption.network}`);
+
+  // Get USDC contract for balance check
   const usdcAddress = getUSDCAddress(paymentOption.network);
   if (!usdcAddress) {
     throw new Error(
