@@ -55,9 +55,16 @@ export async function GET(request: NextRequest) {
           allCookiesCount: allCookies.length,
           verifierCookiesFound: verifierCookies.length,
           verifierCookieNames: verifierCookies.map(c => c.name),
+          allCookieNames: allCookies.map(c => c.name),
           note: cookieValue 
             ? "Cookie found - will decrypt" 
-            : "Cookie not found - may be expired, wrong domain/path, or never set",
+            : "Cookie not found - may be expired, wrong domain/path, or never set. Check if cookie was set in authorize endpoint.",
+          troubleshooting: !cookieValue ? [
+            "1. Check authorize endpoint logs for 'Cookie set for PKCE fallback'",
+            "2. Verify cookie secure/sameSite settings match production",
+            "3. Check browser DevTools → Application → Cookies",
+            "4. Ensure X OAuth redirect returns to same domain"
+          ] : [],
         });
         
         if (cookieValue) {
