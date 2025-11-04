@@ -121,9 +121,22 @@ export async function GET(request: NextRequest) {
     });
     
     const stateKey = `x_oauth_verifier:${state}`;
-    await kv.kv.setex(stateKey, 600, verifier); // Store for 10 minutes
-    console.log("✅ PKCE verifier stored in KV for state:", state.substring(0, 5) + "...");
-    verifierStored = true;
+    const setexResult = await kv.kv.setex(stateKey, 600, verifier); // Store for 10 minutes
+    if (setexResult === "OK") {
+      console.log("✅ PKCE verifier stored in KV for state:", state.substring(0, 5) + "...");
+      // Verify it was actually stored by reading it back
+      const verifyResult = await kv.kv.get(stateKey);
+      if (verifyResult === verifier) {
+        console.log("✅ PKCE verifier verified in KV");
+        verifierStored = true;
+      } else {
+        console.warn("⚠️ PKCE verifier stored but verification failed, using cookie fallback");
+        verifierStored = false;
+      }
+    } else {
+      console.warn("⚠️ PKCE verifier setex returned unexpected result:", setexResult);
+      verifierStored = false;
+    }
   } catch (error: any) {
     console.error("⚠️ Failed to store PKCE verifier in KV:", {
       error: error?.message || "Unknown error",
@@ -136,7 +149,9 @@ export async function GET(request: NextRequest) {
   
   // Fallback: If KV is not available, use encrypted HTTP-only cookie
   // This works in serverless environments but is less ideal than KV
+  // IMPORTANT: Cookie fallback is required when KV fails or cache is cleared
   if (!verifierStored) {
+    console.log("📦 Using cookie fallback for PKCE verifier storage");
     // Encrypt verifier with state as additional security
     const crypto = require("crypto");
     const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678"; // Use first 32 chars as encryption key
@@ -147,8 +162,10 @@ export async function GET(request: NextRequest) {
     const encryptedVerifier = iv.toString("hex") + ":" + encrypted;
     
     // Store encrypted verifier in HTTP-only cookie (keyed by state)
+    // Use both a specific cookie for this state AND a general cookie that can be read by callback
     const cookieValue = `${state}:${encryptedVerifier}`;
     console.log("✅ PKCE verifier encrypted and stored in cookie (fallback mode)");
+    console.log("   Cookie will be available for 10 minutes (600 seconds)");
     
     // Return response with Set-Cookie header
     const response = NextResponse.json({ 
