@@ -101,8 +101,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Max supply reached" }, { status: 400 });
       }
       
-      // Get nonce from contract
+      // Get nonce from contract (returns BigInt)
       const nonce = await contract.getNonce(wallet);
+      console.log(`Contract nonce (BigInt): ${nonce.toString()}, type: ${typeof nonce}`);
       
       // Get token URI from database (from generate step)
       console.log(`Looking for token with x_user_id: ${x_user_id}`);
@@ -119,18 +120,25 @@ export async function POST(request: NextRequest) {
       }
       
       const tokenURI = tokenData[0].token_uri;
-      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour (number)
     
       // Convert values to proper types for EIP-712
+      // ethers.js signTypedData expects uint256 as number, string, or BigInt
+      // We'll use numbers for nonce and deadline to avoid BigInt mixing issues
       // xUserId: hash string (0x...) - ethers will convert to uint256
-      // nonce: BigInt from contract - convert to string for EIP-712
-      // deadline: number - convert to string for EIP-712
+      // nonce: BigInt from contract - convert to number (safe for nonce values)
+      // deadline: number - already a number
+      const nonceNumber = Number(nonce);
+      if (isNaN(nonceNumber) || !Number.isSafeInteger(nonceNumber)) {
+        throw new Error(`Invalid nonce value: ${nonce.toString()}. Cannot convert to safe integer.`);
+      }
+      
       const auth: MintAuth = {
         to: wallet,
         payer: paymentVerification.payer,
-        xUserId: hash, // Hash string (0x...) - ethers signTypedData will handle uint256 conversion
+        xUserId: hash, // Hash string (0x...) - ethers will convert to uint256
         tokenURI,
-        nonce: Number(nonce), // Contract returns BigInt, convert to number for EIP-712 (ethers will convert to uint256)
+        nonce: nonceNumber, // Convert BigInt to number for EIP-712
         deadline, // Number - ethers will convert to uint256
       };
       
@@ -142,6 +150,7 @@ export async function POST(request: NextRequest) {
         xUserIdType: typeof auth.xUserId,
         nonce: auth.nonce,
         nonceType: typeof auth.nonce,
+        nonceOriginal: nonce.toString(),
         deadline: auth.deadline,
         deadlineType: typeof auth.deadline,
       });
