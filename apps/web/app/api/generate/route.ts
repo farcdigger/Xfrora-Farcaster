@@ -316,11 +316,20 @@ export async function POST(request: NextRequest) {
         previewUrl = `https://gateway.pinata.cloud/ipfs/${imageUrl.replace("ipfs://", "")}`;
       }
       
-      // Create metadata with Pinata IPFS URL for image
+      // Convert imageUrl to gateway URL for metadata (NFT viewers need HTTP URL, not ipfs://)
+      // Keep ipfs:// format as fallback for maximum compatibility
+      let imageUrlForMetadata = imageUrl;
+      if (imageUrl.startsWith("ipfs://")) {
+        // Use Pinata gateway URL in metadata for better compatibility with NFT viewers
+        imageUrlForMetadata = `https://gateway.pinata.cloud/ipfs/${imageUrl.replace("ipfs://", "")}`;
+      }
+      
+      // Create metadata with Pinata gateway URL for image (better NFT viewer compatibility)
+      // NFT viewers (OpenSea, Base NFT Explorer, etc.) work better with HTTP URLs
       const metadata = {
         name: `X Animal NFT #${x_user_id}`,
         description: `AI-generated NFT for X user ${x_user_id}`,
-        image: imageUrl, // This will be ipfs://hash format from Pinata
+        image: imageUrlForMetadata, // Pinata gateway URL for better NFT viewer compatibility
         
         // DEĞİŞİKLİK: NFT metadata'sının 'main_colors' gibi array'leri
         // düzgün işlemesi için küçük bir düzeltme.
