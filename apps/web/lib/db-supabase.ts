@@ -389,10 +389,28 @@ export function getTableName(table: any): string {
   return extractTableName(table);
 }
 
-// Drizzle table objects (for backward compatibility with existing code)
-export const tokens = { name: tokensTable } as any;
-export const users = { name: usersTable } as any;
-export const payments = { name: paymentsTable } as any;
+// Drizzle table objects with column definitions (for eq() conditions to work)
+// These objects need to have column properties that Drizzle can use
+export const tokens = {
+  name: tokensTable,
+  // Column definitions for Drizzle eq() conditions
+  x_user_id: { name: "x_user_id" },
+  token_id: { name: "token_id" },
+  seed: { name: "seed" },
+  id: { name: "id" },
+} as any;
+
+export const users = {
+  name: usersTable,
+  x_user_id: { name: "x_user_id" },
+  id: { name: "id" },
+} as any;
+
+export const payments = {
+  name: paymentsTable,
+  x_user_id: { name: "x_user_id" },
+  id: { name: "id" },
+} as any;
 
 // Export Supabase client for direct access if needed
 export { supabaseClient };
