@@ -142,11 +142,22 @@ const supabaseKvClient = {
       const insertedRows = insertResult.rows as any[];
       return parseInt(insertedRows[0]?.value || "0");
     } catch (error: any) {
-      console.error("Supabase KV incr error:", {
-        error: error?.message || "Unknown error",
-        code: error?.code,
-        note: "Rate limiting will fall back to allowing requests"
-      });
+      // Check if it's a connection error (DNS, network, etc.)
+      if (error?.code === "ENOTFOUND" || error?.code === "ECONNREFUSED" || error?.code === "ETIMEDOUT") {
+        console.error("❌ Supabase KV connection error (ENOTFOUND/ECONNREFUSED):", {
+          code: error?.code,
+          hostname: error?.hostname || "unknown",
+          message: error?.message,
+          note: "DATABASE_URL connection string may be incorrect. Check Vercel environment variables.",
+          suggestion: "Use connection pooling URL: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
+        });
+      } else {
+        console.error("Supabase KV incr error:", {
+          error: error?.message || "Unknown error",
+          code: error?.code,
+          note: "Rate limiting will fall back to allowing requests"
+        });
+      }
       throw error; // Let rate-limit.ts handle fail-open
     }
   },

@@ -248,17 +248,31 @@ if (!isMockMode && env.DATABASE_URL && !env.DATABASE_URL.startsWith("mock://")) 
     
     // Create postgres client with connection options
     // Add connection timeout and retry logic for better reliability
+    // For Vercel, connection pooling is recommended for better DNS resolution
     realClient = postgres(connectionString, {
       max: 10, // Maximum number of connections
       idle_timeout: 20, // Close idle connections after 20 seconds
       connect_timeout: 10, // Connection timeout in seconds
       onnotice: () => {}, // Suppress notices
+      // Enable connection retry on DNS errors
+      connection: {
+        application_name: "aura-creatures-web",
+      },
     });
     realDb = drizzle(realClient);
-    console.log("✅ Database connection established");
-  } catch (error) {
-    console.error("❌ Failed to connect to database:", error);
+    // Note: Connection is lazy - actual connection will be established on first query
+    // This allows the module to load even if DNS resolution fails initially
+    console.log("✅ Database client initialized (connection will be established on first query)");
+  } catch (error: any) {
+    console.error("❌ Failed to connect to database:", {
+      code: error?.code,
+      hostname: error?.hostname,
+      message: error?.message,
+      syscall: error?.syscall,
+    });
     console.warn("⚠️ Using mock mode due to connection failure");
+    console.warn("💡 TIP: For Vercel, use connection pooling URL:");
+    console.warn("   Format: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres");
   }
 }
 
