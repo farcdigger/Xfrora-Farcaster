@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ethers } from "ethers";
 import type { GenerateResponse, MintPermitResponse } from "@/lib/types";
-import { executeX402Payment, type X402PaymentResponse } from "@/lib/x402-client";
+import { generateX402PaymentHeader, type X402PaymentResponse } from "@/lib/x402-client";
 
 function HomePageContent() {
   const searchParams = useSearchParams();
@@ -361,25 +361,33 @@ function HomePageContent() {
         const paymentOption = paymentRequest.accepts[0];
         console.log(`💰 Payment required: ${paymentOption.amount} ${paymentOption.asset} on ${paymentOption.network}`);
         
-        // Get user's wallet provider
+        // Generate x402 payment header using Daydreams SDK pattern
+        // This follows the x402 protocol: generate payment header, not direct transfer
         if (typeof window.ethereum === "undefined") {
           throw new Error("Wallet not connected. Please connect your wallet first.");
         }
 
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        
-        // Execute x402 payment (transfer USDC)
-        console.log("💸 Executing x402 payment...");
+        console.log("💳 Generating x402 payment header...");
         setError(null);
         setLoading(true);
         
         try {
-          const { txHash, proof } = await executeX402Payment(paymentRequest, signer);
-          console.log(`✅ Payment successful! Transaction: ${txHash}`);
+          // Use Daydreams SDK's generateX402PaymentBrowser pattern
+          // This creates a payment header that can be verified by the server
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const walletAddress = await signer.getAddress();
           
-          // Create X-PAYMENT header with proof
-          const paymentHeader = JSON.stringify(proof);
+          // Generate payment header using Daydreams pattern
+          // Note: We're using our own implementation since we're not using Daydreams SDK for minting
+          // But we follow the same x402 protocol
+          const paymentHeader = await generateX402PaymentHeader(
+            walletAddress,
+            signer,
+            paymentOption
+          );
+          
+          console.log(`✅ Payment header generated`);
           
           // Retry mint permit request with payment proof
           console.log("📝 Requesting mint permit with payment proof...");

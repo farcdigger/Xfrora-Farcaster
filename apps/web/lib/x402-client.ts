@@ -105,33 +105,29 @@ export async function createX402PaymentProof(
 }
 
 /**
- * Execute x402 payment using Daydreams Router facilitator
- * This follows the x402 protocol: payment is made through a facilitator
+ * Generate x402 payment header using Daydreams Router pattern
+ * This creates a payment header that follows the x402 protocol
  * Reference: https://docs.daydreams.systems/docs/router
  * 
- * @param paymentRequest - The 402 payment request from server
+ * Similar to generateX402PaymentBrowser from @daydreamsai/ai-sdk-provider
+ * but adapted for our mint payment flow
+ * 
+ * @param walletAddress - User's wallet address
  * @param signer - ethers signer (from wallet)
- * @returns Transaction hash and payment proof
+ * @param paymentOption - Payment option from 402 response
+ * @returns x402-compliant payment header string
  */
-export async function executeX402Payment(
-  paymentRequest: X402PaymentResponse,
-  signer: ethers.Signer & { provider: ethers.Provider }
-): Promise<{ txHash: string; proof: X402PaymentProof }> {
-  if (!paymentRequest.accepts || paymentRequest.accepts.length === 0) {
-    throw new Error("No payment options in 402 response");
-  }
-
-  const paymentOption = paymentRequest.accepts[0];
-  const walletAddress = await signer.getAddress();
-
-  // x402 Payment via Daydreams Router facilitator
-  // Instead of direct USDC transfer, we use the x402 facilitator
-  // This ensures proper payment tracking and verification
-  const facilitatorUrl = process.env.NEXT_PUBLIC_X402_FACILITATOR_URL || "https://router.daydreams.systems";
+export async function generateX402PaymentHeader(
+  walletAddress: string,
+  signer: ethers.Signer,
+  paymentOption: X402PaymentRequest
+): Promise<string> {
+  // Generate x402 payment header following Daydreams Router pattern
+  // This creates a signed payment commitment that can be verified by the server
+  // The server will verify the signature and execute the payment on-chain
   
-  console.log(`💳 Using x402 facilitator: ${facilitatorUrl}`);
-  console.log(`💰 Payment required: ${paymentOption.amount} ${paymentOption.asset} on ${paymentOption.network}`);
-
+  console.log(`💰 Generating payment header for: ${paymentOption.amount} ${paymentOption.asset} on ${paymentOption.network}`);
+  
   // Get USDC contract for balance check
   const usdcAddress = getUSDCAddress(paymentOption.network);
   if (!usdcAddress) {
@@ -144,43 +140,17 @@ export async function executeX402Payment(
 
   const usdcAbi = [
     "function balanceOf(address owner) view returns (uint256)",
-    "function transfer(address to, uint256 amount) returns (bool)",
     "function decimals() view returns (uint8)",
   ];
 
-  const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, signer);
-  
-  // Verify contract exists and is valid (check if code exists)
-  // Note: This check is done at runtime (client-side), not at build time
-  try {
-    // Get provider from signer - type assertion ensures provider exists
-    const provider = signer.provider;
-    if (!provider) {
-      throw new Error("Signer does not have a provider. Make sure wallet is connected.");
-    }
-    
-    // getCode is async, so we await it
-    const code = await provider.getCode(usdcAddress);
-    if (!code || code === "0x") {
-      throw new Error(
-        `Invalid USDC contract address: ${usdcAddress}\n\n` +
-        `No contract found at this address on ${paymentOption.network}.\n` +
-        `Please deploy a test USDC token or update NEXT_PUBLIC_USDC_CONTRACT_ADDRESS.`
-      );
-    }
-  } catch (codeError: any) {
-    // If it's already our custom error, rethrow it
-    if (codeError?.message && codeError.message.includes("Invalid USDC contract address")) {
-      throw codeError;
-    }
-    // Otherwise, wrap in a more helpful error
-    throw new Error(
-      `Failed to verify USDC contract: ${codeError?.message || 'Unknown error'}\n\n` +
-      `Please check that NEXT_PUBLIC_USDC_CONTRACT_ADDRESS is set correctly.`
-    );
+  const provider = signer.provider;
+  if (!provider) {
+    throw new Error("Signer does not have a provider. Make sure wallet is connected.");
   }
+
+  const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, provider);
   
-  // Check balance (with better error handling)
+  // Check balance
   let balance: bigint;
   let decimalsRaw: bigint | number;
   
@@ -188,23 +158,14 @@ export async function executeX402Payment(
     balance = await usdcContract.balanceOf(walletAddress);
     decimalsRaw = await usdcContract.decimals();
   } catch (balanceError: any) {
-    // If balanceOf fails, the contract might not be a valid ERC20 token
     throw new Error(
-      `Failed to read USDC balance from contract at ${usdcAddress}.\n\n` +
-      `Error: ${balanceError.message}\n\n` +
-      `This address may not be a valid ERC20 token. Please:\n` +
-      `1. Verify the contract is deployed and is an ERC20 token\n` +
-      `2. Check NEXT_PUBLIC_USDC_CONTRACT_ADDRESS is correct\n` +
-      `3. For Base Mainnet, USDC should be at 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+      `Failed to read USDC balance: ${balanceError.message}\n\n` +
+      `Please check your wallet has USDC on ${paymentOption.network}`
     );
   }
   
-  // Ensure decimals is always a number (ethers.js might return BigInt)
+  // Ensure decimals is always a number
   const decimals = typeof decimalsRaw === 'bigint' ? Number(decimalsRaw) : Number(decimalsRaw);
-  if (isNaN(decimals) || decimals < 0 || decimals > 255) {
-    throw new Error(`Invalid decimals value from contract: ${decimalsRaw}`);
-  }
-  
   const requiredAmount = BigInt(paymentOption.amount);
   
   if (balance < requiredAmount) {
@@ -213,95 +174,49 @@ export async function executeX402Payment(
     );
   }
 
-  // Execute x402 payment through facilitator
-  // Step 1: Request payment from facilitator
-  try {
-    const facilitatorResponse = await fetch(`${facilitatorUrl}/payment/initiate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        paymentRequest: paymentOption,
-        payer: walletAddress,
-      }),
-    });
+  // Create x402 payment commitment (signed message)
+  // This follows the x402 protocol: create a signed payment commitment
+  // The server will verify this signature and execute the payment
+  const paymentData = {
+    amount: paymentOption.amount,
+    asset: paymentOption.asset,
+    network: paymentOption.network,
+    recipient: paymentOption.recipient,
+    payer: walletAddress,
+    timestamp: Math.floor(Date.now() / 1000),
+    nonce: Math.random().toString(36).substring(7),
+  };
 
-    if (!facilitatorResponse.ok) {
-      throw new Error(`Facilitator payment initiation failed: ${facilitatorResponse.statusText}`);
-    }
+  // Sign the payment data using EIP-712
+  const domain = {
+    name: "X402 Payment",
+    version: "1",
+    chainId: paymentOption.network === "base" ? 8453 : paymentOption.network === "base-sepolia" ? 84532 : 8453,
+    verifyingContract: usdcAddress,
+  };
 
-    const facilitatorData = await facilitatorResponse.json();
-    console.log(`💳 Payment initiated with facilitator: ${facilitatorData.paymentId}`);
-    
-    // Step 2: Execute USDC transfer to facilitator's payment address
-    // The facilitator will forward the payment to the recipient
-    const facilitatorPaymentAddress = facilitatorData.paymentAddress || paymentOption.recipient;
-    
-    console.log(`💸 Transferring ${formatUSDC(requiredAmount, decimals)} USDC to facilitator`);
-    const tx = await usdcContract.transfer(facilitatorPaymentAddress, requiredAmount);
-    console.log(`📝 Transaction sent: ${tx.hash}`);
-    
-    // Wait for confirmation
-    const receipt = await tx.wait();
-    console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
+  const types = {
+    Payment: [
+      { name: "amount", type: "string" },
+      { name: "asset", type: "string" },
+      { name: "network", type: "string" },
+      { name: "recipient", type: "address" },
+      { name: "payer", type: "address" },
+      { name: "timestamp", type: "uint256" },
+      { name: "nonce", type: "string" },
+    ],
+  };
 
-    // Step 3: Notify facilitator of payment completion
-    const confirmResponse = await fetch(`${facilitatorUrl}/payment/confirm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        paymentId: facilitatorData.paymentId,
-        transactionHash: receipt.hash,
-        blockNumber: receipt.blockNumber,
-      }),
-    });
+  const signature = await signer.signTypedData(domain, types, paymentData);
 
-    if (!confirmResponse.ok) {
-      console.warn(`⚠️ Facilitator confirmation failed, but payment was successful`);
-    }
+  // Create x402-compliant payment header
+  // Format: JSON with payment data and signature
+  const paymentHeader = JSON.stringify({
+    ...paymentData,
+    signature,
+  });
 
-    // Create payment proof (x402 format)
-    const proof: X402PaymentProof = {
-      paymentId: facilitatorData.paymentId || `payment_${receipt.blockNumber}_${tx.hash.substring(2, 10)}`,
-      amount: paymentOption.amount,
-      asset: paymentOption.asset,
-      network: paymentOption.network,
-      payer: walletAddress,
-      recipient: paymentOption.recipient,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-    };
-
-    return {
-      txHash: receipt.hash,
-      proof,
-    };
-  } catch (facilitatorError: any) {
-    // Fallback: If facilitator is unavailable, use direct transfer
-    console.warn(`⚠️ Facilitator unavailable, using direct transfer: ${facilitatorError.message}`);
-    
-    console.log(`💸 Transferring ${formatUSDC(requiredAmount, decimals)} USDC directly to ${paymentOption.recipient}`);
-    const tx = await usdcContract.transfer(paymentOption.recipient, requiredAmount);
-    console.log(`📝 Transaction sent: ${tx.hash}`);
-    
-    const receipt = await tx.wait();
-    console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
-
-    const proof: X402PaymentProof = {
-      paymentId: `payment_${receipt.blockNumber}_${tx.hash.substring(2, 10)}`,
-      amount: paymentOption.amount,
-      asset: paymentOption.asset,
-      network: paymentOption.network,
-      payer: walletAddress,
-      recipient: paymentOption.recipient,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-    };
-
-    return {
-      txHash: receipt.hash,
-      proof,
-    };
-  }
+  return paymentHeader;
 }
 
 /**
