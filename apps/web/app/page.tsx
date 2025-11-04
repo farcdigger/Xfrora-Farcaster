@@ -400,6 +400,15 @@ function HomePageContent() {
           if (!mintResponse.ok) {
             const errorData = await mintResponse.json();
             console.error("Mint permit failed after payment:", errorData);
+            
+            // Handle rate limit error with helpful message
+            if (mintResponse.status === 429) {
+              const errorMessage = errorData.error || "Rate limit exceeded";
+              throw new Error(
+                `${errorMessage}\n\nYou can clear your rate limit by calling:\nPOST /api/admin/clear-rate-limit\nBody: { "wallet": "${wallet}", "action": "clear" }`
+              );
+            }
+            
             throw new Error(`Mint permit failed: ${errorData.error || 'Unknown error'}`);
           }
           
