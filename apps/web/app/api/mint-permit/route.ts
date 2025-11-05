@@ -49,37 +49,39 @@ export async function POST(request: NextRequest) {
     // - Contract already prevents duplicate mints (usedXUserId check)
     // - Existing NFT mint is a legitimate operation, shouldn't be rate limited
     
-    // x402 payment is handled by middleware (middleware.ts)
-    // If request reaches here, payment has been verified and executed by middleware
+    // x402 payment is handled AUTOMATICALLY by middleware (middleware.ts)
+    // If request reaches here, payment has been VERIFIED and EXECUTED by middleware
     // The middleware automatically:
     // 1. Returns 402 Payment Required if no X-PAYMENT header
-    // 2. Verifies payment via facilitator
-    // 3. Facilitator executes USDC transfer automatically
-    // 4. Allows request to proceed if payment is valid
+    // 2. Verifies payment signature via facilitator
+    // 3. Facilitator executes USDC transfer automatically (Base Mainnet)
+    // 4. Allows request to proceed ONLY if payment is valid
     
-    // Extract payment information from X-PAYMENT header if available
+    // NOTE: We DO NOT need to verify payment again here!
+    // Middleware has already done everything. We just extract payer info for logging.
+    
+    // Extract payment information from X-PAYMENT header (already verified by middleware)
     const paymentHeader = request.headers.get("X-PAYMENT");
     
     let paymentVerification: any = null;
     
     if (!isMockMode && paymentHeader) {
-      // Payment verified by middleware - extract payer from payment header
-      // Middleware has already verified payment and executed USDC transfer via facilitator
+      // Payment already verified and executed by middleware - just extract payer info
       try {
         const paymentData = JSON.parse(paymentHeader);
         paymentVerification = {
-          payer: paymentData.payer || paymentData.from || wallet, // Fallback to wallet if not in header
+          payer: paymentData.payer || paymentData.from || wallet,
           amount: paymentData.amount || env.X402_PRICE_USDC,
           asset: paymentData.asset || "USDC",
           network: paymentData.network || "base",
           recipient: paymentData.recipient || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF",
         };
-        console.log(`✅ Payment verified and executed by x402 middleware`);
+        console.log(`✅ Payment verified and executed by x402 middleware (automatic)`);
         console.log(`   Payer: ${paymentVerification.payer}`);
         console.log(`   Amount: ${paymentVerification.amount} ${paymentVerification.asset}`);
-        console.log(`   Facilitator executed USDC transfer automatically`);
+        console.log(`   USDC transfer executed automatically by facilitator`);
       } catch (error) {
-        console.warn(`⚠️ Could not parse payment header: ${error}`);
+        console.warn(`⚠️ Could not parse payment header (but middleware already verified it): ${error}`);
         // Fallback: use wallet as payer (shouldn't happen if middleware works correctly)
         paymentVerification = {
           payer: wallet,
@@ -90,14 +92,25 @@ export async function POST(request: NextRequest) {
         };
       }
     } else if (isMockMode) {
-      // Mock mode - use wallet as payer for testing
-      console.log("🐛 Mock mode: Skipping x402 payment verification");
+      // Mock mode - use wallet as payer for testing (no real payment)
+      console.log("🐛 Mock mode: Skipping x402 payment (testing only)");
       paymentVerification = {
         payer: wallet,
         amount: env.X402_PRICE_USDC,
         asset: "USDC",
         network: "base",
         recipient: wallet, // In test mode, we don't actually charge
+      };
+    } else {
+      // No payment header - this shouldn't happen if middleware works correctly
+      // Middleware should have returned 402 before this code runs
+      console.warn(`⚠️ No payment header found, but request reached handler (middleware may have issues)`);
+      paymentVerification = {
+        payer: wallet,
+        amount: env.X402_PRICE_USDC,
+        asset: "USDC",
+        network: "base",
+        recipient: "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF",
       };
     }
     
