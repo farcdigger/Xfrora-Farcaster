@@ -99,90 +99,91 @@ export async function GET(request: NextRequest) {
         // PRIORITY 3: Fallback - Try encrypted cookie (used when KV is not available or connection fails)
         if (!codeVerifier) {
           const cookieName = `x_oauth_verifier_${state}`;
-        const cookie = request.cookies.get(cookieName);
-        const cookieValue = cookie?.value;
-        
-        // Debug: List all cookies to help troubleshoot
-        const allCookies = request.cookies.getAll();
-        const verifierCookies = allCookies.filter(c => c.name.startsWith("x_oauth_verifier_"));
-        
-        console.log("🔍 Checking for PKCE cookie:", {
-          cookieName,
-          hasCookie: !!cookie,
-          cookieValue: cookieValue ? `${cookieValue.substring(0, 20)}...` : null,
-          cookieLength: cookieValue?.length || 0,
-          allCookiesCount: allCookies.length,
-          verifierCookiesFound: verifierCookies.length,
-          verifierCookieNames: verifierCookies.map(c => c.name),
-          allCookieNames: allCookies.map(c => c.name),
-          note: cookieValue 
-            ? "Cookie found - will decrypt" 
-            : "Cookie not found - may be expired, wrong domain/path, or never set. Check if cookie was set in authorize endpoint.",
-          troubleshooting: !cookieValue ? [
-            "1. Check authorize endpoint logs for 'Cookie set for PKCE fallback'",
-            "2. Verify cookie secure/sameSite settings match production",
-            "3. Check browser DevTools → Application → Cookies",
-            "4. Ensure X OAuth redirect returns to same domain"
-          ] : [],
-        });
-        
-        if (cookieValue) {
-          // Parse encrypted verifier from cookie
-          // Cookie format: "state:ivHex:encrypted"
-          // We need to split carefully since encrypted may contain colons if base64
-          const parts = cookieValue.split(":");
-          if (parts.length >= 3) {
-            const cookieState = parts[0];
-            const ivHex = parts[1];
-            const encrypted = parts.slice(2).join(":"); // Rejoin in case encrypted has colons
-            
-            if (cookieState === state && ivHex && encrypted) {
-              try {
-                // Decrypt verifier
-                const crypto = require("crypto");
-                const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678";
-                
-                if (ivHex && encrypted) {
-                  const iv = Buffer.from(ivHex, "hex");
-                  const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(secretKey.padEnd(32, "0")), iv);
-                  let decrypted = decipher.update(encrypted, "hex", "utf8");
-                  decrypted += decipher.final("utf8");
-                  codeVerifier = decrypted;
+          const cookie = request.cookies.get(cookieName);
+          const cookieValue = cookie?.value;
+          
+          // Debug: List all cookies to help troubleshoot
+          const allCookies = request.cookies.getAll();
+          const verifierCookies = allCookies.filter(c => c.name.startsWith("x_oauth_verifier_"));
+          
+          console.log("🔍 Checking for PKCE cookie:", {
+            cookieName,
+            hasCookie: !!cookie,
+            cookieValue: cookieValue ? `${cookieValue.substring(0, 20)}...` : null,
+            cookieLength: cookieValue?.length || 0,
+            allCookiesCount: allCookies.length,
+            verifierCookiesFound: verifierCookies.length,
+            verifierCookieNames: verifierCookies.map(c => c.name),
+            allCookieNames: allCookies.map(c => c.name),
+            note: cookieValue 
+              ? "Cookie found - will decrypt" 
+              : "Cookie not found - may be expired, wrong domain/path, or never set. Check if cookie was set in authorize endpoint.",
+            troubleshooting: !cookieValue ? [
+              "1. Check authorize endpoint logs for 'Cookie set for PKCE fallback'",
+              "2. Verify cookie secure/sameSite settings match production",
+              "3. Check browser DevTools → Application → Cookies",
+              "4. Ensure X OAuth redirect returns to same domain"
+            ] : [],
+          });
+          
+          if (cookieValue) {
+            // Parse encrypted verifier from cookie
+            // Cookie format: "state:ivHex:encrypted"
+            // We need to split carefully since encrypted may contain colons if base64
+            const parts = cookieValue.split(":");
+            if (parts.length >= 3) {
+              const cookieState = parts[0];
+              const ivHex = parts[1];
+              const encrypted = parts.slice(2).join(":"); // Rejoin in case encrypted has colons
+              
+              if (cookieState === state && ivHex && encrypted) {
+                try {
+                  // Decrypt verifier
+                  const crypto = require("crypto");
+                  const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678";
                   
-                  console.log("✅ PKCE verifier retrieved from encrypted cookie (fallback mode)");
-                  // Cookie will be cleaned up in the final redirect response
-                } else {
-                  console.error("❌ Invalid encrypted verifier format in cookie - missing ivHex or encrypted");
+                  if (ivHex && encrypted) {
+                    const iv = Buffer.from(ivHex, "hex");
+                    const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(secretKey.padEnd(32, "0")), iv);
+                    let decrypted = decipher.update(encrypted, "hex", "utf8");
+                    decrypted += decipher.final("utf8");
+                    codeVerifier = decrypted;
+                    
+                    console.log("✅ PKCE verifier retrieved from encrypted cookie (fallback mode)");
+                    // Cookie will be cleaned up in the final redirect response
+                  } else {
+                    console.error("❌ Invalid encrypted verifier format in cookie - missing ivHex or encrypted");
+                  }
+                } catch (decryptError) {
+                  console.error("❌ Failed to decrypt PKCE verifier from cookie:", {
+                    error: decryptError instanceof Error ? decryptError.message : "Unknown error",
+                    ivHexLength: ivHex?.length || 0,
+                    encryptedLength: encrypted?.length || 0,
+                  });
                 }
-              } catch (decryptError) {
-                console.error("❌ Failed to decrypt PKCE verifier from cookie:", {
-                  error: decryptError instanceof Error ? decryptError.message : "Unknown error",
-                  ivHexLength: ivHex?.length || 0,
-                  encryptedLength: encrypted?.length || 0,
+              } else {
+                console.warn("⚠️ Cookie state mismatch or missing parts:", {
+                  cookieState: parts[0],
+                  expectedState: state,
+                  partsCount: parts.length,
+                  hasIvHex: !!parts[1],
+                  hasEncrypted: parts.length >= 3,
                 });
               }
             } else {
-              console.warn("⚠️ Cookie state mismatch or missing parts:", {
-                cookieState: parts[0],
-                expectedState: state,
+              console.error("❌ Invalid cookie format - expected format: state:ivHex:encrypted", {
+                cookieLength: cookieValue.length,
                 partsCount: parts.length,
-                hasIvHex: !!parts[1],
-                hasEncrypted: parts.length >= 3,
+                cookiePreview: cookieValue.substring(0, 50) + "...",
               });
             }
           } else {
-            console.error("❌ Invalid cookie format - expected format: state:ivHex:encrypted", {
-              cookieLength: cookieValue.length,
-              partsCount: parts.length,
-              cookiePreview: cookieValue.substring(0, 50) + "...",
-            });
+            console.warn("⚠️ PKCE verifier not found in KV or cookie - token exchange will fail without code_verifier");
           }
-        } else {
-          console.warn("⚠️ PKCE verifier not found in KV or cookie - token exchange will fail without code_verifier");
         }
+      } catch (error) {
+        console.error("⚠️ Failed to retrieve PKCE verifier:", error);
       }
-    } catch (error) {
-      console.error("⚠️ Failed to retrieve PKCE verifier:", error);
     }
   } else {
     console.warn("⚠️ No state parameter - cannot retrieve PKCE verifier");
