@@ -270,14 +270,14 @@ export async function GET(request: NextRequest) {
     
     // Store encrypted verifier in HTTP-only cookie (keyed by state)
     // Use both a specific cookie for this state AND a general cookie that can be read by callback
-    const cookieValue = `${state}:${encryptedVerifier}`;
+    const cookieValue = `${encryptedState}:${encryptedVerifier}`;
     console.log("✅ PKCE verifier encrypted and stored in cookie (fallback mode)");
     console.log("   Cookie will be available for 10 minutes (600 seconds)");
     
     // Return response with Set-Cookie header
     const response = NextResponse.json({ 
       authUrl,
-      state,
+      state: encryptedState,
     });
     
     // Set HTTP-only, secure cookie with 10 minute expiration
@@ -287,7 +287,7 @@ export async function GET(request: NextRequest) {
     // - path: "/" (available site-wide)
     // - maxAge: 600 (10 minutes - enough for OAuth flow)
     // - Do NOT set domain (let browser use current domain)
-    const cookieName = `x_oauth_verifier_${state}`;
+    const cookieName = `x_oauth_verifier_${encryptedState}`;
     response.cookies.set(cookieName, cookieValue, {
       httpOnly: true,
       secure: true, // Required for HTTPS (Vercel)
@@ -300,8 +300,8 @@ export async function GET(request: NextRequest) {
     console.log("✅ Cookie set for PKCE fallback:", {
       cookieName,
       cookieValueLength: cookieValue.length,
-      stateLength: state.length,
-      state: state, // Full state for debugging
+      stateLength: encryptedState.length,
+      state: encryptedState, // Full state for debugging
       kvError: kvError?.message || "N/A",
       cookieSettings: {
         httpOnly: true,
@@ -320,13 +320,13 @@ export async function GET(request: NextRequest) {
   console.log("🔗 X OAuth URL with PKCE:", {
     clientIdLength: clientId.length,
     redirectUri,
-    state: state.substring(0, 5) + "...",
+    state: encryptedState.substring(0, 5) + "...",
     hasCodeChallenge: !!challenge,
   });
   
   return NextResponse.json({ 
     authUrl,
-    state, // Return state so frontend can identify the flow
+    state: encryptedState, // Return state so frontend can identify the flow
   });
 }
 
