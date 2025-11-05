@@ -12,7 +12,7 @@ export const middleware = paymentMiddleware(
   {
     "/api/mint-permit": {
       price: "$0.1", // 0.1 USDC
-      network: "base" as Network, // Base mainnet (changed from "base-sepolia" for mainnet)
+      network: "base-mainnet" as Network, // Base mainnet
       config: {
         description: "Mint permit for Aura Creatures NFT",
         maxTimeoutSeconds: 300, // 5 minutes

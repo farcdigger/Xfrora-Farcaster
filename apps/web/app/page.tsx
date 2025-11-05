@@ -428,7 +428,11 @@ function HomePageContent() {
         const amount = (paymentOption as any).amount || (paymentOption as any).maxAmountRequired || "100000";
         const recipientAddress = (paymentOption as any).recipient || (paymentOption as any).payTo || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF";
         const asset = paymentOption.asset || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC
-        const network = paymentOption.network || "base";
+        // Normalize network: support both "base" and "base-mainnet"
+        let network = paymentOption.network || "base-mainnet";
+        if (network === "base") {
+          network = "base-mainnet";
+        }
         
         console.log(`💰 Payment required: ${amount} ${asset} on ${network}`);
         console.log(`   Recipient: ${recipientAddress}`);
