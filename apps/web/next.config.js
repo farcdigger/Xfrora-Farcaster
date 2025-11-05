@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Allow middleware to use Node.js APIs (for x402-next package)
+  // Note: This may cause Edge Runtime issues, but x402-next requires Node.js APIs
+  experimental: {
+    serverComponentsExternalPackages: ['@coinbase/x402'],
+  },
   env: {
     NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID || "8453", // Base Mainnet
     NEXT_PUBLIC_CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x3ACA7E83B208E5243FE31eB3690c6781aB3010bb", // Base Mainnet default
