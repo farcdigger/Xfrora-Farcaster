@@ -185,9 +185,9 @@ export async function generateX402PaymentHeader(
     verifyingContract: usdcAddress as `0x${string}`,
   };
 
-  // EIP-712 types for x402 payment
+  // EIP-712 types for x402 payment (TransferWithAuthorization as priority type)
   const types = {
-    Payment: [
+    TransferWithAuthorization: [
       { name: "amount", type: "string" },
       { name: "asset", type: "string" },
       { name: "network", type: "string" },

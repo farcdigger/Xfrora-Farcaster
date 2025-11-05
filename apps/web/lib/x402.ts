@@ -127,7 +127,7 @@ export async function verifyX402Payment(
       };
 
       const types = {
-        Payment: [
+        TransferWithAuthorization: [
           { name: "amount", type: "string" },
           { name: "asset", type: "string" },
           { name: "network", type: "string" },
