@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ethers } from "ethers";
 import type { GenerateResponse, MintPermitResponse } from "@/lib/types";
-import { generateX402PaymentHeader, type X402PaymentResponse } from "@/lib/x402-client";
+import { generateX402PaymentHeader, type X402PaymentResponse, type X402PaymentRequest } from "@/lib/x402-client";
 
 function HomePageContent() {
   const searchParams = useSearchParams();
@@ -436,8 +436,11 @@ function HomePageContent() {
         }
         
         // Create payment option with recipient address
+        // Type assertion needed because middleware may return different type
         const paymentOptionWithRecipient: X402PaymentRequest = {
-          ...paymentOption,
+          asset: paymentOption.asset || "USDC",
+          amount: paymentOption.amount || "100000", // 0.1 USDC (6 decimals)
+          network: paymentOption.network || "base",
           recipient: recipientAddress,
         };
         
