@@ -177,12 +177,20 @@ export async function generateX402PaymentHeader(
   const chainId = paymentOption.network === "base" ? 8453 : 
                   paymentOption.network === "base-sepolia" ? 84532 : 8453;
   
+  // Validate and normalize USDC address (must be a valid Ethereum address, not ENS)
+  if (!ethers.isAddress(usdcAddress)) {
+    throw new Error(`Invalid USDC address: ${usdcAddress}. Must be a valid Ethereum address (0x...).`);
+  }
+  
+  // Normalize USDC address using getAddress() - this prevents ENS resolution
+  const normalizedUsdcAddress = ethers.getAddress(usdcAddress);
+  
   // EIP-712 domain for x402 payment commitment
   const domain = {
     name: "x402 Payment",
     version: "1",
     chainId: chainId,
-    verifyingContract: usdcAddress as `0x${string}`,
+    verifyingContract: normalizedUsdcAddress, // Normalized address (no ENS resolution)
   };
 
   // EIP-712 types for x402 payment (TransferWithAuthorization as priority type)
@@ -202,12 +210,27 @@ export async function generateX402PaymentHeader(
   const timestamp = Math.floor(Date.now() / 1000);
   const nonce = Math.random().toString(36).substring(7);
   
+  // Validate and normalize addresses (must be valid Ethereum addresses, not ENS)
+  // Use getAddress() to normalize addresses and prevent ENS resolution
+  if (!ethers.isAddress(paymentOption.recipient)) {
+    throw new Error(`Invalid recipient address: ${paymentOption.recipient}. Must be a valid Ethereum address (0x...).`);
+  }
+  
+  if (!ethers.isAddress(walletAddress)) {
+    throw new Error(`Invalid wallet address: ${walletAddress}. Must be a valid Ethereum address (0x...).`);
+  }
+  
+  // Normalize addresses using getAddress() - this prevents ENS resolution
+  // getAddress() only works with valid addresses, throws error for ENS names
+  const normalizedRecipient = ethers.getAddress(paymentOption.recipient);
+  const normalizedPayer = ethers.getAddress(walletAddress);
+  
   const message = {
     amount: paymentOption.amount,
     asset: paymentOption.asset,
     network: paymentOption.network,
-    recipient: paymentOption.recipient,
-    payer: walletAddress,
+    recipient: normalizedRecipient, // Normalized address (no ENS resolution)
+    payer: normalizedPayer, // Normalized address (no ENS resolution)
     timestamp: timestamp,
     nonce: nonce,
   };
