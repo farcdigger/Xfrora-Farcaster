@@ -319,19 +319,31 @@ function HomePageContent() {
   };
 
   const requestMintPermit = async () => {
-    if (!wallet) return;
+    console.log("🔵 ===========================================");
+    console.log("🔵 requestMintPermit CALLED!");
+    console.log("🔵 Wallet:", wallet);
+    console.log("🔵 Current User ID:", currentUserId);
+    console.log("🔵 ===========================================");
+    
+    if (!wallet) {
+      console.error("❌ No wallet - returning early");
+      return;
+    }
     
     // Get x_user_id from saved state
     const userId = currentUserId;
     
     if (!userId) {
+      console.error("❌ No user ID - returning early");
       setError("User ID not found. Please generate NFT first.");
       return;
     }
     
+    console.log("✅ All checks passed - starting mint flow");
     try {
       setLoading(true);
       
+      console.log("📝 First mint permit request (no payment)...");
       // First request - should return 402
       const response = await fetch("/api/mint-permit", {
         method: "POST",

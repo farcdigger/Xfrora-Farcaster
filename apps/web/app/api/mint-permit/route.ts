@@ -16,6 +16,15 @@ const CONTRACT_ABI = [
   "function owner() external view returns (address)",
 ];
 
+// GET request - return method not allowed with helpful message
+export async function GET(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "Method Not Allowed",
+    message: "This endpoint only accepts POST requests. Use POST with wallet and x_user_id in the body.",
+    hint: "If you're seeing this in browser console, it might be a preflight request or incorrect frontend call."
+  }, { status: 405 });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: MintPermitRequest = await request.json();
