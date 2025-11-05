@@ -569,16 +569,25 @@ function HomePageContent() {
         hexMatch: BigInt(permit.auth.xUserId).toString(16),
       });
       
-      // Construct auth struct object (NOT array!) for proper ABI encoding
-      // ethers.js encodes struct objects correctly with proper padding
+      // Construct auth as TUPLE ARRAY - ethers.js encodes tuples better than objects
+      // CRITICAL: Order MUST match Solidity struct exactly!
+      // struct MintAuth { address to; address payer; uint256 xUserId; string tokenURI; uint256 nonce; uint256 deadline; }
       const authForContract = {
         to: permit.auth.to,
         payer: permit.auth.payer,
-        xUserId: xUserIdBigInt,           // uint256 - MUST be BigInt
+        xUserId: xUserIdBigInt,                 // uint256 - BigInt
         tokenURI: permit.auth.tokenURI,
-        nonce: BigInt(permit.auth.nonce),      // uint256 - MUST be BigInt
-        deadline: BigInt(permit.auth.deadline), // uint256 - MUST be BigInt
+        nonce: BigInt(permit.auth.nonce),       // uint256 - BigInt
+        deadline: BigInt(permit.auth.deadline), // uint256 - BigInt
       };
+      
+      // WORKAROUND: Use contract.interface to properly encode the struct
+      // This ensures uint256 values are encoded with proper 32-byte padding
+      const iface = new ethers.Interface([
+        "function mintWithSig(tuple(address to, address payer, uint256 xUserId, string tokenURI, uint256 nonce, uint256 deadline) auth, bytes signature) external"
+      ]);
+      
+      console.log("🔧 Using Interface encoder for proper uint256 padding");
       
       console.log("📝 Auth struct for contract:", {
         to: authForContract.to,
@@ -608,11 +617,19 @@ function HomePageContent() {
       let tx;
       try {
         console.log("⏳ Estimating gas...");
-        const gasEstimate = await contract.mintWithSig.estimateGas(authForContract, permit.signature);
+        
+        // Use the Interface-based contract instance for proper encoding
+        const contractWithInterface = new ethers.Contract(
+          contractAddress,
+          iface,
+          signer
+        );
+        
+        const gasEstimate = await contractWithInterface.mintWithSig.estimateGas(authForContract, permit.signature);
         console.log("✅ Gas estimate successful:", gasEstimate.toString());
         
         console.log("⏳ Sending transaction...");
-        tx = await contract.mintWithSig(authForContract, permit.signature);
+        tx = await contractWithInterface.mintWithSig(authForContract, permit.signature);
         console.log("✅ Transaction sent:", tx.hash);
       } catch (callError: any) {
         console.error("❌ Contract call failed:", callError);
