@@ -90,9 +90,11 @@ export async function generateX402PaymentHeader(
   const timestamp = Math.floor(Date.now() / 1000);
   const nonce = Math.random().toString(36).substring(7);
   
+  // CRITICAL: Use EXACT values from paymentOption - middleware expects exact match
+  // Do NOT modify asset field - middleware sent us the exact value it wants to see
   const message = {
     amount: paymentOption.amount,
-    asset: "USDC", // Middleware expects "USDC" string
+    asset: paymentOption.asset, // EXACT value from middleware (0x... contract address)
     network: paymentOption.network,
     recipient: normalizedRecipient,
     payer: normalizedPayer,
