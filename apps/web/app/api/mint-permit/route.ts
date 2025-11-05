@@ -178,6 +178,33 @@ export async function POST(request: NextRequest) {
         deadlineType: typeof auth.deadline,
       });
       
+      // Check contract owner before signing
+      try {
+        const ownerAddress = await contract.owner();
+        console.log(`📋 Contract owner: ${ownerAddress}`);
+        
+        // Get server signer address
+        if (env.SERVER_SIGNER_PRIVATE_KEY) {
+          const serverWallet = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
+          const serverAddress = serverWallet.address;
+          console.log(`🔐 Server signer address: ${serverAddress}`);
+          
+          if (serverAddress.toLowerCase() !== ownerAddress.toLowerCase()) {
+            console.error(`❌ CRITICAL: Server signer address does NOT match contract owner!`);
+            console.error(`   Server signer: ${serverAddress}`);
+            console.error(`   Contract owner: ${ownerAddress}`);
+            console.error(`   ⚠️ SERVER_SIGNER_PRIVATE_KEY must correspond to the contract owner wallet!`);
+            return NextResponse.json({ 
+              error: `Server signer address does not match contract owner. Server: ${serverAddress}, Owner: ${ownerAddress}`,
+              hint: "SERVER_SIGNER_PRIVATE_KEY must be the private key of the contract owner wallet"
+            }, { status: 500 });
+          }
+          console.log(`✅ Server signer matches contract owner`);
+        }
+      } catch (ownerError: any) {
+        console.warn(`⚠️ Could not verify contract owner: ${ownerError.message}`);
+      }
+      
       // Sign mint auth
       const signature = await signMintAuth(auth);
       

@@ -3,8 +3,13 @@ import type { MintAuth } from "@/lib/types";
 import { env } from "../env.mjs";
 
 function getEIP712DomainValue() {
+  // IMPORTANT: Domain name must match the contract's EIP712 domain name exactly
+  // Contract uses: EIP712(name, "1") where name is the ERC721 token name
+  // Check contract deployment or contract owner() to verify the name
+  // Common names: "Aura Creatures", "X Animal NFT", etc.
+  // If signature verification fails, the domain name might be wrong!
   return {
-    name: "X Animal NFT",
+    name: "Aura Creatures", // ⚠️ MUST match contract's ERC721 name (set during deployment)
     version: "1",
     chainId: Number(env.NEXT_PUBLIC_CHAIN_ID), // Ensure it's a number, not BigInt
     verifyingContract: env.CONTRACT_ADDRESS,
@@ -38,6 +43,12 @@ export async function signMintAuth(auth: MintAuth): Promise<string> {
   }
   
   const signer = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
+  const signerAddress = signer.address;
+  
+  console.log("🔐 Signing MintAuth with server wallet:");
+  console.log(`   Signer address: ${signerAddress}`);
+  console.log(`   Contract address: ${env.CONTRACT_ADDRESS}`);
+  console.log(`   ⚠️ IMPORTANT: Signer address MUST be the contract owner!`);
   
   // Convert values to proper types for EIP-712 uint256
   // CRITICAL: All uint256 values MUST be BigInt to avoid "Cannot mix BigInt" error
