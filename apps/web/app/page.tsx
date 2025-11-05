@@ -142,6 +142,51 @@ function HomePageContent() {
   }, []);
 
 
+  const disconnectX = () => {
+    // Clear X account connection
+    setXUser(null);
+    setGenerated(null);
+    setCurrentUserId(null);
+    setMintedTokenId(null);
+    setTransactionHash(null);
+    setError(null);
+    setStep("connect");
+    
+    // Clear URL parameters
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("x_user_id");
+      url.searchParams.delete("username");
+      url.searchParams.delete("profile_image_url");
+      url.searchParams.delete("bio");
+      url.searchParams.delete("error");
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const resetToHome = () => {
+    // Reset all state to initial values
+    setXUser(null);
+    setGenerated(null);
+    setWallet(null);
+    setCurrentUserId(null);
+    setMintedTokenId(null);
+    setTransactionHash(null);
+    setError(null);
+    setStep("connect");
+    
+    // Clear URL parameters
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("x_user_id");
+      url.searchParams.delete("username");
+      url.searchParams.delete("profile_image_url");
+      url.searchParams.delete("bio");
+      url.searchParams.delete("error");
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
   const connectX = async () => {
     try {
       setLoading(true);
@@ -735,7 +780,15 @@ function HomePageContent() {
               {/* Status indicator */}
               {xUser && (
                 <div className="mb-6 bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-sm">
-                  ✅ X Account: @{xUser.username}
+                  <div className="flex items-center justify-between">
+                    <span>✅ X Account: @{xUser.username}</span>
+                    <button
+                      onClick={disconnectX}
+                      className="text-red-400 hover:text-red-300 text-xs underline ml-4"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
                 </div>
               )}
               
@@ -761,12 +814,22 @@ function HomePageContent() {
               
               {xUser && (
                 <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
-                  <p className="text-sm">
-                    <strong>X Account:</strong> @{xUser.username}
-                  </p>
-                  <p className="text-sm text-gray-300 mt-1">
-                    Profile Image: {xUser.profile_image_url}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm">
+                        <strong>X Account:</strong> @{xUser.username}
+                      </p>
+                      <p className="text-sm text-gray-300 mt-1">
+                        Profile Image: {xUser.profile_image_url}
+                      </p>
+                    </div>
+                    <button
+                      onClick={disconnectX}
+                      className="text-red-400 hover:text-red-300 text-xs underline ml-4"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
                 </div>
               )}
               
@@ -794,6 +857,23 @@ function HomePageContent() {
           {step === "pay" && generated && (
             <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8">
               <h2 className="text-2xl font-bold mb-4 text-center">Step 3: Connect Wallet & Mint</h2>
+              
+              {/* Show X account info with disconnect option */}
+              {xUser && (
+                <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm">
+                      <strong>X Account:</strong> @{xUser.username}
+                    </p>
+                    <button
+                      onClick={disconnectX}
+                      className="text-red-400 hover:text-red-300 text-xs underline ml-4"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              )}
               
               {/* Show wallet connection button if not connected */}
               {!wallet && (
@@ -948,18 +1028,23 @@ function HomePageContent() {
                   </a>
                 )}
                 
-                {/* Mint Another Button */}
+                {/* Create Another NFT Button (disconnects X to allow new account) */}
                 <button
                   onClick={() => {
-                    setStep("connect");
-                    setGenerated(null);
-                    setMintedTokenId(null);
-                    setTransactionHash(null);
-                    setError(null);
+                    disconnectX();
+                    setWallet(null);
                   }}
                   className="block w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-center transition-colors"
                 >
                   ✨ Create Another NFT
+                </button>
+                
+                {/* Return to Home Button */}
+                <button
+                  onClick={resetToHome}
+                  className="block w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg text-center transition-colors"
+                >
+                  🏠 Ana Sayfaya Dön
                 </button>
               </div>
               
