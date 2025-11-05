@@ -759,6 +759,25 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+      {/* Fixed Header - Top Right */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 items-end">
+        {/* Wallet Address */}
+        {wallet && (
+          <div className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-4 py-2 text-sm font-mono">
+            <span className="text-gray-400 mr-2">Wallet:</span>
+            <span className="text-white">{wallet.substring(0, 6)}...{wallet.substring(wallet.length - 4)}</span>
+          </div>
+        )}
+        
+        {/* X Account */}
+        {xUser && (
+          <div className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-4 py-2 text-sm">
+            <span className="text-gray-400 mr-2">X:</span>
+            <span className="text-white">@{xUser.username}</span>
+          </div>
+        )}
+      </div>
+      
       <div className="container mx-auto px-4 py-16">
         <h1 className="text-5xl font-bold text-center mb-8">Aura Creatures</h1>
         <p className="text-xl text-center mb-12 text-gray-300">
