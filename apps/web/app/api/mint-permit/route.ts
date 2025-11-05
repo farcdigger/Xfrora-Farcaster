@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(x402Response, { status: 402 });
       }
       
-      // Verify payment (with on-chain verification if transaction hash provided)
+      // Verify payment and execute USDC transfer via facilitator
       paymentVerification = await verifyX402Payment(
         paymentHeader,
         env.X402_FACILITATOR_URL,
