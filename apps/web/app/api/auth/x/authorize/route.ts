@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/env.mjs";
-import { createHash } from "crypto";
 
 /**
  * Encrypt verifier into state parameter
@@ -48,7 +47,8 @@ function decodeVerifierFromState(encryptedState: string): { state: string; verif
     const verifier = Buffer.from(encodedVerifier, 'base64url').toString('utf-8');
     
     // Verify HMAC signature
-    const hmac = createHmac('sha256', env.X_CLIENT_SECRET);
+    const crypto = require('crypto');
+    const hmac = crypto.createHmac('sha256', env.X_CLIENT_SECRET);
     hmac.update(verifier);
     const expectedSignature = hmac.digest('base64url');
     
@@ -84,7 +84,7 @@ function generatePKCE() {
     .substring(0, 128); // Ensure max 128 characters
   
   // Generate code challenge (SHA256 hash of verifier, base64url encoded)
-  const challenge = createHash('sha256')
+  const challenge = crypto.createHash('sha256')
     .update(verifier)
     .digest('base64')
     .replace(/\+/g, '-')
