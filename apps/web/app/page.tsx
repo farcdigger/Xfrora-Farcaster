@@ -544,9 +544,26 @@ function HomePageContent() {
       }
       console.log("✅ Contract code verified at address");
       
+      // Convert xUserId from hex string to BigInt for contract call
+      // Backend stores xUserId as hex string (0x...), but contract expects uint256
+      const authForContract = {
+        ...permit.auth,
+        xUserId: BigInt(permit.auth.xUserId), // Convert hex string to BigInt
+      };
+      
+      console.log("📝 Auth data for contract (xUserId converted to BigInt):", {
+        to: authForContract.to,
+        payer: authForContract.payer,
+        xUserId: authForContract.xUserId.toString(),
+        xUserIdType: typeof authForContract.xUserId,
+        tokenURI: authForContract.tokenURI?.substring(0, 50) + "...",
+        nonce: authForContract.nonce,
+        deadline: authForContract.deadline,
+      });
+      
       // Call mintWithSig
       console.log("📝 Calling mintWithSig...");
-      const tx = await contract.mintWithSig(permit.auth, permit.signature);
+      const tx = await contract.mintWithSig(authForContract, permit.signature);
       console.log("✅ Transaction sent:", tx.hash);
       console.log("⏳ Waiting for transaction confirmation...");
       
