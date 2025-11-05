@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createX402Response, verifyX402Payment } from "@/lib/x402";
 import { signMintAuth } from "@/lib/eip712";
 import { db, tokens } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
@@ -49,45 +50,51 @@ export async function POST(request: NextRequest) {
     // - Contract already prevents duplicate mints (usedXUserId check)
     // - Existing NFT mint is a legitimate operation, shouldn't be rate limited
     
-    // x402 payment is handled by middleware (middleware.ts)
-    // If request reaches here, payment has been verified and executed by middleware
-    // The middleware automatically:
+    // x402 payment verification and execution
+    // We handle payment verification in route handler (not middleware) due to Edge Runtime size limits
+    // The verification process:
     // 1. Returns 402 Payment Required if no X-PAYMENT header
-    // 2. Verifies payment via facilitator
-    // 3. Executes USDC transfer via facilitator
+    // 2. Verifies payment via facilitator (using @coinbase/x402)
+    // 3. Facilitator executes USDC transfer automatically
     // 4. Allows request to proceed if payment is valid
     
-    // Extract payment information from X-PAYMENT header if available
+    // Check X-PAYMENT header (only in production)
     const paymentHeader = request.headers.get("X-PAYMENT");
     
     let paymentVerification: any = null;
     
-    if (!isMockMode && paymentHeader) {
-      // Payment verified by middleware - extract payer from payment header
-      try {
-        const paymentData = JSON.parse(paymentHeader);
-        paymentVerification = {
-          payer: paymentData.payer || paymentData.from || wallet, // Fallback to wallet if not in header
-          amount: paymentData.amount || env.X402_PRICE_USDC,
-          asset: paymentData.asset || "USDC",
-          network: paymentData.network || "base",
-          recipient: paymentData.recipient || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF",
-        };
-        console.log(`✅ Payment verified by x402 middleware, payer: ${paymentVerification.payer}`);
-        console.log(`   Amount: ${paymentVerification.amount} ${paymentVerification.asset}`);
-        console.log(`   Facilitator executed USDC transfer automatically`);
-      } catch (error) {
-        console.warn(`⚠️ Could not parse payment header: ${error}`);
-        // Fallback: use wallet as payer (shouldn't happen if middleware works correctly)
-        paymentVerification = {
-          payer: wallet,
-          amount: env.X402_PRICE_USDC,
-          asset: "USDC",
-          network: "base",
-          recipient: "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF",
-        };
+    if (!isMockMode) {
+      // Production mode - require x402 payment
+      if (!paymentHeader) {
+        // First request - return 402 payment required
+        if (!env.SERVER_SIGNER_PRIVATE_KEY) {
+          return NextResponse.json({ error: "SERVER_SIGNER_PRIVATE_KEY not configured" }, { status: 500 });
+        }
+        const serverWallet = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
+        const recipientAddress = serverWallet.address;
+        console.log(`💳 402 Payment Required`);
+        console.log(`   Recipient wallet: ${recipientAddress}`);
+        const x402Response = createX402Response(recipientAddress);
+        return NextResponse.json(x402Response, { status: 402 });
       }
-    } else if (isMockMode) {
+      
+      // Verify payment and execute USDC transfer via facilitator
+      // verifyX402Payment uses @coinbase/x402 facilitator internally
+      paymentVerification = await verifyX402Payment(
+        paymentHeader,
+        env.X402_FACILITATOR_URL,
+        env.RPC_URL
+      );
+      
+      if (!paymentVerification) {
+        return NextResponse.json({ error: "Payment verification failed" }, { status: 402 });
+      }
+      
+      console.log(`✅ Payment verified and executed via CDP facilitator`);
+      console.log(`   Payer: ${paymentVerification.payer}`);
+      console.log(`   Amount: ${paymentVerification.amount} ${paymentVerification.asset}`);
+      console.log(`   Facilitator executed USDC transfer automatically`);
+    } else {
       // Mock mode - use wallet as payer for testing
       console.log("🐛 Mock mode: Skipping x402 payment verification");
       paymentVerification = {
