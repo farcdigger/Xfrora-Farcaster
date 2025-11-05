@@ -93,18 +93,15 @@ export async function verifyX402Payment(
     // The signature proves the user committed to pay the specified amount
     // IMPORTANT: Use network from payment data, not environment variable
     // This ensures client and server use the same network and USDC address
-    // Normalize network: support both "base" and "base-mainnet"
-    let network = paymentData.network || "base-mainnet";
-    if (network === "base") {
-      network = "base-mainnet";
-    }
+    // Middleware expects "base" format, not "base-mainnet"
+    const network = paymentData.network || "base";
     
     // Determine chain ID from network (must match client-side)
-    const chainId = (network === "base" || network === "base-mainnet") ? 8453 : 
+    const chainId = network === "base" ? 8453 : 
                     network === "base-sepolia" ? 84532 : 8453;
     
     // Get USDC address for network (must match client-side)
-    const usdcAddress = (network === "base" || network === "base-mainnet")
+    const usdcAddress = network === "base"
       ? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" // Base Mainnet USDC
       : network === "base-sepolia"
       ? (process.env.USDC_CONTRACT_ADDRESS || null) // Base Sepolia (testnet)

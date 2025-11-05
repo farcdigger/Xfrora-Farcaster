@@ -174,8 +174,8 @@ export async function generateX402PaymentHeader(
   // Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
   
   // Determine chain ID from network
-  // Support both "base" and "base-mainnet" for mainnet
-  const chainId = (paymentOption.network === "base" || paymentOption.network === "base-mainnet") ? 8453 : 
+  // Middleware expects "base" format, not "base-mainnet"
+  const chainId = paymentOption.network === "base" ? 8453 : 
                   paymentOption.network === "base-sepolia" ? 84532 : 8453;
   
   // Validate and normalize USDC address (must be a valid Ethereum address, not ENS)
