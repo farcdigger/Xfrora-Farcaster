@@ -594,8 +594,35 @@ function HomePageContent() {
       
       // Call mintWithSig with struct object (ethers.js will encode correctly)
       console.log("📝 Calling mintWithSig with struct object...");
-      const tx = await contract.mintWithSig(authForContract, permit.signature);
-      console.log("✅ Transaction sent:", tx.hash);
+      console.log("📝 About to call contract.mintWithSig()");
+      console.log("📝 Auth param:", JSON.stringify({
+        to: authForContract.to,
+        payer: authForContract.payer,
+        xUserId: authForContract.xUserId.toString(),
+        tokenURI: authForContract.tokenURI,
+        nonce: authForContract.nonce.toString(),
+        deadline: authForContract.deadline.toString(),
+      }, null, 2));
+      console.log("📝 Signature param:", permit.signature);
+      
+      let tx;
+      try {
+        console.log("⏳ Estimating gas...");
+        const gasEstimate = await contract.mintWithSig.estimateGas(authForContract, permit.signature);
+        console.log("✅ Gas estimate successful:", gasEstimate.toString());
+        
+        console.log("⏳ Sending transaction...");
+        tx = await contract.mintWithSig(authForContract, permit.signature);
+        console.log("✅ Transaction sent:", tx.hash);
+      } catch (callError: any) {
+        console.error("❌ Contract call failed:", callError);
+        console.error("❌ Error name:", callError.name);
+        console.error("❌ Error message:", callError.message);
+        console.error("❌ Error code:", callError.code);
+        console.error("❌ Error data:", callError.data);
+        console.error("❌ Error reason:", callError.reason);
+        throw callError;
+      }
       console.log("⏳ Waiting for transaction confirmation...");
       
       const receipt = await tx.wait();
