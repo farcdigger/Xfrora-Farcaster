@@ -214,44 +214,24 @@ export async function verifyX402Payment(
       console.log(`   Recipient: ${paymentData.recipient}`);
       console.log(`   ⚠️ Payment commitment verified - signature IS the payment authorization`);
       
-      // Execute USDC transfer via Coinbase CDP facilitator
       // x402 Protocol: EIP-712 signature is the payment authorization
-      // CDP facilitator executes the actual USDC transfer on-chain
+      // IMPORTANT: For production USDC transfer, integrate CDP facilitator as MIDDLEWARE
+      // 
+      // Coinbase x402 facilitator works as middleware, not as manual API:
+      // - Install: npm install x402-next @coinbase/x402
+      // - Use: import { paymentMiddleware, facilitator } from "x402-next"
+      // - See: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers#running-on-mainnet
+      //
+      // For now, we accept the EIP-712 signature as proof of payment authorization.
+      // The signature proves the user committed to pay 2 USDC.
+      // In production with CDP middleware, USDC transfer happens automatically.
+      
       console.log(`✅ x402 payment authorization verified via EIP-712 signature`);
       console.log(`   Signature authorizes payment of ${formattedAmount} USDC`);
       console.log(`   From: ${paymentData.payer} → To: ${paymentData.recipient}`);
-      
-      // Execute USDC transfer if CDP facilitator is configured
-      let transactionHash: string | null = null;
-      try {
-        const { executeFacilitatorTransfer, isFacilitatorAvailable } = await import("./facilitator");
-        
-        if (isFacilitatorAvailable()) {
-          console.log("📤 Executing USDC transfer via Coinbase CDP facilitator...");
-          transactionHash = await executeFacilitatorTransfer(
-            paymentHeader,
-            paymentData.network || "base",
-            paymentData.amount,
-            paymentData.payer,
-            paymentData.recipient
-          );
-          
-          if (transactionHash) {
-            console.log(`✅ USDC transfer executed successfully via CDP facilitator`);
-            console.log(`   Transaction hash: ${transactionHash}`);
-          } else {
-            console.warn("⚠️ CDP facilitator transfer failed - continuing with signature verification");
-          }
-        } else {
-          console.warn("⚠️ CDP facilitator not configured - USDC transfer not executed");
-          console.warn("   Payment signature is verified, but actual USDC transfer requires CDP API keys");
-          console.warn("   Set CDP_API_KEY_ID and CDP_API_KEY_SECRET environment variables");
-          console.warn("   Get keys at: https://cdp.coinbase.com");
-        }
-      } catch (facilitatorError: any) {
-        console.error("❌ Facilitator integration error:", facilitatorError.message);
-        console.warn("   Continuing with signature verification only");
-      }
+      console.log(`   ✅ Payment commitment is cryptographically verified`);
+      console.log(`   📚 For automatic USDC transfer: Use CDP facilitator middleware`);
+      console.log(`   📖 Docs: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers`);
       
       return {
         paymentId: paymentData.nonce || `payment_${timestamp}`,
