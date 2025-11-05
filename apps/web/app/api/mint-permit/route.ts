@@ -7,12 +7,13 @@ import { env, isMockMode } from "@/env.mjs";
 import { ethers } from "ethers";
 import type { MintPermitRequest, MintAuth } from "@/lib/types";
 
-// Contract ABI for querying nonce
+// Contract ABI for querying nonce and owner
 const CONTRACT_ABI = [
   "function getNonce(address user) external view returns (uint256)",
   "function totalSupply() external view returns (uint256)",
   "function MAX_SUPPLY() external view returns (uint256)",
   "function usedXUserId(uint256) external view returns (bool)",
+  "function owner() external view returns (address)",
 ];
 
 export async function POST(request: NextRequest) {
