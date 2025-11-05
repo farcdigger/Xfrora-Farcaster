@@ -418,42 +418,40 @@ function HomePageContent() {
         }
 
         const paymentOption = paymentRequest.accepts[0];
-        console.log(`💰 Payment required: ${paymentOption.amount} ${paymentOption.asset} on ${paymentOption.network}`);
         console.log(`📋 Payment option:`, paymentOption);
         console.log(`📋 Full payment request:`, paymentRequest);
         
-        // Validate payment option has all required fields
-        // Middleware may not include recipient in accepts array, use default recipient
-        const recipientAddress = paymentOption.recipient || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF";
+        // Middleware may return different field names:
+        // - `amount` or `maxAmountRequired` for amount
+        // - `recipient` or `payTo` for recipient address
+        // - `asset` is the USDC contract address
+        const amount = (paymentOption as any).amount || (paymentOption as any).maxAmountRequired || "100000";
+        const recipientAddress = (paymentOption as any).recipient || (paymentOption as any).payTo || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF";
+        const asset = paymentOption.asset || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC
+        const network = paymentOption.network || "base";
         
-        if (!paymentOption.amount || !paymentOption.asset || !paymentOption.network) {
+        console.log(`💰 Payment required: ${amount} ${asset} on ${network}`);
+        console.log(`   Recipient: ${recipientAddress}`);
+        
+        // Validate we have the minimum required fields
+        if (!asset || !network) {
           console.error("❌ Payment option missing required fields:", paymentOption);
           throw new Error(
             `Invalid payment response: missing required fields.\n\n` +
             `Payment option: ${JSON.stringify(paymentOption, null, 2)}\n\n` +
-            `Required fields: amount, asset, network`
+            `Required fields: asset, network`
           );
         }
         
-        // Create payment option with recipient address
-        // Type assertion needed because middleware may return different type
+        // Create payment option with normalized fields
         const paymentOptionWithRecipient: X402PaymentRequest = {
-          asset: paymentOption.asset || "USDC",
-          amount: paymentOption.amount || "100000", // 0.1 USDC (6 decimals)
-          network: paymentOption.network || "base",
+          asset: asset,
+          amount: amount,
+          network: network,
           recipient: recipientAddress,
         };
         
-        console.log(`✅ Payment option with recipient:`, paymentOptionWithRecipient);
-        
-        if (!paymentOption.amount || !paymentOption.asset || !paymentOption.network) {
-          console.error("❌ Payment option missing required fields:", paymentOption);
-          throw new Error(
-            `Invalid payment response: missing required fields.\n\n` +
-            `Payment option: ${JSON.stringify(paymentOption, null, 2)}\n\n` +
-            `Required fields: amount, asset, network, recipient`
-          );
-        }
+        console.log(`✅ Payment option normalized:`, paymentOptionWithRecipient);
         
         // Generate x402 payment header using Coinbase CDP x402 protocol
         // This follows the x402 protocol: generate payment header, facilitator executes transfer
