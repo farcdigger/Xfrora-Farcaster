@@ -63,8 +63,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "SERVER_SIGNER_PRIVATE_KEY not configured" }, { status: 500 });
         }
         const serverWallet = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
-        console.log(`💳 402 Payment Required - Server wallet (recipient): ${serverWallet.address}`);
-        const x402Response = createX402Response(serverWallet.address);
+        const recipientAddress = serverWallet.address;
+        console.log(`💳 402 Payment Required`);
+        console.log(`   Recipient wallet: ${recipientAddress}`);
+        console.log(`   Expected recipient: 0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF`);
+        console.log(`   Match: ${recipientAddress.toLowerCase() === "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF".toLowerCase() ? "✅ YES" : "❌ NO"}`);
+        const x402Response = createX402Response(recipientAddress);
         return NextResponse.json(x402Response, { status: 402 });
       }
       

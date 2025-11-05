@@ -261,31 +261,80 @@ export async function verifyX402Payment(
         } else if (process.env.CDP_API_KEY_ID && process.env.CDP_API_KEY_SECRET) {
           // CDP facilitator (mainnet) - use @coinbase/x402 package
           console.log(`🔗 Executing payment via CDP facilitator...`);
+          console.log(`   Recipient: ${paymentData.recipient}`);
+          console.log(`   Amount: ${formattedAmount} USDC`);
+          console.log(`   Network: ${paymentData.network || "base"}`);
           
           try {
             const { facilitator } = await import("@coinbase/x402");
             
-            // Create facilitator config
-            const facilitatorConfig = {
-              apiKeyId: process.env.CDP_API_KEY_ID,
-              apiKeySecret: process.env.CDP_API_KEY_SECRET,
+            // Facilitator is automatically configured via environment variables
+            // CDP_API_KEY_ID and CDP_API_KEY_SECRET are read from process.env
+            // The facilitator middleware handles payment execution automatically
+            // Since we're not using middleware, we need to manually trigger payment
+            
+            // Parse payment data for facilitator
+            const paymentProof = {
+              signature: paymentData.signature,
+              message: {
+                amount: paymentData.amount,
+                asset: paymentData.asset,
+                network: paymentData.network || "base",
+                recipient: paymentData.recipient,
+                payer: paymentData.payer,
+                timestamp: paymentData.timestamp,
+                nonce: paymentData.nonce,
+              },
             };
             
-            // Execute payment via CDP facilitator
-            // The facilitator will execute USDC transfer on-chain
-            const result = await facilitator.executePayment(
-              paymentHeader,
-              facilitatorConfig
+            console.log(`📝 Sending payment proof to CDP facilitator...`);
+            console.log(`   Payer: ${paymentData.payer}`);
+            console.log(`   Recipient: ${paymentData.recipient}`);
+            
+            // CDP Facilitator REST API endpoint
+            // Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
+            const cdpApiUrl = "https://api.cdp.coinbase.com/x402/v1/payments";
+            
+            console.log(`📡 Calling CDP Facilitator API: ${cdpApiUrl}`);
+            
+            // Prepare payment request for CDP facilitator
+            const paymentRequest = {
+              paymentProof: paymentHeader, // Full payment header with EIP-712 signature
+              network: paymentData.network || "base",
+              recipient: paymentData.recipient,
+              amount: paymentData.amount,
+              asset: paymentData.asset,
+            };
+            
+            // Call CDP facilitator API to execute payment
+            const facilitatorResponse = await axios.post(
+              cdpApiUrl,
+              paymentRequest,
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-CDP-API-KEY-ID": process.env.CDP_API_KEY_ID || "",
+                  "X-CDP-API-KEY-SECRET": process.env.CDP_API_KEY_SECRET || "",
+                },
+                auth: {
+                  username: process.env.CDP_API_KEY_ID || "",
+                  password: process.env.CDP_API_KEY_SECRET || "",
+                },
+              }
             );
             
-            if (result?.transactionHash) {
+            if (facilitatorResponse.data?.transactionHash) {
               console.log(`✅ CDP Facilitator executed USDC transfer!`);
-              console.log(`   Transaction hash: ${result.transactionHash}`);
+              console.log(`   Transaction hash: ${facilitatorResponse.data.transactionHash}`);
+              console.log(`   Recipient: ${paymentData.recipient}`);
+              console.log(`   Amount: ${formattedAmount} USDC`);
             } else {
-              console.warn(`⚠️ CDP Facilitator response: ${JSON.stringify(result)}`);
+              console.warn(`⚠️ CDP Facilitator response: ${JSON.stringify(facilitatorResponse.data)}`);
+              console.warn(`   Payment may still be processed asynchronously`);
             }
           } catch (cdpError: any) {
             console.error(`❌ CDP Facilitator error: ${cdpError.message}`);
+            console.error(`   Stack: ${cdpError.stack}`);
             // Don't fail - signature is verified, facilitator might have issues
             console.warn(`⚠️ Continuing with signature verification only`);
           }
