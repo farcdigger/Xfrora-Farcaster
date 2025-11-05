@@ -546,23 +546,41 @@ function HomePageContent() {
       
       // Convert xUserId from hex string to BigInt for contract call
       // Backend stores xUserId as hex string (0x...), but contract expects uint256
-      const authForContract = {
-        ...permit.auth,
-        xUserId: BigInt(permit.auth.xUserId), // Convert hex string to BigInt
-      };
+      // CRITICAL: Must explicitly construct the tuple to ensure proper encoding
+      const xUserIdBigInt = BigInt(permit.auth.xUserId);
       
-      console.log("📝 Auth data for contract (xUserId converted to BigInt):", {
-        to: authForContract.to,
-        payer: authForContract.payer,
-        xUserId: authForContract.xUserId.toString(),
-        xUserIdType: typeof authForContract.xUserId,
-        tokenURI: authForContract.tokenURI?.substring(0, 50) + "...",
-        nonce: authForContract.nonce,
-        deadline: authForContract.deadline,
+      console.log("📝 xUserId conversion check:", {
+        original: permit.auth.xUserId,
+        originalType: typeof permit.auth.xUserId,
+        converted: xUserIdBigInt.toString(),
+        convertedType: typeof xUserIdBigInt,
+        hexMatch: BigInt(permit.auth.xUserId).toString(16),
       });
       
-      // Call mintWithSig
-      console.log("📝 Calling mintWithSig...");
+      // Explicitly construct the auth tuple with all BigInt conversions
+      const authForContract = [
+        permit.auth.to,           // address to
+        permit.auth.payer,        // address payer
+        xUserIdBigInt,           // uint256 xUserId - MUST be BigInt
+        permit.auth.tokenURI,    // string tokenURI
+        BigInt(permit.auth.nonce),    // uint256 nonce
+        BigInt(permit.auth.deadline), // uint256 deadline
+      ];
+      
+      console.log("📝 Auth tuple for contract:", {
+        to: authForContract[0],
+        payer: authForContract[1],
+        xUserId: authForContract[2].toString(),
+        xUserIdType: typeof authForContract[2],
+        tokenURI: authForContract[3]?.substring(0, 50) + "...",
+        nonce: authForContract[4].toString(),
+        nonceType: typeof authForContract[4],
+        deadline: authForContract[5].toString(),
+        deadlineType: typeof authForContract[5],
+      });
+      
+      // Call mintWithSig with explicit tuple encoding
+      console.log("📝 Calling mintWithSig with tuple...");
       const tx = await contract.mintWithSig(authForContract, permit.signature);
       console.log("✅ Transaction sent:", tx.hash);
       console.log("⏳ Waiting for transaction confirmation...");
