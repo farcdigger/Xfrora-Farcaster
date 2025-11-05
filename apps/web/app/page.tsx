@@ -419,6 +419,38 @@ function HomePageContent() {
 
         const paymentOption = paymentRequest.accepts[0];
         console.log(`💰 Payment required: ${paymentOption.amount} ${paymentOption.asset} on ${paymentOption.network}`);
+        console.log(`📋 Payment option:`, paymentOption);
+        console.log(`📋 Full payment request:`, paymentRequest);
+        
+        // Validate payment option has all required fields
+        // Middleware may not include recipient in accepts array, use default recipient
+        const recipientAddress = paymentOption.recipient || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF";
+        
+        if (!paymentOption.amount || !paymentOption.asset || !paymentOption.network) {
+          console.error("❌ Payment option missing required fields:", paymentOption);
+          throw new Error(
+            `Invalid payment response: missing required fields.\n\n` +
+            `Payment option: ${JSON.stringify(paymentOption, null, 2)}\n\n` +
+            `Required fields: amount, asset, network`
+          );
+        }
+        
+        // Create payment option with recipient address
+        const paymentOptionWithRecipient: X402PaymentRequest = {
+          ...paymentOption,
+          recipient: recipientAddress,
+        };
+        
+        console.log(`✅ Payment option with recipient:`, paymentOptionWithRecipient);
+        
+        if (!paymentOption.amount || !paymentOption.asset || !paymentOption.network) {
+          console.error("❌ Payment option missing required fields:", paymentOption);
+          throw new Error(
+            `Invalid payment response: missing required fields.\n\n` +
+            `Payment option: ${JSON.stringify(paymentOption, null, 2)}\n\n` +
+            `Required fields: amount, asset, network, recipient`
+          );
+        }
         
         // Generate x402 payment header using Coinbase CDP x402 protocol
         // This follows the x402 protocol: generate payment header, facilitator executes transfer
@@ -426,30 +458,33 @@ function HomePageContent() {
           throw new Error("Wallet not connected. Please connect your wallet first.");
         }
 
-        console.log("💳 Generating x402 payment header...");
-        setError(null);
-        setLoading(true);
-        
-        try {
-          // Use Daydreams SDK's generateX402PaymentBrowser pattern
-          // This creates a payment header that can be verified by the server
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const signer = await provider.getSigner();
-          const walletAddress = await signer.getAddress();
+          console.log("💳 Generating x402 payment header...");
+          console.log(`   Recipient: ${paymentOptionWithRecipient.recipient}`);
+          console.log(`   Amount: ${paymentOptionWithRecipient.amount} ${paymentOptionWithRecipient.asset}`);
+          console.log(`   Network: ${paymentOptionWithRecipient.network}`);
+          setError(null);
+          setLoading(true);
           
-          // Generate x402 payment header using EIP-712 signature
-          // x402 Protocol: User signs payment commitment, facilitator executes USDC transfer
-          // Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
-          // The facilitator will automatically execute USDC transfer when payment header is received
-          const paymentHeader = await generateX402PaymentHeader(
-            walletAddress,
-            signer,
-            paymentOption
-          );
+          try {
+            // Use Daydreams SDK's generateX402PaymentBrowser pattern
+            // This creates a payment header that can be verified by the server
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const walletAddress = await signer.getAddress();
+            
+            // Generate x402 payment header using EIP-712 signature
+            // x402 Protocol: User signs payment commitment, facilitator executes USDC transfer
+            // Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
+            // The facilitator will automatically execute USDC transfer when payment header is received
+            const paymentHeader = await generateX402PaymentHeader(
+              walletAddress,
+              signer,
+              paymentOptionWithRecipient
+            );
           
           console.log(`✅ Payment header generated (EIP-712 signature)`);
           console.log(`   Facilitator will execute USDC transfer automatically`);
-          console.log(`   Recipient: ${paymentOption.recipient}`);
+          console.log(`   Recipient: ${paymentOptionWithRecipient.recipient}`);
           
           // Retry mint permit request with payment proof
           console.log("📝 Requesting mint permit with payment proof...");
