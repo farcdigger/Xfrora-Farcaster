@@ -526,7 +526,7 @@ function HomePageContent() {
       }
       
       // Check if contract address matches expected Base Mainnet address
-      const expectedAddress = "0x82866D704fa3203EAD035c1FD339ce916cbC11A1";
+      const expectedAddress = "0x3ACA7E83B208E5243FE31eB3690c6781aB3010bb";
       if (contractAddress.toLowerCase() !== expectedAddress.toLowerCase()) {
         console.warn(`⚠️ Contract address mismatch! Expected: ${expectedAddress}, Got: ${contractAddress}`);
         console.warn("⚠️ This might be using an old contract address. Continuing anyway...");
