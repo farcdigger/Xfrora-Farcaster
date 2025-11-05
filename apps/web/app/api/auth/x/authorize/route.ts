@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/env.mjs";
-import { createHash, createHmac } from "crypto";
+import { createHash } from "crypto";
 
 /**
  * Encrypt verifier into state parameter
@@ -14,7 +14,8 @@ function encodeVerifierInState(state: string, verifier: string): string {
   }
   
   // Create HMAC signature for verifier
-  const hmac = createHmac('sha256', env.X_CLIENT_SECRET);
+  const crypto = require('crypto');
+  const hmac = crypto.createHmac('sha256', env.X_CLIENT_SECRET);
   hmac.update(verifier);
   const signature = hmac.digest('base64url');
   

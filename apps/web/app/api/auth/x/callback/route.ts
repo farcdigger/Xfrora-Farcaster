@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForToken, verifyXToken } from "@/lib/x";
 import { env } from "@/env.mjs";
 import { kv } from "@/lib/kv";
-import { createHmac } from "crypto";
 
 /**
  * Decode verifier from encrypted state parameter
@@ -25,7 +24,8 @@ function decodeVerifierFromState(encryptedState: string): { state: string; verif
     const verifier = Buffer.from(encodedVerifier, 'base64url').toString('utf-8');
     
     // Verify HMAC signature
-    const hmac = createHmac('sha256', env.X_CLIENT_SECRET);
+    const crypto = require('crypto');
+    const hmac = crypto.createHmac('sha256', env.X_CLIENT_SECRET);
     hmac.update(verifier);
     const expectedSignature = hmac.digest('base64url');
     
