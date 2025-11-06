@@ -769,6 +769,8 @@ function HomePageContent() {
         throw new Error("Transaction receipt is null");
       }
       
+      // Mark as minted so user can't mint again
+      setAlreadyMinted(true);
       setStep("mint");
       setError(null);
     } catch (err: any) {
