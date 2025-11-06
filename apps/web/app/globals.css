@@ -4,9 +4,9 @@
 
 :root {
   --foreground-rgb: 31, 41, 55; /* gray-800 */
-  --background-start-rgb: 249, 250, 251; /* gray-50 */
-  --background-mid-rgb: 243, 232, 255; /* purple-50 */
-  --background-end-rgb: 239, 246, 255; /* blue-50 */
+  --background-start-rgb: 243, 244, 246; /* gray-100 */
+  --background-mid-rgb: 237, 233, 254; /* purple-100 */
+  --background-end-rgb: 224, 242, 254; /* blue-100 */
 }
 
 body {
@@ -20,12 +20,12 @@ body {
   min-height: 100vh;
 }
 
-/* Glassmorphism effect - Light theme */
+/* Glassmorphism effect - Softer light theme */
 .glass {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(209, 213, 219, 0.3); /* gray-300 */
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(209, 213, 219, 0.4); /* gray-300 */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 /* Smooth animations */
@@ -53,9 +53,9 @@ body {
   @apply bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-all duration-300 border border-gray-300;
 }
 
-/* Card styles - Light theme */
+/* Card styles - Softer light theme */
 .card {
-  @apply bg-white/95 backdrop-blur-lg rounded-xl p-6 border border-gray-200 transition-all duration-300 hover:shadow-lg shadow-sm;
+  @apply bg-white/80 backdrop-blur-lg rounded-xl p-6 border border-gray-300 transition-all duration-300 hover:shadow-lg shadow-md;
 }
 
 /* Icon styles */
