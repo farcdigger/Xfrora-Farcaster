@@ -27,22 +27,6 @@ const CONTRACT_ABI = [
 // Create Hono app
 const app = new Hono();
 
-// Apply x402 payment middleware to ALL routes in this file
-// CDP facilitator ile Base mainnet üzerinde 0.1 USDC ödemesi alınacak
-app.use("*", paymentMiddleware(
-  RECIPIENT_ADDRESS,
-  {
-    "*": {
-      price: "$0.1", // 0.1 USDC ödeme
-      network: "base" as Network, // Base mainnet
-      config: {
-        description: "Mint permit for Aura Creatures NFT - Pay 0.1 USDC to mint your unique AI-generated NFT"
-      }
-    }
-  },
-  facilitator // CDP facilitator for mainnet - Vercel'de CDP_API_KEY_ID ve CDP_API_KEY_SECRET olmalı
-));
-
 // GET request - return method not allowed
 app.get("/", (c) => {
   return c.json({ 
@@ -52,7 +36,22 @@ app.get("/", (c) => {
 });
 
 // POST request - Generate mint permit (protected by x402 payment)
-app.post("/", async (c) => {
+// Apply x402 payment middleware directly to POST route
+app.post("/", 
+  paymentMiddleware(
+    RECIPIENT_ADDRESS,
+    {
+      "*": {
+        price: "$0.1", // 0.1 USDC ödeme
+        network: "base" as Network, // Base mainnet
+        config: {
+          description: "Mint permit for Aura Creatures NFT - Pay 0.1 USDC to mint your unique AI-generated NFT"
+        }
+      }
+    },
+    facilitator // CDP facilitator for mainnet
+  ),
+  async (c) => {
   try {
     const body = await c.req.json();
     const { wallet, x_user_id } = body;
@@ -157,7 +156,7 @@ app.post("/", async (c) => {
       message: error?.message || "Failed to generate mint permit"
     }, 500);
   }
-});
+}); // end of POST handler
 
 // Export handlers for Next.js
 export const GET = handle(app);
