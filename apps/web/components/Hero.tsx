@@ -42,7 +42,7 @@ export default function Hero({ xUser }: HeroProps) {
               <>
                 <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-200 via-blue-200 to-teal-200 flex items-center justify-center overflow-hidden ring-4 ring-purple-300">
                   <img
-                    src={xUser.profile_image_url}
+                    src={xUser.profile_image_url.replace('_normal', '_400x400')}
                     alt={`@${xUser.username}`}
                     className="w-full h-full object-cover"
                   />
