@@ -14,6 +14,13 @@ const nextConfig = {
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "",
   },
   webpack: (config, { isServer }) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@react-native-async-storage/async-storage": false,
+      "pino-pretty": false,
+    };
+
     // Exclude Node.js-only modules from client-side bundle
     if (!isServer) {
       config.resolve.fallback = {

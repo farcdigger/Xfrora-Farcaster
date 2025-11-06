@@ -18,16 +18,26 @@ export default function GenerationProgress() {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const totalDuration = 16_000; // 16 seconds
+    let step = 0;
+    const totalDuration = 16_000;
     const stepDuration = totalDuration / intervals.length;
 
+    setProgress(intervals[0]);
+    setIndex(0);
+
     const interval = setInterval(() => {
-      setProgress(() => Math.min(intervals[index + 1] ?? 100, 100));
-      setIndex((prev) => Math.min(prev + 1, PHRASES.length - 1));
+      step += 1;
+      const nextProgress = intervals[step] ?? 100;
+      setProgress(Math.min(nextProgress, 100));
+      setIndex(Math.min(step, PHRASES.length - 1));
+
+      if (step >= intervals.length) {
+        clearInterval(interval);
+      }
     }, stepDuration);
 
     return () => clearInterval(interval);
-  }, [intervals.length]);
+  }, [intervals]);
 
   const currentPhrase = PHRASES[index] || PHRASES[PHRASES.length - 1];
 
