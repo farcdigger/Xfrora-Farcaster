@@ -110,12 +110,18 @@ async function settlePaymentWithCDPFacilitator(paymentPayload: any): Promise<{
       scheme: "exact",
       network: NETWORK,
       maxAmountRequired: PAYMENT_AMOUNT,
-      resource: `${env.NEXT_PUBLIC_SUPABASE_URL || 'https://aura-nft-iota.vercel.app'}/api/mint-permit-v2`,
+      resource: "https://aura-nft-iota.vercel.app/api/mint-permit-v2",
       description: "Pay 0.1 USDC to mint Aura Creatures NFT",
       mimeType: "application/json",
       payTo: RECIPIENT_ADDRESS,
       maxTimeoutSeconds: 300,
-      asset: BASE_USDC_ADDRESS
+      asset: BASE_USDC_ADDRESS,
+      outputSchema: {
+        input: {
+          type: "http",
+          method: "POST"
+        }
+      }
     };
     
     const requestBody = {
@@ -125,6 +131,16 @@ async function settlePaymentWithCDPFacilitator(paymentPayload: any): Promise<{
     };
     
     console.log("📤 Sending settlement request to CDP Facilitator (THIS TRANSFERS USDC)...");
+    console.log("🔍 Request body:", JSON.stringify({
+      x402Version: requestBody.x402Version,
+      paymentRequirements: requestBody.paymentRequirements,
+      paymentPayload: {
+        x402Version: paymentPayload.x402Version,
+        scheme: paymentPayload.scheme,
+        network: paymentPayload.network,
+        hasSignature: !!paymentPayload.payload?.signature
+      }
+    }, null, 2));
     
     const response = await fetch(`https://${requestHost}${requestPath}`, {
       method: requestMethod,
