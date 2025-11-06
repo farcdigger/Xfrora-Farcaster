@@ -1008,6 +1008,19 @@ function HomePageContent() {
         
             {/* Right: User Info & Buttons */}
             <div className="flex items-center gap-3">
+              {/* X Account Button */}
+              <a
+                href="https://x.com/XFroraNFT"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+                <span className="hidden sm:inline">Follow</span>
+              </a>
+              
               {xUser ? (
                 <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-sm">
                   <span className="text-gray-700">@{xUser.username}</span>
@@ -1031,9 +1044,9 @@ function HomePageContent() {
               ) : (
                 <div className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-semibold">
                   {wallet.substring(0, 6)}...{wallet.substring(wallet.length - 4)}
-          </div>
-        )}
-      </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </nav>
@@ -1245,6 +1258,33 @@ function HomePageContent() {
         
         {/* Example Creations - Frora Examples */}
         <PreviousCreations />
+      </div>
+      
+      {/* Footer */}
+      <footer className="mt-16 py-8 border-t border-gray-300">
+        <div className="container mx-auto px-4">
+          <p className="text-center text-gray-600 text-sm">
+            Your digital identity, reborn as an AI work of art. Crafted by{" "}
+            <a
+              href="https://x.com/daydreamsagents"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-600 hover:text-purple-700 font-semibold"
+            >
+              @daydreamsagents
+            </a>
+            {" "}Instantly minted via the x402 Protocol. On{" "}
+            <a
+              href="https://base.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 font-semibold"
+            >
+              @base
+            </a>
+          </p>
+        </div>
+      </footer>
         
         {/* OLD STEP-BASED UI - Hidden but kept for logic */}
         <div className="hidden">
