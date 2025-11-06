@@ -76,7 +76,6 @@ function HomePageContent() {
           setAlreadyMinted(true);
           setMintedTokenId(mintStatus.tokenId?.toString() || null);
           setGenerated({
-            success: true,
             imageUrl: mintStatus.imageUri || "",
             metadataUrl: mintStatus.metadataUri || "",
             preview: mintStatus.imageUri || "",
