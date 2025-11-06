@@ -32,20 +32,24 @@ export async function POST(request: NextRequest) {
           .where(eq(tokens.x_user_id, x_user_id))
           .limit(1);
 
-        const hasMinted = existingToken && existingToken.length > 0;
         const tokenData = existingToken?.[0];
+        const tokenId = tokenData?.token_id || 0;
+        
+        // hasMinted = true ONLY if token_id > 0 (actually minted on blockchain)
+        const hasMinted = existingToken && existingToken.length > 0 && tokenId > 0;
 
         console.log("✅ Mint status checked:", {
           x_user_id,
           hasMinted,
-          token_id: tokenData?.token_id,
+          token_id: tokenId,
           has_metadata: !!tokenData?.metadata_uri,
+          logic: `hasMinted = ${!!existingToken?.length} && tokenId(${tokenId}) > 0 = ${hasMinted}`
         });
 
         return NextResponse.json({
           hasMinted,
           hasMetadata: !!tokenData?.metadata_uri,
-          tokenId: tokenData?.token_id || 0,
+          tokenId: tokenId,
           imageUri: tokenData?.image_uri || null,
           metadataUri: tokenData?.metadata_uri || null,
         });
