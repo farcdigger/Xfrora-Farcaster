@@ -66,6 +66,95 @@ function create402Response() {
 }
 
 /**
+ * CDP Facilitator API - Ödeme settlement (USDC transfer)
+ * 
+ * API Docs: https://docs.cdp.coinbase.com/api-reference/v2/rest-api/x402-facilitator/settle-a-payment
+ * 
+ * Bu fonksiyon USDC'yi gerçekten transfer eder!
+ */
+async function settlePaymentWithCDPFacilitator(paymentPayload: any): Promise<{
+  success: boolean;
+  payer?: string;
+  transaction?: string;
+  errorReason?: string;
+}> {
+  try {
+    console.log("💰 Settling payment with CDP Facilitator API (USDC TRANSFER)...");
+    
+    const apiKeyId = env.CDP_API_KEY_ID;
+    const apiKeySecret = env.CDP_API_KEY_SECRET;
+    
+    if (!apiKeyId || !apiKeySecret) {
+      console.error("❌ CDP API keys not configured");
+      return { success: false, errorReason: "api_keys_missing" };
+    }
+    
+    // Generate JWT token using @coinbase/cdp-sdk/auth
+    const { generateJwt } = await import("@coinbase/cdp-sdk/auth");
+    
+    const requestHost = "api.cdp.coinbase.com";
+    const requestPath = "/platform/v2/x402/settle";
+    const requestMethod = "POST";
+    
+    console.log("🔐 Generating CDP JWT token for settlement...");
+    const token = await generateJwt({
+      apiKeyId: apiKeyId,
+      apiKeySecret: apiKeySecret,
+      requestMethod: requestMethod,
+      requestHost: requestHost,
+      requestPath: requestPath,
+      expiresIn: 120
+    });
+    
+    const paymentRequirements = {
+      scheme: "exact",
+      network: NETWORK,
+      maxAmountRequired: PAYMENT_AMOUNT,
+      resource: `${env.NEXT_PUBLIC_SUPABASE_URL || 'https://aura-nft-iota.vercel.app'}/api/mint-permit-v2`,
+      description: "Pay 0.1 USDC to mint Aura Creatures NFT",
+      mimeType: "application/json",
+      payTo: RECIPIENT_ADDRESS,
+      maxTimeoutSeconds: 300,
+      asset: BASE_USDC_ADDRESS
+    };
+    
+    const requestBody = {
+      x402Version: 1,
+      paymentPayload: paymentPayload,
+      paymentRequirements: paymentRequirements
+    };
+    
+    console.log("📤 Sending settlement request to CDP Facilitator (THIS TRANSFERS USDC)...");
+    
+    const response = await fetch(`https://${requestHost}${requestPath}`, {
+      method: requestMethod,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ CDP Facilitator settlement error:");
+      console.error("   Status:", response.status);
+      console.error("   Response:", errorText);
+      return { success: false, errorReason: "facilitator_error" };
+    }
+    
+    const result = await response.json();
+    console.log("✅ CDP Facilitator settlement response:", JSON.stringify(result, null, 2));
+    
+    return result;
+    
+  } catch (error) {
+    console.error("❌ Settlement error:", error);
+    return { success: false, errorReason: "exception" };
+  }
+}
+
+/**
  * CDP Facilitator API - Ödeme doğrulama
  * 
  * API Docs: https://docs.cdp.coinbase.com/api-reference/v2/rest-api/x402-facilitator/verify-a-payment
@@ -199,16 +288,40 @@ export async function POST(request: NextRequest) {
       return create402Response();
     }
     
-    // Payment header received - verify it
+    // Payment header received - parse and settle it
     console.log("🔍 Payment header received");
     console.log("Payment header:", paymentHeader.substring(0, 200) + "...");
     
-    // For now, accept any payment header (x402-fetch handles the payment flow)
-    // In production, you should verify with CDP Facilitator or manually verify the signature
-    // TODO: Implement proper payment verification
-    console.log("✅ Payment accepted (verification skipped for testing)");
+    // Parse payment payload
+    let paymentPayload;
+    try {
+      paymentPayload = JSON.parse(paymentHeader);
+    } catch (error) {
+      console.error("❌ Invalid payment header format");
+      return NextResponse.json(
+        { error: "Invalid payment header" },
+        { status: 400 }
+      );
+    }
     
-    console.log("✅ Payment verified successfully!");
+    // CRITICAL: Call settle API to transfer USDC!
+    console.log("💰 Calling CDP Facilitator SETTLE API to transfer USDC...");
+    const settlement = await settlePaymentWithCDPFacilitator(paymentPayload);
+    
+    if (!settlement.success) {
+      console.error("❌ Payment settlement failed:", settlement.errorReason);
+      return NextResponse.json(
+        { 
+          error: "Payment settlement failed", 
+          reason: settlement.errorReason 
+        },
+        { status: 402 }
+      );
+    }
+    
+    console.log("✅ Payment settled successfully!");
+    console.log(`   Payer: ${settlement.payer}`);
+    console.log(`   Transaction: ${settlement.transaction}`);
     console.log(`📝 Generating mint permit for wallet: ${wallet}, X user: ${x_user_id}`);
     
     // Convert x_user_id to uint256
