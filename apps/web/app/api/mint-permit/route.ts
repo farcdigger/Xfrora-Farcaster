@@ -1,10 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { Hono } from "hono";
+import { handle } from "hono/vercel";
+import { paymentMiddleware, Network } from "x402-hono";
+import { facilitator } from "@coinbase/x402";
 import { signMintAuth } from "@/lib/eip712";
 import { db, tokens } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { env, isMockMode } from "@/env.mjs";
 import { ethers } from "ethers";
-import type { MintPermitRequest, MintAuth } from "@/lib/types";
+import type { MintAuth } from "@/lib/types";
+
+// Recipient wallet address
+const RECIPIENT_ADDRESS = "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF";
 
 // Contract ABI for querying nonce and owner
 const CONTRACT_ABI = [
@@ -15,300 +21,140 @@ const CONTRACT_ABI = [
   "function owner() external view returns (address)",
 ];
 
-// GET request - return method not allowed with helpful message
-export async function GET(request: NextRequest) {
-  return NextResponse.json({ 
-    error: "Method Not Allowed",
-    message: "This endpoint only accepts POST requests. Use POST with wallet and x_user_id in the body.",
-    hint: "If you're seeing this in browser console, it might be a preflight request or incorrect frontend call."
-  }, { status: 405 });
-}
+// Create Hono app
+const app = new Hono();
 
-export async function POST(request: NextRequest) {
+// Apply x402 payment middleware to ALL routes in this file
+app.use("*", paymentMiddleware(
+  RECIPIENT_ADDRESS,
+  {
+    "*": {
+      price: "$0.1",
+      network: "base" as Network,
+      config: {
+        description: "Mint permit for Aura Creatures NFT"
+      }
+    }
+  },
+  facilitator // CDP facilitator for mainnet
+));
+
+// GET request - return method not allowed
+app.get("/", (c) => {
+  return c.json({ 
+    error: "Method Not Allowed",
+    message: "This endpoint only accepts POST requests.",
+  }, 405);
+});
+
+// POST request - Generate mint permit (protected by x402 payment)
+app.post("/", async (c) => {
   try {
-    const body: MintPermitRequest = await request.json();
+    const body = await c.req.json();
     const { wallet, x_user_id } = body;
     
+    console.log("📝 Mint permit request (after payment verification)");
+    console.log(`   Wallet: ${wallet}`);
+    console.log(`   X User ID: ${x_user_id}`);
+    
     if (!wallet || !x_user_id) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return c.json({ error: "Missing required fields" }, 400);
     }
     
     // Validate wallet address
     if (!ethers.isAddress(wallet)) {
-      return NextResponse.json({ error: "Invalid wallet address" }, { status: 400 });
+      return c.json({ error: "Invalid wallet address" }, 400);
     }
     
-    // Convert x_user_id to uint256 (hash the string to get a unique uint256)
-    // This ensures we can use any string format (X user ID, test ID, etc.)
-    const hash = ethers.id(x_user_id); // keccak256 hash (returns 0x prefix)
-    const xUserIdBigInt = BigInt(hash); // Convert to BigInt for uint256
+    // Convert x_user_id to uint256
+    const hash = ethers.id(x_user_id);
+    const xUserIdBigInt = BigInt(hash);
     console.log(`Converting x_user_id "${x_user_id}" to uint256: ${hash}`);
     
-    // NOTE: No rate limiting for mint permit requests
-    // - Mint requires payment (x402), so spam is naturally limited
-    // - Contract already prevents duplicate mints (usedXUserId check)
-    // - Existing NFT mint is a legitimate operation, shouldn't be rate limited
-    
-    // x402 payment is handled AUTOMATICALLY by middleware (middleware.ts)
-    // If request reaches here, payment has been VERIFIED and EXECUTED by middleware
-    // The middleware automatically:
-    // 1. Returns 402 Payment Required if no X-PAYMENT header
-    // 2. Verifies payment signature via facilitator
-    // 3. Facilitator executes USDC transfer automatically (Base Mainnet)
-    // 4. Allows request to proceed ONLY if payment is valid
-    
-    // NOTE: We DO NOT need to verify payment again here!
-    // Middleware has already done everything. We just extract payer info for logging.
-    
-    // Extract payment information from X-PAYMENT header (already verified by middleware)
-    const paymentHeader = request.headers.get("X-PAYMENT");
-    
-    let paymentVerification: any = null;
-    
-    if (!isMockMode && paymentHeader) {
-      // Payment already verified and executed by middleware - just extract payer info
-      try {
-        const paymentData = JSON.parse(paymentHeader);
-        paymentVerification = {
-          payer: paymentData.payer || paymentData.from || wallet,
-          amount: paymentData.amount || env.X402_PRICE_USDC,
-          asset: paymentData.asset || "USDC",
-          network: paymentData.network || "base",
-          recipient: paymentData.recipient || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF",
-        };
-        console.log(`✅ Payment verified and executed by x402 middleware (automatic)`);
-        console.log(`   Payer: ${paymentVerification.payer}`);
-        console.log(`   Amount: ${paymentVerification.amount} ${paymentVerification.asset}`);
-        console.log(`   USDC transfer executed automatically by facilitator`);
-      } catch (error) {
-        console.warn(`⚠️ Could not parse payment header (but middleware already verified it): ${error}`);
-        // Fallback: use wallet as payer (shouldn't happen if middleware works correctly)
-        paymentVerification = {
-          payer: wallet,
-          amount: env.X402_PRICE_USDC,
-          asset: "USDC",
-          network: "base",
-          recipient: "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF",
-        };
-      }
-    } else if (isMockMode) {
-      // Mock mode - use wallet as payer for testing (no real payment)
-      console.log("🐛 Mock mode: Skipping x402 payment (testing only)");
-      paymentVerification = {
-        payer: wallet,
-        amount: env.X402_PRICE_USDC,
-        asset: "USDC",
-        network: "base",
-        recipient: wallet, // In test mode, we don't actually charge
-      };
-    } else {
-      // No payment header - this shouldn't happen if middleware works correctly
-      // Middleware should have returned 402 before this code runs
-      console.warn(`⚠️ No payment header found, but request reached handler (middleware may have issues)`);
-      paymentVerification = {
-        payer: wallet,
-        amount: env.X402_PRICE_USDC,
-        asset: "USDC",
-        network: "base",
-        recipient: "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF",
-      };
-    }
-    
-    // Check contract: if user already minted
-    if (!env.RPC_URL || !env.CONTRACT_ADDRESS) {
-      return NextResponse.json({ error: "RPC_URL or CONTRACT_ADDRESS not configured" }, { status: 500 });
-    }
+    // Get provider and contract
     const provider = new ethers.JsonRpcProvider(env.RPC_URL);
-    const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    const contractAddress = env.CONTRACT_ADDRESS;
+    const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider);
     
-    try {
-      const alreadyMinted = await contract.usedXUserId(xUserIdBigInt);
-      if (alreadyMinted) {
-        return NextResponse.json({ error: "X user already minted" }, { status: 400 });
-      }
-      
-      // Check supply
-      const totalSupply = await contract.totalSupply();
-      const maxSupply = await contract.MAX_SUPPLY();
-      if (totalSupply >= maxSupply) {
-        return NextResponse.json({ error: "Max supply reached" }, { status: 400 });
-      }
-      
-      // Get nonce from contract (returns BigInt)
-      const nonce = await contract.getNonce(wallet);
-      console.log(`Contract nonce (BigInt): ${nonce.toString()}, type: ${typeof nonce}`);
-      
-      // Get token URI from database (from generate step)
-      console.log(`Looking for token with x_user_id: ${x_user_id}`);
-      let tokenData = await db
-        .select()
-        .from(tokens)
-        .where(eq(tokens.x_user_id, x_user_id))
-        .limit(1);
-      
-      console.log(`Found ${tokenData.length} tokens for x_user_id: ${x_user_id}`);
-      
-      // Fallback: If Drizzle query failed, try direct Supabase query
-      if (!tokenData || tokenData.length === 0) {
-        console.log(`⚠️ Drizzle query returned no results, trying direct Supabase query...`);
-        try {
-          const { supabaseClient } = await import("@/lib/db-supabase");
-          if (supabaseClient) {
-            const { data, error } = await supabaseClient
-              .from("tokens")
-              .select("*")
-              .eq("x_user_id", x_user_id)
-              .limit(1);
-            
-            if (error) {
-              console.error(`Direct Supabase query error:`, error);
-            } else if (data && data.length > 0) {
-              console.log(`✅ Found token via direct Supabase query`);
-              tokenData = data;
-            }
-          }
-        } catch (supabaseError: any) {
-          console.error(`Direct Supabase query failed:`, supabaseError.message);
-        }
-      }
-      
-      if (!tokenData || tokenData.length === 0) {
-        return NextResponse.json({ error: "Token not generated. Please generate first." }, { status: 400 });
-      }
-      
-      const tokenURI = tokenData[0].token_uri || tokenData[0].image_uri;
-      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour (number)
-    
-      // Convert values to proper types for EIP-712
-      // IMPORTANT: We keep these as numbers/strings here, but signMintAuth will convert to strings
-      // This avoids BigInt mixing issues in EIP-712 signing
-      // xUserId: hash string (0x...) - will be converted to decimal string in signMintAuth
-      // nonce: BigInt from contract - convert to number (safe for nonce values)
-      // deadline: number - already a number
-      const nonceNumber = Number(nonce);
-      if (isNaN(nonceNumber) || !Number.isSafeInteger(nonceNumber)) {
-        throw new Error(`Invalid nonce value: ${nonce.toString()}. Cannot convert to safe integer.`);
-      }
-      
-      const auth: MintAuth = {
-        to: wallet,
-        payer: paymentVerification.payer,
-        xUserId: hash, // Hash string (0x...) - will be converted to decimal string in signMintAuth
-        tokenURI,
-        nonce: nonceNumber, // Number - will be converted to string in signMintAuth
-        deadline, // Number - will be converted to string in signMintAuth
-      };
-      
-      // Log values to debug BigInt conversion issues
-      console.log("MintAuth values (before EIP-712 conversion):", {
-        to: auth.to,
-        payer: auth.payer,
-        xUserId: auth.xUserId,
-        xUserIdType: typeof auth.xUserId,
-        nonce: auth.nonce,
-        nonceType: typeof auth.nonce,
-        nonceOriginal: nonce.toString(),
-        deadline: auth.deadline,
-        deadlineType: typeof auth.deadline,
-      });
-      
-      // Check contract owner before signing
-      let ownerAddress: string | null = null;
-      try {
-        ownerAddress = await contract.owner();
-        console.log(`📋 Contract owner: ${ownerAddress}`);
-        
-        // Get server signer address and verify it matches contract owner
-        if (env.SERVER_SIGNER_PRIVATE_KEY && ownerAddress) {
-          const serverWallet = new ethers.Wallet(env.SERVER_SIGNER_PRIVATE_KEY);
-          const serverAddress = serverWallet.address;
-          console.log(`🔐 Server signer address: ${serverAddress}`);
-          
-          if (serverAddress.toLowerCase() !== ownerAddress.toLowerCase()) {
-            console.error(`❌ CRITICAL: Server signer address does NOT match contract owner!`);
-            console.error(`   Server signer: ${serverAddress}`);
-            console.error(`   Contract owner: ${ownerAddress}`);
-            console.error(`   ⚠️ SERVER_SIGNER_PRIVATE_KEY must correspond to the contract owner wallet!`);
-            return NextResponse.json({ 
-              error: `Server signer address does not match contract owner. Server: ${serverAddress}, Owner: ${ownerAddress}`,
-              hint: "SERVER_SIGNER_PRIVATE_KEY must be the private key of the contract owner wallet"
-            }, { status: 500 });
-          }
-          console.log(`✅ Server signer matches contract owner`);
-        }
-      } catch (ownerError: any) {
-        console.warn(`⚠️ Could not verify contract owner: ${ownerError.message}`);
-      }
-      
-      // Sign mint auth with detailed logging
-      console.log("🔐 Signing MintAuth with server wallet...");
-      console.log("🔐 MintAuth values being signed:", {
-        to: auth.to,
-        payer: auth.payer,
-        xUserId: auth.xUserId,
-        tokenURI: auth.tokenURI?.substring(0, 50) + "...",
-        nonce: auth.nonce,
-        deadline: auth.deadline,
-      });
-      
-      const signature = await signMintAuth(auth);
-      
-      console.log("✅ MintAuth signature generated:", signature.substring(0, 20) + "...");
-      console.log("🔐 Full signature length:", signature.length);
-      
-      // Verify signature can be recovered (double-check)
-      try {
-        const { verifyMintAuth } = await import("@/lib/eip712");
-        const recoveredAddress = await verifyMintAuth(auth, signature);
-        if (!recoveredAddress) {
-          console.error("❌ CRITICAL: Generated signature verification failed!");
-          return NextResponse.json({ 
-            error: "Signature verification failed after generation",
-            hint: "Check EIP-712 domain name and contract address"
-          }, { status: 500 });
-        }
-        console.log("✅ Signature self-verification passed, recovered address:", recoveredAddress);
-        
-        // Verify recovered address matches contract owner
-        if (ownerAddress) {
-          if (recoveredAddress.toLowerCase() !== ownerAddress.toLowerCase()) {
-            console.error(`❌ CRITICAL: Recovered address does NOT match contract owner!`);
-            console.error(`   Recovered: ${recoveredAddress}`);
-            console.error(`   Owner: ${ownerAddress}`);
-            return NextResponse.json({ 
-              error: `Signature verification failed: recovered address does not match owner`,
-              hint: "Check EIP-712 domain name matches contract name ('Aura Creatures')"
-            }, { status: 500 });
-          }
-          console.log("✅ Recovered address matches contract owner");
-        } else {
-          console.warn(`⚠️ Could not verify recovered address against contract owner (owner address not available)`);
-        }
-      } catch (verifyError: any) {
-        console.error(`❌ Signature self-verification error: ${verifyError.message}`);
-        return NextResponse.json({ 
-          error: `Signature verification failed: ${verifyError.message}`,
-          hint: "Check EIP-712 domain configuration"
-        }, { status: 500 });
-      }
-      
-      return NextResponse.json({
-        auth,
-        signature,
-      });
-    } catch (error) {
-      console.error("Contract query error:", error);
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Failed to query contract" },
-        { status: 500 }
-      );
+    // Check if X user ID already minted
+    const xUserIdAlreadyMinted = await contract.usedXUserId(xUserIdBigInt);
+    if (xUserIdAlreadyMinted) {
+      console.warn(`⚠️ X User ID already minted: ${x_user_id}`);
+      return c.json({
+        error: "X User ID already minted",
+        message: "This X account has already minted an NFT. Each X account can only mint once."
+      }, 400);
     }
-  } catch (error) {
-    console.error("Mint permit error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Mint permit failed" },
-      { status: 500 }
-    );
+    
+    // Get nonce for user
+    const nonce = await contract.getNonce(wallet);
+    console.log(`User nonce: ${nonce}`);
+    
+    // Get token metadata from database
+    let tokenURI = null;
+    if (!isMockMode && db) {
+      try {
+        const userToken = await db
+          .select()
+          .from(tokens)
+          .where(
+            and(
+              eq(tokens.walletAddress, wallet.toLowerCase()),
+              eq(tokens.xUserId, x_user_id)
+            )
+          )
+          .limit(1);
+        
+        if (userToken && userToken.length > 0) {
+          tokenURI = userToken[0].metadataUri;
+          console.log(`✅ Found token metadata for user: ${tokenURI}`);
+        } else {
+          console.warn(`⚠️ No token metadata found for wallet ${wallet} and X user ${x_user_id}`);
+        }
+      } catch (dbError) {
+        console.error("Database query error:", dbError);
+      }
+    }
+    
+    // If no tokenURI from DB, use a placeholder
+    if (!tokenURI) {
+      tokenURI = `ipfs://QmPlaceholder${Date.now()}`;
+      console.warn(`⚠️ Using placeholder tokenURI: ${tokenURI}`);
+    }
+    
+    // Create MintAuth struct
+    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+    
+    const mintAuth: MintAuth = {
+      to: wallet,
+      payer: wallet,
+      xUserId: xUserIdBigInt.toString(), // BigInt as string
+      tokenURI: tokenURI,
+      nonce: Number(nonce),
+      deadline: deadline,
+    };
+    
+    console.log("Signing MintAuth:", mintAuth);
+    
+    // Sign the mint authorization
+    const signature = await signMintAuth(mintAuth);
+    console.log(`✅ Signature generated: ${signature.substring(0, 20)}...`);
+    
+    // Return permit data
+    return c.json({
+      auth: mintAuth,
+      signature: signature,
+    });
+    
+  } catch (error: any) {
+    console.error("❌ Error generating mint permit:", error);
+    return c.json({
+      error: "Internal server error",
+      message: error?.message || "Failed to generate mint permit"
+    }, 500);
   }
-}
+});
 
+// Export handlers for Next.js
+export const GET = handle(app);
+export const POST = handle(app);
