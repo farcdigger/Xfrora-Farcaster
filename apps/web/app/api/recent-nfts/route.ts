@@ -29,8 +29,8 @@ export async function GET() {
     
     // Format for frontend
     const formattedNFTs = recentNFTs
-      .filter((nft) => nft.token_id && nft.token_id > 0) // Only minted ones
-      .map((nft) => ({
+      .filter((nft: typeof recentNFTs[0]) => nft.token_id && nft.token_id > 0) // Only minted ones
+      .map((nft: typeof recentNFTs[0]) => ({
         id: nft.id,
         tokenId: nft.token_id,
         image: nft.image_uri?.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/") || "",
