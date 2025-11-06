@@ -690,6 +690,34 @@ function HomePageContent() {
           const tokenId = parsed?.args?.tokenId?.toString();
           console.log("✅ Token ID:", tokenId);
           setMintedTokenId(tokenId || null);
+          
+          // 💾 Update token_id in database
+          if (tokenId && xUser) {
+            try {
+              console.log("💾 Updating token_id in database...");
+              const updateResponse = await fetch("/api/update-token-id", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  x_user_id: xUser.x_user_id,
+                  token_id: tokenId,
+                  transaction_hash: receipt.hash,
+                }),
+              });
+              
+              if (updateResponse.ok) {
+                const updateData = await updateResponse.json();
+                console.log("✅ Token ID updated in database:", updateData);
+              } else {
+                console.error("⚠️ Failed to update token_id in database");
+              }
+            } catch (updateError) {
+              console.error("⚠️ Database update error (non-critical):", updateError);
+              // Non-critical error, continue with success
+            }
+          }
         }
         
         setTransactionHash(receipt.hash);
