@@ -8,6 +8,9 @@ import { wrapFetchWithPayment } from "x402-fetch";
 import { createWalletClient, custom } from "viem";
 import { base } from "viem/chains";
 import { env } from "@/env.mjs";
+import Hero from "@/components/Hero";
+import StepCard from "@/components/StepCard";
+import PreviousCreations from "@/components/PreviousCreations";
 
 function HomePageContent() {
   const searchParams = useSearchParams();
