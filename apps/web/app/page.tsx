@@ -57,6 +57,49 @@ function HomePageContent() {
   const checkExistingNFT = async (xUserId: string): Promise<boolean> => {
     try {
       console.log("🔍 Checking for existing NFT for user:", xUserId);
+      
+      // First check if user already minted (check token_id in database)
+      try {
+        const mintStatusResponse = await fetch("/api/check-mint-status", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ x_user_id: xUserId }),
+        });
+        
+        if (mintStatusResponse.ok) {
+          const mintStatus = await mintStatusResponse.json();
+          console.log("🔍 Mint status:", mintStatus);
+          
+          // If user already minted (token_id > 0), show success screen
+          if (mintStatus.hasMinted && mintStatus.tokenId > 0) {
+            console.log("✅ User already minted! Token ID:", mintStatus.tokenId);
+            setAlreadyMinted(true);
+            setMintedTokenId(mintStatus.tokenId?.toString() || null);
+            setGenerated({
+              imageUrl: mintStatus.imageUri || "",
+              metadataUrl: mintStatus.metadataUri || "",
+              preview: mintStatus.imageUri || "",
+              seed: "",
+              traits: {
+                description: "Already minted NFT",
+                main_colors: [],
+                style: "unique",
+                accessory: "none"
+              },
+            });
+            setCurrentUserId(xUserId);
+            setStep("mint"); // Show success screen
+            return true;
+          }
+        }
+      } catch (mintCheckError) {
+        console.warn("⚠️ Mint status check failed (non-critical):", mintCheckError);
+        // Continue to metadata check
+      }
+      
+      // Not minted yet - check for generated metadata
       const response = await fetch(`/api/generate?x_user_id=${xUserId}`);
       
       if (response.ok) {
@@ -69,11 +112,10 @@ function HomePageContent() {
         });
         
         if (data.preview || data.imageUrl) {
-          console.log("✅ Found existing NFT, displaying it");
+          console.log("✅ Found existing NFT metadata, can proceed to mint");
           setGenerated(data);
-          // IMPORTANT: Set currentUserId so mint button works
           setCurrentUserId(xUserId);
-          // Move to pay step if NFT already exists
+          // Move to pay step if NFT metadata exists but not minted yet
           setStep("pay");
           return true;
         } else {
