@@ -409,7 +409,7 @@ function HomePageContent() {
         console.log("Permit data received:", permitData);
         await mintNFT(permitData);
       } else if (response.status === 402) {
-        // x402 Payment Required - Execute payment using Coinbase CDP x402 protocol
+        // x402 Payment Required - User will pay on OUR site with their wallet
         const paymentRequest: X402PaymentResponse = await response.json();
         console.log("💳 402 Payment request received:", paymentRequest);
         
@@ -419,79 +419,54 @@ function HomePageContent() {
 
         const paymentOption = paymentRequest.accepts[0];
         console.log(`📋 Payment option:`, paymentOption);
-        console.log(`📋 Full payment request:`, paymentRequest);
         
-        // Middleware may return different field names:
-        // - `amount` or `maxAmountRequired` for amount
-        // - `recipient` or `payTo` for recipient address
-        // - `asset` is the USDC contract address
+        // Extract payment details
         const amount = (paymentOption as any).amount || (paymentOption as any).maxAmountRequired || "100000";
         const recipientAddress = (paymentOption as any).recipient || (paymentOption as any).payTo || "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF";
         const asset = paymentOption.asset || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC
-        // Use network from payment option (middleware expects "base" format)
         const network = paymentOption.network || "base";
         
-        console.log(`💰 Payment required: ${amount} ${asset} on ${network}`);
+        console.log(`💰 Payment required: ${amount} USDC on ${network}`);
         console.log(`   Recipient: ${recipientAddress}`);
         
-        // Validate we have the minimum required fields
-        if (!asset || !network) {
-          console.error("❌ Payment option missing required fields:", paymentOption);
-          throw new Error(
-            `Invalid payment response: missing required fields.\n\n` +
-            `Payment option: ${JSON.stringify(paymentOption, null, 2)}\n\n` +
-            `Required fields: asset, network`
-          );
-        }
+        // Show payment info to user
+        const usdcAmount = (parseInt(amount) / 1_000_000).toFixed(2);
+        setError(`Payment Required: ${usdcAmount} USDC. Please approve the transaction in your wallet.`);
         
-        // Create payment option with normalized fields
-        const paymentOptionWithRecipient: X402PaymentRequest = {
-          asset: asset,
-          amount: amount,
-          network: network,
-          recipient: recipientAddress,
-        };
-        
-        console.log(`✅ Payment option normalized:`, paymentOptionWithRecipient);
-        
-        // Generate x402 payment header using Coinbase CDP x402 protocol
-        // This follows the x402 protocol: generate payment header, facilitator executes transfer
+        // User pays on OUR site with their wallet
         if (typeof window.ethereum === "undefined") {
           throw new Error("Wallet not connected. Please connect your wallet first.");
         }
 
-          console.log("💳 Generating x402 payment header...");
-          console.log(`   Recipient: ${paymentOptionWithRecipient.recipient}`);
-          console.log(`   Amount: ${paymentOptionWithRecipient.amount} ${paymentOptionWithRecipient.asset}`);
-          console.log(`   Network: ${paymentOptionWithRecipient.network}`);
-          setError(null);
-          setLoading(true);
+        console.log("💳 Preparing x402 payment on our site...");
+        setLoading(true);
+        
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const walletAddress = await signer.getAddress();
           
-          try {
-            // Use Daydreams SDK's generateX402PaymentBrowser pattern
-            // This creates a payment header that can be verified by the server
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const walletAddress = await signer.getAddress();
-            
-            // Generate x402 payment header using EIP-712 signature
-            // x402 Protocol: User signs payment commitment, facilitator executes USDC transfer
-            // Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
-            // The facilitator will automatically execute USDC transfer when payment header is received
-            const paymentHeader = await generateX402PaymentHeader(
-              walletAddress,
-              signer,
-              paymentOptionWithRecipient
-            );
+          // Create payment option with normalized fields
+          const paymentOptionWithRecipient: X402PaymentRequest = {
+            asset: asset,
+            amount: amount,
+            network: network,
+            recipient: recipientAddress,
+          };
           
-          console.log(`✅ Payment header generated (EIP-712 signature)`);
-          console.log(`   Facilitator will execute USDC transfer automatically`);
-          console.log(`   Recipient: ${paymentOptionWithRecipient.recipient}`);
-          console.log(`📤 Sending payment header to middleware...`);
-          console.log(`   Payment header preview: ${paymentHeader.substring(0, 100)}...`);
+          // Generate x402 payment header (EIP-712 signature)
+          // This proves user authorizes the payment
+          const paymentHeader = await generateX402PaymentHeader(
+            walletAddress,
+            signer,
+            paymentOptionWithRecipient
+          );
           
-          // Retry mint permit request with payment proof
-          console.log("📝 Requesting mint permit with payment proof...");
+          console.log(`✅ Payment authorization signed`);
+          console.log(`📤 Sending to server for processing...`);
+          
+          // Send payment header to our backend
+          // Middleware will verify and execute USDC transfer
           const mintResponse = await fetch("/api/mint-permit", {
             method: "POST",
             headers: {
