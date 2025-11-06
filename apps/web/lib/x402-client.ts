@@ -12,6 +12,11 @@ export interface X402PaymentRequest {
   amount: string;
   network: string;
   recipient: string;
+  // Extra data from Coinbase facilitator for EIP-712 domain
+  extra?: {
+    name?: string;
+    version?: string;
+  };
 }
 
 export interface X402PaymentResponse {
@@ -66,9 +71,11 @@ export async function generateX402PaymentHeader(
                   paymentOption.network === "base-sepolia" ? 84532 : 8453;
   
   // EIP-712 domain for x402 payment
+  // CRITICAL: Use exact domain values from middleware's "extra" field
+  // Coinbase facilitator expects name: "USD Coin" and version: "2"
   const domain = {
-    name: "x402 Payment",
-    version: "1",
+    name: paymentOption.extra?.name || "USD Coin",
+    version: paymentOption.extra?.version || "2",
     chainId: chainId,
     verifyingContract: normalizedUsdcAddress,
   };
