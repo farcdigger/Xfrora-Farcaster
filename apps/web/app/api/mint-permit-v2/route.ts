@@ -131,28 +131,17 @@ async function settlePaymentWithCDPFacilitator(paymentPayload: any): Promise<{
     };
     
     console.log("📤 Sending settlement request to CDP Facilitator (THIS TRANSFERS USDC)...");
-    console.log("🔍 Request body summary:", JSON.stringify({
-      x402Version: requestBody.x402Version,
-      paymentRequirements: {
-        scheme: paymentRequirements.scheme,
-        network: paymentRequirements.network,
-        maxAmountRequired: paymentRequirements.maxAmountRequired,
-        asset: paymentRequirements.asset,
-        payTo: paymentRequirements.payTo
-      },
-      paymentPayload: {
-        x402Version: paymentPayload.x402Version,
-        scheme: paymentPayload.scheme,
-        network: paymentPayload.network,
-        hasSignature: !!paymentPayload.payload?.signature,
-        hasAuthorization: !!paymentPayload.payload?.authorization
-      }
-    }, null, 2));
-    console.log("📝 Full payment payload structure:", JSON.stringify({
+    console.log("🔍 FULL paymentRequirements being sent:", JSON.stringify(paymentRequirements, null, 2));
+    console.log("📝 Payment payload structure:", JSON.stringify({
       scheme: paymentPayload.scheme,
       network: paymentPayload.network,
       payload_keys: Object.keys(paymentPayload.payload || {}),
-      authorization_keys: Object.keys(paymentPayload.payload?.authorization || {})
+      authorization_keys: Object.keys(paymentPayload.payload?.authorization || {}),
+      authorization_sample: {
+        from: paymentPayload.payload?.authorization?.from?.substring(0, 10) + "...",
+        to: paymentPayload.payload?.authorization?.to?.substring(0, 10) + "...",
+        value: paymentPayload.payload?.authorization?.value
+      }
     }));
     
     const response = await fetch(`https://${requestHost}${requestPath}`, {
