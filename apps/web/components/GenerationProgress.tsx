@@ -13,19 +13,16 @@ const PHRASES = [
 ];
 
 export default function GenerationProgress() {
-  const intervals = useMemo(() => [0, 20, 35, 50, 65, 80, 95], []);
+  const intervals = useMemo(() => [0, 10, 22, 40, 58, 75, 90], []);
   const [progress, setProgress] = useState(0);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const totalDuration = 10_000; // 10 seconds
+    const totalDuration = 16_000; // 16 seconds
     const stepDuration = totalDuration / intervals.length;
 
     const interval = setInterval(() => {
-      setProgress((prev) => {
-        const nextProgress = Math.min(prev + 100 / (totalDuration / stepDuration), 100);
-        return nextProgress;
-      });
+      setProgress(() => Math.min(intervals[index + 1] ?? 100, 100));
       setIndex((prev) => Math.min(prev + 1, PHRASES.length - 1));
     }, stepDuration);
 
