@@ -17,13 +17,14 @@ try {
 function generateMockImage(prompt: string, seed: string): Buffer {
   if (createCanvas) {
     try {
-      const canvas = createCanvas(1024, 1024);
+      const SIZE = 350;
+      const canvas = createCanvas(SIZE, SIZE);
       const ctx = canvas.getContext("2d");
       
       const seedNum = parseInt(seed.substring(0, 8), 16) || 0;
       const hue = seedNum % 360;
       
-      const gradient = ctx.createLinearGradient(0, 0, 1024, 1024);
+      const gradient = ctx.createLinearGradient(0, 0, SIZE, SIZE);
       gradient.addColorStop(0, `hsl(${hue}, 70%, 50%)`);
       gradient.addColorStop(1, `hsl(${(hue + 60) % 360}, 70%, 30%)`);
       ctx.fillStyle = gradient;
@@ -33,11 +34,11 @@ function generateMockImage(prompt: string, seed: string): Buffer {
       ctx.font = "bold 48px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("MOCK NFT", 512, 400);
+      ctx.fillText("MOCK NFT", SIZE / 2, SIZE * 0.4);
       ctx.font = "32px Arial";
-      ctx.fillText("Test Mode", 512, 500);
+      ctx.fillText("Test Mode", SIZE / 2, SIZE * 0.5);
       ctx.font = "24px Arial";
-      ctx.fillText(prompt.substring(0, 50), 512, 600);
+      ctx.fillText(prompt.substring(0, 50), SIZE / 2, SIZE * 0.65);
       
       return canvas.toBuffer("image/png");
     } catch (error) {
@@ -88,7 +89,7 @@ export async function generateImageViaDaydreamsAPI(
             model,
             prompt,
             n: 1,
-            size: "1024x1024",
+            size: "350x350",
             response_format: "b64_json",
             quality: "medium", // Medium quality: $0.04-0.06 per image (balance between quality and cost)
             style: "natural",
