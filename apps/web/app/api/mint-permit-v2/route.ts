@@ -325,6 +325,32 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // 🔒 SECURITY: Check if X user already minted BEFORE accepting payment
+    console.log(`🔍 Checking if X user ${x_user_id} already minted...`);
+    const hash = ethers.id(x_user_id);
+    const xUserIdBigInt = BigInt(hash);
+    
+    try {
+      const provider = new ethers.JsonRpcProvider(env.RPC_URL);
+      const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      
+      const xUserIdAlreadyMinted = await contract.usedXUserId(xUserIdBigInt);
+      if (xUserIdAlreadyMinted) {
+        console.error("❌ X User already minted! Rejecting payment.");
+        return NextResponse.json(
+          {
+            error: "X User ID already minted",
+            message: "This X account has already minted an NFT. Each X account can only mint once."
+          },
+          { status: 400 }
+        );
+      }
+      console.log("✅ X User has not minted yet, proceeding with payment settlement...");
+    } catch (contractError) {
+      console.error("⚠️ Contract check failed:", contractError);
+      // Continue anyway - contract will validate during mint
+    }
+    
     // CRITICAL: Call settle API to transfer USDC!
     console.log("💰 Calling CDP Facilitator SETTLE API to transfer USDC...");
     const settlement = await settlePaymentWithCDPFacilitator(paymentPayload);
@@ -384,25 +410,10 @@ export async function POST(request: NextRequest) {
     
     console.log(`📝 Generating mint permit for wallet: ${wallet}, X user: ${x_user_id}`);
     
-    // Convert x_user_id to uint256
-    const hash = ethers.id(x_user_id);
-    const xUserIdBigInt = BigInt(hash);
-    
+    // xUserIdBigInt already calculated above during mint check
     // Get provider and contract
     const provider = new ethers.JsonRpcProvider(env.RPC_URL);
     const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-    
-    // Check if X user ID already minted
-    const xUserIdAlreadyMinted = await contract.usedXUserId(xUserIdBigInt);
-    if (xUserIdAlreadyMinted) {
-      return NextResponse.json(
-        {
-          error: "X User ID already minted",
-          message: "This X account has already minted an NFT. Each X account can only mint once."
-        },
-        { status: 400 }
-      );
-    }
     
     // Get nonce
     const nonce = await contract.getNonce(wallet);

@@ -57,44 +57,6 @@ function HomePageContent() {
   const checkExistingNFT = async (xUserId: string): Promise<boolean> => {
     try {
       console.log("🔍 Checking for existing NFT for user:", xUserId);
-      
-      // First check mint status
-      const mintStatusResponse = await fetch("/api/check-mint-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ x_user_id: xUserId }),
-      });
-      
-      if (mintStatusResponse.ok) {
-        const mintStatus = await mintStatusResponse.json();
-        console.log("🔍 Mint status:", mintStatus);
-        
-        if (mintStatus.hasMinted && mintStatus.tokenId > 0) {
-          // User already minted! Show success screen
-          setAlreadyMinted(true);
-          setMintedTokenId(mintStatus.tokenId?.toString() || null);
-          setGenerated({
-            imageUrl: mintStatus.imageUri || "",
-            metadataUrl: mintStatus.metadataUri || "",
-            preview: mintStatus.imageUri || "",
-            seed: "",
-            traits: {
-              description: "Already minted NFT",
-              main_colors: [],
-              style: "unique",
-              accessory: "none"
-            },
-          });
-          setCurrentUserId(xUserId);
-          setStep("mint"); // Show "already minted" state
-          console.log("✅ User already minted NFT, token_id:", mintStatus.tokenId);
-          return true;
-        }
-      }
-      
-      // Not minted yet, check for generated metadata
       const response = await fetch(`/api/generate?x_user_id=${xUserId}`);
       
       if (response.ok) {
@@ -107,10 +69,11 @@ function HomePageContent() {
         });
         
         if (data.preview || data.imageUrl) {
-          console.log("✅ Found existing NFT metadata, can proceed to mint");
+          console.log("✅ Found existing NFT, displaying it");
           setGenerated(data);
+          // IMPORTANT: Set currentUserId so mint button works
           setCurrentUserId(xUserId);
-          // Move to pay step if NFT metadata exists but not minted
+          // Move to pay step if NFT already exists
           setStep("pay");
           return true;
         } else {
