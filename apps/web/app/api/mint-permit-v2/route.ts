@@ -295,9 +295,25 @@ export async function POST(request: NextRequest) {
     // Parse payment payload
     let paymentPayload;
     try {
-      paymentPayload = JSON.parse(paymentHeader);
+      // x402-fetch might base64 encode the payload
+      // Check if it starts with 'eyJ' (base64 encoded JSON starts with this)
+      if (paymentHeader.startsWith('eyJ')) {
+        console.log("🔓 Detected base64 encoded payment, decoding...");
+        const decoded = Buffer.from(paymentHeader, 'base64').toString('utf-8');
+        console.log("Decoded payment:", decoded.substring(0, 200) + "...");
+        paymentPayload = JSON.parse(decoded);
+      } else {
+        // Direct JSON
+        paymentPayload = JSON.parse(paymentHeader);
+      }
+      console.log("✅ Payment payload parsed:", {
+        x402Version: paymentPayload.x402Version,
+        scheme: paymentPayload.scheme,
+        network: paymentPayload.network,
+        hasPayload: !!paymentPayload.payload
+      });
     } catch (error) {
-      console.error("❌ Invalid payment header format");
+      console.error("❌ Invalid payment header format:", error);
       return NextResponse.json(
         { error: "Invalid payment header" },
         { status: 400 }
