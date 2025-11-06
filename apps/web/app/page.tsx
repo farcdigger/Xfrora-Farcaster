@@ -993,37 +993,216 @@ function HomePageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       {/* Fixed Header - Top Right */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 items-end">
-        {/* Wallet Address */}
-        {wallet && (
-          <div className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-4 py-2 text-sm font-mono">
-            <span className="text-gray-400 mr-2">Wallet:</span>
-            <span className="text-white">{wallet.substring(0, 6)}...{wallet.substring(wallet.length - 4)}</span>
+      <div className="fixed top-4 right-4 z-50 flex gap-4 items-center">
+        {/* X Account */}
+        {xUser && (
+          <div className="glass rounded-lg px-4 py-2 text-sm flex items-center gap-2">
+            <span className="text-2xl">𝕏</span>
+            <span className="text-white font-medium">@{xUser.username}</span>
           </div>
         )}
         
-        {/* X Account */}
-        {xUser && (
-          <div className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-4 py-2 text-sm">
-            <span className="text-gray-400 mr-2">X:</span>
-            <span className="text-white">@{xUser.username}</span>
+        {/* Wallet Address */}
+        {wallet && (
+          <div className="glass rounded-lg px-4 py-2 text-sm font-mono flex items-center gap-2">
+            <span className="text-2xl">💳</span>
+            <span className="text-white">{wallet.substring(0, 6)}...{wallet.substring(wallet.length - 4)}</span>
           </div>
         )}
       </div>
       
-      <div className="container mx-auto px-4 py-16">
-        <h1 className="text-5xl font-bold text-center mb-8">Aura Creatures</h1>
-        <p className="text-xl text-center mb-12 text-gray-300">
-          Connect your X profile, generate your unique AI creature, and mint on Base
-        </p>
+      <div className="container mx-auto px-4 py-8">
+        {/* Hero Section */}
+        <Hero />
         
-        <div className="max-w-2xl mx-auto">
-          {error && (
-            <div className="bg-red-500 text-white p-4 rounded-lg mb-6">
-              {error}
+        {/* Error Message */}
+        {error && (
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="glass border-red-500/50 bg-red-500/20 text-white p-4 rounded-lg">
+              <p className="text-sm">{error}</p>
             </div>
-          )}
-          
+          </div>
+        )}
+        
+        {/* 3-Card Layout - Always show all 3 steps */}
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {/* Card 1: Connect X Profile */}
+            <StepCard
+              icon="𝕏"
+              title="Connect Your Profile"
+              status={xUser ? "connected" : "idle"}
+              statusText={xUser ? `X Account: @${xUser.username}` : undefined}
+              actionButton={
+                !xUser ? (
+                  <button
+                    onClick={connectX}
+                    disabled={loading}
+                    className="btn-primary w-full"
+                  >
+                    {loading ? "Connecting..." : "Connect X Profile"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setStep("generate")}
+                    className="btn-secondary w-full"
+                  >
+                    ✓ Connected
+                  </button>
+                )
+              }
+            />
+
+            {/* Card 2: Connect Wallet */}
+            <StepCard
+              icon="💳"
+              title="Connect Wallet"
+              status={wallet ? "connected" : "idle"}
+              statusText={wallet ? `Wallet Connected: ${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)}` : undefined}
+              actionButton={
+                !wallet ? (
+                  <button
+                    onClick={connectWallet}
+                    disabled={loading || !xUser}
+                    className="btn-primary w-full"
+                  >
+                    {loading ? "Connecting..." : "Connect Wallet"}
+                  </button>
+                ) : (
+                  <button className="btn-secondary w-full" disabled>
+                    ✓ Connected
+                  </button>
+                )
+              }
+            />
+
+            {/* Card 3: Generate & Mint */}
+            <StepCard
+              icon="🎨"
+              title="Generate & Mint"
+              status={generated ? "completed" : "idle"}
+              statusText={generated ? "NFT Generated!" : undefined}
+              actionButton={
+                !generated ? (
+                  <button
+                    onClick={generateNFT}
+                    disabled={loading || !xUser || !wallet}
+                    className="btn-primary w-full"
+                  >
+                    {loading ? "Generating..." : "Generate AI Creature"}
+                  </button>
+                ) : alreadyMinted ? (
+                  <button className="btn-secondary w-full" disabled>
+                    ✓ Already Minted
+                  </button>
+                ) : (
+                  <button
+                    onClick={requestMintPermit}
+                    disabled={loading}
+                    className="btn-primary w-full"
+                  >
+                    {loading ? "Minting..." : "Mint on Base"}
+                  </button>
+                )
+              }
+            >
+              {loading && !generated && (
+                <div className="text-center text-sm text-gray-300 mt-2">
+                  <div className="spinner mx-auto mb-2"></div>
+                  <p>AI is creating your unique creature...</p>
+                </div>
+              )}
+            </StepCard>
+          </div>
+        </div>
+        
+        {/* NFT Preview - Show after generation */}
+        {generated && (
+          <div className="max-w-4xl mx-auto mb-12">
+            <div className="card text-center">
+              <h3 className="text-2xl font-bold mb-4">Your Aura Creature</h3>
+              {generated.preview && (
+                <div className="max-w-md mx-auto mb-6">
+                  <img
+                    src={generated.preview}
+                    alt="Generated NFT"
+                    className="w-full rounded-lg shadow-2xl"
+                  />
+                </div>
+              )}
+              {generated.traits && (
+                <div className="text-left max-w-md mx-auto">
+                  <h4 className="font-semibold mb-2">Traits:</h4>
+                  <p className="text-sm text-gray-300">{generated.traits.description}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Success Screen */}
+        {step === "mint" && alreadyMinted && (
+          <div className="max-w-2xl mx-auto">
+            <div className="card text-center">
+              <div className="text-6xl mb-4">🎉</div>
+              <h2 className="text-3xl font-bold mb-4">Success!</h2>
+              <p className="text-lg mb-6">Your Aura Creature has been minted!</p>
+              
+              {mintedTokenId && (
+                <div className="mb-6">
+                  <p className="text-2xl font-bold text-purple-400">Token #{mintedTokenId}</p>
+                </div>
+              )}
+              
+              {generated?.preview && (
+                <div className="max-w-sm mx-auto mb-6">
+                  <img
+                    src={generated.preview}
+                    alt="Minted NFT"
+                    className="w-full rounded-lg shadow-2xl"
+                  />
+                </div>
+              )}
+              
+              <div className="flex flex-col gap-3">
+                {transactionHash && (
+                  <a
+                    href={`https://basescan.org/tx/${transactionHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary"
+                  >
+                    View on BaseScan
+                  </a>
+                )}
+                
+                {generated?.metadataUrl && (
+                  <a
+                    href={generated.metadataUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary"
+                  >
+                    View Metadata
+                  </a>
+                )}
+                
+                <button
+                  onClick={resetToHome}
+                  className="btn-secondary"
+                >
+                  🏠 Back to Home
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Previous Creations */}
+        <PreviousCreations />
+        
+        {/* OLD STEP-BASED UI - Hidden but kept for logic */}
+        <div className="hidden">
           {step === "connect" && (
             <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8 text-center">
               <h2 className="text-2xl font-bold mb-4">Step 1: Connect X</h2>
