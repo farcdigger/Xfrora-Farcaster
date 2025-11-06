@@ -2,6 +2,9 @@
  * x402 Payment Client - Frontend helper for x402 payments
  * Uses Coinbase CDP x402 protocol
  * Reference: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
+ * 
+ * IMPORTANT: This uses USDC's official EIP-3009 TransferWithAuthorization
+ * Reference: https://eips.ethereum.org/EIPS/eip-3009
  */
 
 import { ethers } from "ethers";
@@ -74,38 +77,42 @@ export async function generateX402PaymentHeader(
   
   console.log(`📋 EIP-712 Domain:`, domain);
 
-  // EIP-712 types for x402 payment
+  // EIP-3009 TransferWithAuthorization (USDC official standard)
+  // Reference: https://github.com/CoinbaseStablecoin/eip-3009
   const types = {
     TransferWithAuthorization: [
-      { name: "amount", type: "string" },
-      { name: "asset", type: "string" },
-      { name: "network", type: "string" },
-      { name: "recipient", type: "address" },
-      { name: "payer", type: "address" },
-      { name: "timestamp", type: "uint256" },
-      { name: "nonce", type: "string" },
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+      { name: "validAfter", type: "uint256" },
+      { name: "validBefore", type: "uint256" },
+      { name: "nonce", type: "bytes32" },
     ],
   };
 
-  // Payment message
-  const timestamp = Math.floor(Date.now() / 1000);
-  const nonce = Math.random().toString(36).substring(7);
+  // Payment message - EIP-3009 format
+  const validAfter = 0; // Valid immediately
+  const validBefore = Math.floor(Date.now() / 1000) + 3600; // Valid for 1 hour
+  const nonce = ethers.randomBytes(32); // 32-byte random nonce
   
-  // Use EXACT values from paymentOption
   const message = {
-    amount: paymentOption.amount,
-    asset: paymentOption.asset, // EXACT value from middleware
-    network: paymentOption.network,
-    recipient: normalizedRecipient,
-    payer: normalizedPayer,
-    timestamp: timestamp,
-    nonce: nonce,
+    from: normalizedPayer,
+    to: normalizedRecipient,
+    value: paymentOption.amount, // Amount in USDC base units (6 decimals)
+    validAfter: validAfter,
+    validBefore: validBefore,
+    nonce: ethers.hexlify(nonce),
   };
   
-  console.log(`📋 Payment message:`, message);
+  console.log(`📋 Payment message (EIP-3009):`, message);
+  console.log(`   From: ${message.from}`);
+  console.log(`   To: ${message.to}`);
+  console.log(`   Value: ${message.value} (USDC base units)`);
+  console.log(`   ValidBefore: ${new Date(validBefore * 1000).toISOString()}`);
+  console.log(`   Nonce: ${message.nonce}`);
 
   // Sign EIP-712 payment commitment
-  console.log(`📝 Requesting signature...`);
+  console.log(`📝 Requesting signature with EIP-3009 TransferWithAuthorization...`);
   const signature = await signer.signTypedData(domain, types, message);
   
   // Create x402 payment header
