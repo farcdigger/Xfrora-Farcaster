@@ -547,6 +547,12 @@ function HomePageContent() {
       }
       
       const data: GenerateResponse = await response.json();
+      console.log("✅ NFT Generated! Data:", {
+        hasPreview: !!data.preview,
+        hasImageUrl: !!data.imageUrl,
+        preview: data.preview?.substring(0, 100),
+        imageUrl: data.imageUrl?.substring(0, 100),
+      });
       setGenerated(data);
       // Image generated - now move to wallet connection (pay step)
       setStep("pay");
@@ -1116,10 +1122,10 @@ function HomePageContent() {
               }
             />
 
-            {/* Card 3: Generate & Mint */}
+            {/* Card 3: Generate */}
             <StepCard
               icon="nft"
-              title="Generat & Mint"
+              title="Generate"
               status={generated ? "completed" : "idle"}
               statusText={generated ? "NFT Generated!" : undefined}
               actionButton={
@@ -1131,23 +1137,15 @@ function HomePageContent() {
                   >
                     {loading ? "Generating..." : "Generate AI Creature"}
                   </button>
-                ) : alreadyMinted ? (
-                  <button className="btn-secondary w-full" disabled>
-                    ✓ Already Minted
-                  </button>
                 ) : (
-                  <button
-                    onClick={requestMintPermit}
-                    disabled={loading}
-                    className="btn-primary w-full"
-                  >
-                    {loading ? "Minting..." : "Mint on Base"}
+                  <button className="btn-secondary w-full" disabled>
+                    ✓ Generated
                   </button>
                 )
               }
             >
               {loading && !generated && (
-                <div className="text-center text-sm text-gray-300 mt-2">
+                <div className="text-center text-sm text-gray-600 mt-2">
                   <div className="spinner mx-auto mb-2"></div>
                   <p>AI is creating your unique creature...</p>
                 </div>
@@ -1161,28 +1159,67 @@ function HomePageContent() {
           <div className="max-w-4xl mx-auto mb-12 animate-fade-in">
             <div className="card text-center">
               <h3 className="text-2xl font-bold mb-4 text-gray-800">Your Aura Creature</h3>
-              {(generated.preview || generated.imageUrl) && (
-                <div className="max-w-md mx-auto mb-6">
+              
+              {/* NFT Image */}
+              <div className="max-w-md mx-auto mb-6">
+                {generated.preview || generated.imageUrl ? (
                   <img
-                    src={(generated.imageUrl || generated.preview || "").replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")}
+                    src={
+                      generated.preview 
+                        ? generated.preview.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")
+                        : generated.imageUrl 
+                        ? generated.imageUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")
+                        : ""
+                    }
                     alt="Generated NFT"
                     className="w-full rounded-lg shadow-2xl"
                     onError={(e) => {
                       console.error("Image load error:", e);
-                      // Fallback to preview if imageUrl fails
-                      if (generated.preview && e.currentTarget.src !== generated.preview) {
-                        e.currentTarget.src = generated.preview;
+                      // Try alternative IPFS gateway
+                      const currentSrc = e.currentTarget.src;
+                      if (currentSrc.includes("gateway.pinata.cloud")) {
+                        e.currentTarget.src = currentSrc.replace("gateway.pinata.cloud", "ipfs.io");
+                      } else if (currentSrc.includes("ipfs.io")) {
+                        e.currentTarget.src = currentSrc.replace("ipfs.io", "cloudflare-ipfs.com");
+                      } else {
+                        // Show placeholder if all gateways fail
+                        e.currentTarget.style.display = "none";
+                        const placeholder = e.currentTarget.parentElement?.querySelector(".image-placeholder");
+                        if (placeholder) {
+                          (placeholder as HTMLElement).style.display = "flex";
+                        }
                       }
                     }}
                   />
+                ) : (
+                  <div className="w-full aspect-square rounded-lg bg-gradient-to-br from-purple-200 via-blue-200 to-teal-200 flex items-center justify-center">
+                    <span className="text-6xl">🎨</span>
+                  </div>
+                )}
+                {/* Placeholder for error state */}
+                <div className="image-placeholder hidden w-full aspect-square rounded-lg bg-gradient-to-br from-purple-200 via-blue-200 to-teal-200 items-center justify-center">
+                  <span className="text-6xl">🎨</span>
                 </div>
-              )}
+              </div>
+              
+              {/* Traits */}
               {generated.traits && (
-                <div className="text-left max-w-md mx-auto bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="text-left max-w-md mx-auto bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
                   <h4 className="font-semibold mb-2 text-purple-700">Traits:</h4>
                   <p className="text-sm text-gray-700">{generated.traits.description}</p>
                 </div>
               )}
+              
+              {/* Mint Button - Below Image */}
+              <div className="mt-6">
+                <button
+                  onClick={requestMintPermit}
+                  disabled={loading}
+                  className="btn-primary w-full max-w-md mx-auto"
+                >
+                  {loading ? "Minting..." : "Mint on Base"}
+                </button>
+              </div>
             </div>
           </div>
         )}
