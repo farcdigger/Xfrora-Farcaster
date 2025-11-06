@@ -879,11 +879,27 @@ function HomePageContent() {
         if (mintedEvent) {
           console.log("✅ Minted event found!");
           const parsed = contract.interface.parseLog(mintedEvent);
+          console.log("📦 Parsed event full:", parsed);
           console.log("📦 Parsed event args:", parsed?.args);
-          const tokenId = parsed?.args?.tokenId?.toString();
-          console.log("✅ Token ID extracted:", tokenId);
+          
+          // tokenId is indexed (3rd parameter), so it's in topics[2] or args[2]
+          let tokenId = null;
+          
+          // Try multiple methods to extract tokenId
+          if (parsed?.args?.tokenId !== undefined) {
+            tokenId = parsed.args.tokenId.toString();
+            console.log("✅ Token ID from args.tokenId:", tokenId);
+          } else if (parsed?.args?.[2] !== undefined) {
+            tokenId = parsed.args[2].toString();
+            console.log("✅ Token ID from args[2]:", tokenId);
+          } else if (mintedEvent.topics?.[3]) {
+            // topics[0] = event signature, topics[1] = to, topics[2] = payer, topics[3] = tokenId
+            tokenId = BigInt(mintedEvent.topics[3]).toString();
+            console.log("✅ Token ID from topics[3]:", tokenId);
+          }
+          
+          console.log("🔍 Final tokenId:", tokenId);
           console.log("🔍 Debug - xUser:", xUser ? `${xUser.username} (${xUser.x_user_id})` : "NULL");
-          console.log("🔍 Debug - tokenId:", tokenId || "NULL");
           setMintedTokenId(tokenId || null);
           
           // 💾 Update token_id in database
