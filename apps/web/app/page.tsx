@@ -1018,6 +1018,15 @@ function HomePageContent() {
             
             {/* Right: User Info & Buttons */}
             <div className="flex items-center gap-3">
+              <a
+                href="https://opensea.io/collection/xfrora"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold"
+              >
+                <span className="text-lg">🌊</span>
+                <span>OpenSea</span>
+              </a>
               <ThemeToggle />
               {/* X Account Button */}
               <a
