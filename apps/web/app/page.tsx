@@ -1004,10 +1004,10 @@ function HomePageContent() {
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-purple-100 to-blue-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 transition-colors">
       {/* Navbar - Top */}
       <nav className="bg-white/70 backdrop-blur-md shadow-md sticky top-0 z-50 dark:bg-slate-900/80 dark:border-b dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Logo */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <img 
                 src="/frora-logo.png" 
                 alt="XFRORA Logo" 
@@ -1017,13 +1017,13 @@ function HomePageContent() {
             </div>
             
             {/* Right: User Info & Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end">
               <ThemeToggle />
               <a
                 href="https://opensea.io/collection/xfrora"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold"
+                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold"
               >
                 <span className="text-lg">🌊</span>
                 <span>OpenSea</span>
@@ -1033,7 +1033,7 @@ function HomePageContent() {
                 href="https://x.com/XFroraNFT"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 flex items-center gap-2"
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 flex items-center gap-2"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -1041,20 +1041,24 @@ function HomePageContent() {
                 <span className="hidden sm:inline">Follow</span>
               </a>
               
-              {xUser ? (
-                <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-sm">
-                  <span className="text-gray-700">@{xUser.username}</span>
+              <div className="flex items-center gap-2">
+                {xUser ? (
+                  <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-sm dark:bg-slate-800 dark:text-slate-100">
+                    <span className="text-gray-700 dark:text-slate-100">@{xUser.username}</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={connectX}
+                    className="px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
+                  >
+                    Connect X
+                  </button>
+                )}
+
+                <div className="flex">
+                  <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />
                 </div>
-              ) : (
-                <button
-                  onClick={connectX}
-                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
-                >
-                  Connect X
-                </button>
-              )}
-              
-              <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />
+              </div>
             </div>
           </div>
         </div>
