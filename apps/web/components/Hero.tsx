@@ -44,8 +44,8 @@ export default function Hero({ xUser, mintStats, loadingStats }: HeroProps) {
           </h2>
           
           <p className="text-lg text-gray-600 dark:text-slate-300 max-w-md">
-            Link your X profile, generate a unique AI creature, and mint on Base with seamless
-            x402-powered payments.
+            Link your X profile, spin up a unique AI creature, and mint your xFrora on Base with the
+            help of secure x402 payments.
           </p>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-3">
             Max supply is fixed at 5,555 xFrora NFTs—mint yours before they’re gone.
