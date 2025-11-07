@@ -1342,7 +1342,7 @@ function HomePageContent() {
                 {/* Share on X */}
                 <a
                   href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                    `I just minted my xFrora NFT on @XFroraNFT! 🚀✨\n\nView it on Base: https://opensea.io/assets/base/${env.NEXT_PUBLIC_CONTRACT_ADDRESS}/${mintedTokenId ?? ""}\nMint yours here: ${typeof window !== "undefined" ? window.location.origin : "https://xfrora.xyz"}`
+                    `I just minted my xFrora NFT on @XFroraNFT! 🚀✨\n\nView it on Base: https://opensea.io/assets/base/${env.NEXT_PUBLIC_CONTRACT_ADDRESS}/${mintedTokenId ?? ""}\nMint yours here: ${typeof window !== "undefined" ? window.location.origin : "https://xfroranft.xyz"}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

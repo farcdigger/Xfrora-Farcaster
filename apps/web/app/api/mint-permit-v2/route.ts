@@ -27,7 +27,7 @@ const PAYMENT_REQUIREMENTS = {
   scheme: "exact" as const,
   network: NETWORK,
   maxAmountRequired: PAYMENT_AMOUNT,
-  resource: "https://aura-nft-iota.vercel.app/api/mint-permit-v2",
+  resource: "https://xfroranft.xyz/api/mint-permit-v2",
   description: "Mint permit for xFrora NFT - Pay 5 USDC to mint your AI-crafted identity",
   mimeType: "application/json",
   payTo: RECIPIENT_ADDRESS,
