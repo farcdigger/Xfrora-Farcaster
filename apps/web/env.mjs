@@ -6,8 +6,8 @@ const isDevelopment = process.env.NODE_ENV === "development";
 const envSchema = z.object({
   NEXT_PUBLIC_CHAIN_ID: z.string().default("8453"), // Base Mainnet
   RPC_URL: z.string().url().optional().or(z.literal("http://localhost:8545")).default("https://mainnet.base.org"),
-  CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0xd96AF50716d2dFC55A438b0de8989cE1f6E5160a"),
-  NEXT_PUBLIC_CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0xd96AF50716d2dFC55A438b0de8989cE1f6E5160a"),
+  CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0x7De68EB999A314A0f986D417adcbcE515E476396"),
+  NEXT_PUBLIC_CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0x7De68EB999A314A0f986D417adcbcE515E476396"),
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().optional(),
   SERVER_SIGNER_PRIVATE_KEY: z.string().startsWith("0x").optional(),
   X_CLIENT_ID: z.string().optional(),
@@ -47,9 +47,9 @@ const envSchema = z.object({
   UPDATE_TOKEN_SECRET: data.UPDATE_TOKEN_SECRET === "" ? undefined : data.UPDATE_TOKEN_SECRET,
   // Ensure RPC_URL and CONTRACT_ADDRESS have defaults for Base Mainnet
   RPC_URL: data.RPC_URL || "https://mainnet.base.org",
-  CONTRACT_ADDRESS: data.CONTRACT_ADDRESS || "0xd96AF50716d2dFC55A438b0de8989cE1f6E5160a",
+  CONTRACT_ADDRESS: data.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396",
   // Ensure NEXT_PUBLIC_CONTRACT_ADDRESS has default for client-side
-  NEXT_PUBLIC_CONTRACT_ADDRESS: data.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xd96AF50716d2dFC55A438b0de8989cE1f6E5160a",
+  NEXT_PUBLIC_CONTRACT_ADDRESS: data.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396",
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: data.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID === "" ? undefined : data.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
 }));
 
@@ -57,8 +57,8 @@ const envSchema = z.object({
 // NOTE: In production, all environment variables must be explicitly set
 const envDefaults = isDevelopment ? {
   RPC_URL: "https://mainnet.base.org",
-  CONTRACT_ADDRESS: "0xd96AF50716d2dFC55A438b0de8989cE1f6E5160a", // Base Mainnet deployed contract
-  NEXT_PUBLIC_CONTRACT_ADDRESS: "0xd96AF50716d2dFC55A438b0de8989cE1f6E5160a", // Base Mainnet deployed contract
+  CONTRACT_ADDRESS: "0x7De68EB999A314A0f986D417adcbcE515E476396", // Base Mainnet deployed contract
+  NEXT_PUBLIC_CONTRACT_ADDRESS: "0x7De68EB999A314A0f986D417adcbcE515E476396", // Base Mainnet deployed contract
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "demo", // Replace with your WalletConnect Project ID in production
   SERVER_SIGNER_PRIVATE_KEY: "0x0000000000000000000000000000000000000000000000000000000000000001",
   UPDATE_TOKEN_SECRET: "dev-secret",
