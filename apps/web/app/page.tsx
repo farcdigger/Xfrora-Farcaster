@@ -1056,7 +1056,58 @@ function HomePageContent() {
                 )}
 
                 <div className="flex">
-                  <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />
+                  <ConnectButton.Custom>
+                    {({
+                      account,
+                      chain,
+                      openAccountModal,
+                      openChainModal,
+                      openConnectModal,
+                      mounted,
+                    }: {
+                      account: any;
+                      chain: any;
+                      openAccountModal: () => void;
+                      openChainModal: () => void;
+                      openConnectModal: () => void;
+                      mounted: boolean;
+                    }) => {
+                      const ready = mounted;
+                      const connected =
+                        ready && account && chain && !chain.unsupported;
+
+                      if (!connected) {
+                        return (
+                          <button
+                            onClick={openConnectModal}
+                            className="btn-primary px-4 py-2 text-sm"
+                          >
+                            Connect Wallet
+                          </button>
+                        );
+                      }
+
+                      if (chain.unsupported) {
+                        return (
+                          <button
+                            onClick={openChainModal}
+                            className="btn-primary px-4 py-2 text-sm"
+                          >
+                            Switch Network
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          onClick={openAccountModal}
+                          className="btn-secondary px-4 py-2 text-sm"
+                        >
+                          {account.displayName}
+                        </button>
+                      );
+                    }}
+                  </ConnectButton.Custom>
                 </div>
               </div>
             </div>
@@ -1130,6 +1181,14 @@ function HomePageContent() {
                     openConnectModal,
                     authenticationStatus,
                     mounted,
+                  }: {
+                    account: any;
+                    chain: any;
+                    openAccountModal: () => void;
+                    openChainModal: () => void;
+                    openConnectModal: () => void;
+                    authenticationStatus?: string;
+                    mounted: boolean;
                   }) => {
                     const ready = mounted && authenticationStatus !== "loading";
                     const connected =
