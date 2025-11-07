@@ -251,16 +251,11 @@ async function verifyPaymentWithCDPFacilitator(paymentPayload: any): Promise<boo
 }
 
 /**
- * GET - Method not allowed
+ * GET - Return 402 for discovery tools (x402scan)
  */
 export async function GET(request: NextRequest) {
-  return NextResponse.json(
-    {
-      error: "Method Not Allowed",
-      message: "This endpoint only accepts POST requests."
-    },
-    { status: 405 }
-  );
+  console.log("📮 Received GET request for mint-permit-v2 - returning 402 for discovery");
+  return create402Response();
 }
 
 /**
