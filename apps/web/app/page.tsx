@@ -1259,8 +1259,11 @@ function HomePageContent() {
                   disabled={loading}
                   className="btn-primary w-full max-w-md mx-auto"
                 >
-                  {loading ? "Minting..." : "Mint on Base"}
+                  {loading ? "Minting..." : "Mint on Base (5 USDC)"}
                 </button>
+                <p className="mt-3 text-xs text-gray-500 dark:text-slate-400">
+                  Step 1: Approve 5 USDC payment · Step 2: Confirm mint transaction
+                </p>
               </div>
             </div>
           </div>
