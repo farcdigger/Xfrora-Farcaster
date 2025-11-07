@@ -1618,8 +1618,12 @@ function HomePageContent() {
               {/* Success Header */}
               <div className="text-center mb-6">
                 <div className="text-6xl mb-4">🎉</div>
-                <h2 className="text-3xl font-bold mb-2">Congratulations!</h2>
-                <p className="text-lg text-gray-300">Your xFrora NFT has been minted successfully!</p>
+                <h2 className="text-3xl font-bold mb-2">
+                  {mintedTokenId ? `xFrora #${mintedTokenId}` : "Congratulations!"}
+                </h2>
+                <p className="text-lg text-gray-300">
+                  Your xFrora NFT has been minted successfully on Base.
+                </p>
               </div>
               
               {/* NFT Image */}
