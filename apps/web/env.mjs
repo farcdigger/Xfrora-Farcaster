@@ -19,6 +19,7 @@ const envSchema = z.object({
   // Supabase REST API (no PostgreSQL connection string needed)
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  UPDATE_TOKEN_SECRET: z.string().optional(),
   // Legacy: DATABASE_URL is optional now (Supabase REST API is preferred)
   DATABASE_URL: z.string().url().optional().or(z.literal("mock://localhost")),
   // Vercel KV (Redis) - Preferred for rate limiting (faster, more reliable)
@@ -43,6 +44,7 @@ const envSchema = z.object({
   // Supabase credentials - boş string'leri undefined yap
   NEXT_PUBLIC_SUPABASE_URL: data.NEXT_PUBLIC_SUPABASE_URL === "" ? undefined : data.NEXT_PUBLIC_SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY === "" ? undefined : data.SUPABASE_SERVICE_ROLE_KEY,
+  UPDATE_TOKEN_SECRET: data.UPDATE_TOKEN_SECRET === "" ? undefined : data.UPDATE_TOKEN_SECRET,
   // Ensure RPC_URL and CONTRACT_ADDRESS have defaults for Base Mainnet
   RPC_URL: data.RPC_URL || "https://mainnet.base.org",
   CONTRACT_ADDRESS: data.CONTRACT_ADDRESS || "0xDFB4e6C3096393fB9f09191191BCc8454b3F4116",
@@ -59,6 +61,7 @@ const envDefaults = isDevelopment ? {
   NEXT_PUBLIC_CONTRACT_ADDRESS: "0xDFB4e6C3096393fB9f09191191BCc8454b3F4116", // Base Mainnet deployed contract
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "demo", // Replace with your WalletConnect Project ID in production
   SERVER_SIGNER_PRIVATE_KEY: "0x0000000000000000000000000000000000000000000000000000000000000001",
+  UPDATE_TOKEN_SECRET: "dev-secret",
   X_CLIENT_ID: "mock_client_id",
   X_CLIENT_SECRET: "mock_client_secret",
   X_CALLBACK_URL: "http://localhost:3000/api/auth/x/callback",

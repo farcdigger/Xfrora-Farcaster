@@ -6,13 +6,24 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { db, tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { isMockMode } from "@/env.mjs";
-import { createClient } from "@supabase/supabase-js";
+import { env, isMockMode } from "@/env.mjs";
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("x-update-token-secret");
+    if (!env.UPDATE_TOKEN_SECRET) {
+      console.warn("⚠️ UPDATE_TOKEN_SECRET not configured; request rejected");
+      return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    }
+
+    if (!authHeader || authHeader !== env.UPDATE_TOKEN_SECRET) {
+      console.warn("⚠️ Invalid update token secret", { provided: authHeader ? "***" : "missing" });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { x_user_id, token_id, transaction_hash } = body;
 
@@ -33,60 +44,39 @@ export async function POST(request: NextRequest) {
     let updateResult: any = null;
 
     if (!isMockMode) {
+      if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Supabase credentials missing");
+      }
       try {
-        updateResult = await db
-          .update(tokens)
-          .set({
+        const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+          auth: { persistSession: false },
+        });
+
+        const { data, error } = await supabase
+          .from("tokens")
+          .update({
             token_id: Number(token_id),
             tx_hash: transaction_hash || null,
             status: "minted",
           })
-          .where(eq(tokens.x_user_id, x_user_id));
+          .eq("x_user_id", x_user_id)
+          .select();
+
+        if (error) {
+          throw error;
+        }
+
+        updateResult = data;
         console.log("✅ Token ID updated via db facade", { x_user_id, token_id });
       } catch (dbError) {
-        console.warn("⚠️ db.update fallback failed, attempting direct Supabase update", dbError);
-      }
-
-      if (updateResult?.length === 0 || !updateResult) {
-        try {
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-          const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-          if (!supabaseUrl || !supabaseServiceKey) {
-            throw new Error("Supabase credentials missing");
-          }
-
-          const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: { persistSession: false },
-          });
-
-          const { error } = await supabase
-            .from("tokens")
-            .update({
-              token_id: Number(token_id),
-              tx_hash: transaction_hash || null,
-              status: "minted",
-            })
-            .eq("x_user_id", x_user_id);
-
-          if (error) {
-            console.error("❌ Supabase REST update error:", error);
-            return NextResponse.json({
-              error: "Database update failed",
-              message: error.message,
-            }, { status: 500 });
-          }
-
-          console.log("✅ Token ID updated via Supabase REST", { x_user_id, token_id });
-        } catch (restError) {
-          console.error("❌ Database update failed via REST fallback:", restError);
-          return NextResponse.json(
-            {
-              error: "Database update failed",
-              message: String(restError),
-            },
-            { status: 500 }
-          );
-        }
+        console.error("❌ Supabase update failed:", dbError);
+        return NextResponse.json(
+          {
+            error: "Database update failed",
+            message: String(dbError),
+          },
+          { status: 500 }
+        );
       }
 
       return NextResponse.json({
