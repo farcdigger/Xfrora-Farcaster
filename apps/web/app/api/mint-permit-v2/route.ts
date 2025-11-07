@@ -16,7 +16,7 @@ import type { MintAuth } from "@/lib/types";
 import { SignJWT } from "jose";
 
 // Ödeme bilgileri
-const RECIPIENT_ADDRESS = "0x5305538F1922B69722BBE2C1B84869Fd27Abb4BF";
+const RECIPIENT_ADDRESS = "0xDA9097c5672928a16C42889cD4b07d9a766827ee";
 const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const PAYMENT_AMOUNT = "100000"; // 0.1 USDC (6 decimals)
 const NETWORK = "base";
