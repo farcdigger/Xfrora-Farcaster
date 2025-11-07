@@ -45,7 +45,7 @@ export default function Hero({ xUser, mintStats, loadingStats }: HeroProps) {
           
           <p className="text-lg text-gray-600 dark:text-slate-300 max-w-md">
             Link your X profile, spin up a unique AI creature, and mint your xFrora on Base with the
-            help of secure x402 payments.
+            help of secure x402 payments. Each mint costs 5&nbsp;USDC and happens in two quick wallet confirmations.
           </p>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-3">
             Max supply is fixed at 5,555 xFrora NFTs—mint yours before they’re gone.
