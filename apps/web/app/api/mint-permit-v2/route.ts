@@ -281,15 +281,142 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // x402 Protocol: Check for payment header
+    // Lookup existing token state (if any)
+    let existingTokenRecord: any = null;
+    if (!isMockMode && db) {
+      try {
+        const existingTokens = await db
+          .select()
+          .from(tokens)
+          .where(eq(tokens.x_user_id, x_user_id))
+          .limit(1);
+        existingTokenRecord = existingTokens?.[0] || null;
+      } catch (dbError) {
+        console.error("⚠️ Supabase token lookup failed:", dbError);
+      }
+    }
+
+    const normalizedWallet = wallet.toLowerCase();
+    const recordedWallet = existingTokenRecord?.wallet_address
+      ? String(existingTokenRecord.wallet_address).toLowerCase()
+      : null;
+    const recordedStatus = existingTokenRecord?.status || null;
+
+    const hash = ethers.id(x_user_id);
+    const xUserIdBigInt = BigInt(hash);
+
+    const issueMintPermit = async () => {
+      console.log(`📝 Generating mint permit for wallet: ${wallet}, X user: ${x_user_id}`);
+
+      const provider = new ethers.JsonRpcProvider(env.RPC_URL);
+      const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      const nonce = await contract.getNonce(wallet);
+
+      let tokenURI = existingTokenRecord?.metadata_uri || null;
+
+      if (!tokenURI && !isMockMode && db) {
+        try {
+          console.log(`🔍 Looking for token metadata for x_user_id: ${x_user_id}`);
+          const userToken = await db
+            .select()
+            .from(tokens)
+            .where(eq(tokens.x_user_id, x_user_id))
+            .limit(1);
+
+          if (userToken && userToken.length > 0) {
+            tokenURI = userToken[0].metadata_uri;
+            console.log(`✅ Found token metadata: ${tokenURI}`);
+          } else {
+            console.log(`⚠️ No token metadata found for x_user_id: ${x_user_id}`);
+          }
+        } catch (dbError) {
+          console.error("❌ Database error fetching metadata:", dbError);
+        }
+      }
+
+      if (!tokenURI) {
+        tokenURI = `ipfs://QmPlaceholder${Date.now()}`;
+        console.warn(`⚠️ Using placeholder tokenURI: ${tokenURI}`);
+      }
+
+      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+      const mintAuth: MintAuth = {
+        to: wallet,
+        payer: wallet,
+        xUserId: xUserIdBigInt.toString(),
+        tokenURI,
+        nonce: Number(nonce),
+        deadline,
+      };
+
+      const signature = await signMintAuth(mintAuth);
+      console.log(`✅ Mint permit signed successfully`);
+
+      return NextResponse.json({
+        auth: mintAuth,
+        signature,
+      });
+    };
+
+    // 🔒 SECURITY: Check if X user already minted BEFORE accepting payment
+    console.log(`🔍 Checking if X user ${x_user_id} already minted...`);
+    try {
+      const provider = new ethers.JsonRpcProvider(env.RPC_URL);
+      const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      
+      const xUserIdAlreadyMinted = await contract.usedXUserId(xUserIdBigInt);
+      if (xUserIdAlreadyMinted) {
+        console.error("❌ X User already minted! Rejecting payment.");
+        return NextResponse.json(
+          {
+            error: "X User ID already minted",
+            message: "This X account has already minted an NFT. Each X account can only mint once."
+          },
+          { status: 400 }
+        );
+      }
+      console.log("✅ X User has not minted yet, proceeding with payment settlement...");
+    } catch (contractError) {
+      console.error("⚠️ Contract check failed:", contractError);
+      // Continue anyway - contract will validate during mint
+    }
+
     const paymentHeader = request.headers.get("x-payment");
-    
+
     if (!paymentHeader) {
-      // No payment provided - return 402 Payment Required
+      const hasRecordedPayment = recordedStatus === "paid";
+      if (hasRecordedPayment) {
+        console.log("💳 Payment already recorded in Supabase. Skipping 402 flow.");
+        if (recordedWallet && recordedWallet !== normalizedWallet) {
+          console.error("❌ Wallet mismatch for recorded payment:", {
+            recordedWallet,
+            requestedWallet: normalizedWallet,
+          });
+          return NextResponse.json(
+            {
+              error: "Payment already completed with another wallet",
+              message: `Payment was completed using wallet ${recordedWallet}. Please reconnect with the same wallet to continue.`,
+            },
+            { status: 400 }
+          );
+        }
+        if (!existingTokenRecord) {
+          console.error("❌ No generated NFT record found for paid user:", x_user_id);
+          return NextResponse.json(
+            {
+              error: "Generated NFT not found",
+              message: "We could not find the generated NFT for this payment. Please regenerate your NFT.",
+            },
+            { status: 400 }
+          );
+        }
+        return await issueMintPermit();
+      }
+
       console.log("💳 No payment header - returning 402");
       return create402Response();
     }
-    
+
     // Payment header received - parse and settle it
     console.log("🔍 Payment header received");
     console.log("Payment header:", paymentHeader.substring(0, 200) + "...");
@@ -320,32 +447,6 @@ export async function POST(request: NextRequest) {
         { error: "Invalid payment header" },
         { status: 400 }
       );
-    }
-    
-    // 🔒 SECURITY: Check if X user already minted BEFORE accepting payment
-    console.log(`🔍 Checking if X user ${x_user_id} already minted...`);
-    const hash = ethers.id(x_user_id);
-    const xUserIdBigInt = BigInt(hash);
-    
-    try {
-      const provider = new ethers.JsonRpcProvider(env.RPC_URL);
-      const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-      
-      const xUserIdAlreadyMinted = await contract.usedXUserId(xUserIdBigInt);
-      if (xUserIdAlreadyMinted) {
-        console.error("❌ X User already minted! Rejecting payment.");
-        return NextResponse.json(
-          {
-            error: "X User ID already minted",
-            message: "This X account has already minted an NFT. Each X account can only mint once."
-          },
-          { status: 400 }
-        );
-      }
-      console.log("✅ X User has not minted yet, proceeding with payment settlement...");
-    } catch (contractError) {
-      console.error("⚠️ Contract check failed:", contractError);
-      // Continue anyway - contract will validate during mint
     }
     
     // CRITICAL: Call settle API to transfer USDC!
@@ -404,9 +505,13 @@ export async function POST(request: NextRequest) {
         try {
           await db
             .update(tokens)
-            .set({ status: "paid" })
+            .set({ status: "paid", wallet_address: settlement.payer || wallet })
             .where(eq(tokens.x_user_id, x_user_id));
           console.log("✅ Token status updated to 'paid' (ready to mint)");
+          if (existingTokenRecord) {
+            existingTokenRecord.status = "paid";
+            existingTokenRecord.wallet_address = settlement.payer || wallet;
+          }
         } catch (statusError) {
           console.error("⚠️ Failed to update token status:", statusError);
           // Continue anyway - not critical
@@ -417,63 +522,7 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    console.log(`📝 Generating mint permit for wallet: ${wallet}, X user: ${x_user_id}`);
-    
-    // xUserIdBigInt already calculated above during mint check
-    // Get provider and contract
-    const provider = new ethers.JsonRpcProvider(env.RPC_URL);
-    const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-    
-    // Get nonce
-    const nonce = await contract.getNonce(wallet);
-    
-    // Get token metadata from database
-    let tokenURI = null;
-    if (!isMockMode && db) {
-      try {
-        console.log(`🔍 Looking for token metadata for x_user_id: ${x_user_id}`);
-        const userToken = await db
-          .select()
-          .from(tokens)
-          .where(eq(tokens.x_user_id, x_user_id))
-          .limit(1);
-        
-        if (userToken && userToken.length > 0) {
-          tokenURI = userToken[0].metadata_uri;
-          console.log(`✅ Found token metadata: ${tokenURI}`);
-        } else {
-          console.log(`⚠️ No token metadata found for x_user_id: ${x_user_id}`);
-        }
-      } catch (dbError) {
-        console.error("❌ Database error fetching metadata:", dbError);
-      }
-    }
-    
-    // Fallback tokenURI
-    if (!tokenURI) {
-      tokenURI = `ipfs://QmPlaceholder${Date.now()}`;
-      console.warn(`⚠️ Using placeholder tokenURI: ${tokenURI}`);
-    }
-    
-    // Create MintAuth
-    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
-    const mintAuth: MintAuth = {
-      to: wallet,
-      payer: wallet,
-      xUserId: xUserIdBigInt.toString(),
-      tokenURI: tokenURI,
-      nonce: Number(nonce),
-      deadline: deadline,
-    };
-    
-    // Sign mint authorization
-    const signature = await signMintAuth(mintAuth);
-    console.log(`✅ Mint permit signed successfully`);
-    
-    return NextResponse.json({
-      auth: mintAuth,
-      signature: signature,
-    });
+    return await issueMintPermit();
     
   } catch (error: any) {
     console.error("❌ Error in mint-permit:", error);

@@ -28,6 +28,7 @@ function HomePageContent() {
   const [alreadyMinted, setAlreadyMinted] = useState(false);
   const [mintStats, setMintStats] = useState<{ minted: number; remaining: number; maxSupply: number } | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [paymentReady, setPaymentReady] = useState(false);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -150,6 +151,7 @@ function HomePageContent() {
   const checkExistingNFT = async (xUserId: string): Promise<boolean> => {
     try {
       console.log("🔍 Checking for existing NFT for user:", xUserId);
+      let pendingPayment = false;
       
       // First check if user already minted (check token_id in database)
       try {
@@ -168,6 +170,7 @@ function HomePageContent() {
           // If database says minted (token_id > 0), show success screen
           if (mintStatus.hasMinted && mintStatus.tokenId > 0) {
             console.log("✅ User already minted (DB)! Token ID:", mintStatus.tokenId);
+            setPaymentReady(false);
             setAlreadyMinted(true);
             setMintedTokenId(mintStatus.tokenId?.toString() || null);
             setGenerated({
@@ -187,6 +190,9 @@ function HomePageContent() {
             return true;
           }
           
+          pendingPayment = !mintStatus.hasMinted && !!mintStatus.hasPaid;
+          setPaymentReady(pendingPayment);
+
           // If database says not minted, double-check with contract
           // (in case token_id wasn't updated in DB)
           console.log("🔍 Database token_id=0, checking contract...");
@@ -207,6 +213,7 @@ function HomePageContent() {
               
               if (isUsed) {
                 console.log("✅ User already minted (CONTRACT)!");
+                setPaymentReady(false);
                 setAlreadyMinted(true);
                 setMintedTokenId(null); // token_id not available, will show without it
                 setGenerated({
@@ -253,25 +260,33 @@ function HomePageContent() {
           setCurrentUserId(xUserId);
           // Move to pay step if NFT metadata exists but not minted yet
           setStep("pay");
+          if (pendingPayment) {
+            console.log("🟢 Payment previously completed; prompting user to mint");
+            setPaymentReady(true);
+          }
           return true;
         } else {
           console.warn("⚠️ NFT data received but no preview or imageUrl");
+          setPaymentReady(false);
           setStep("generate");
           return false;
         }
       } else if (response.status === 404) {
         console.log("ℹ️ No existing NFT found for user");
         // NFT not found, user can generate new one
+        setPaymentReady(false);
         setStep("generate");
         return false;
       } else {
         console.warn("⚠️ Error checking for existing NFT:", response.status);
+        setPaymentReady(false);
         setStep("generate");
         return false;
       }
     } catch (error) {
       console.error("Error checking for existing NFT:", error);
       // Don't block the flow if check fails
+      setPaymentReady(false);
       setStep("generate");
       return false;
     }
@@ -328,10 +343,18 @@ function HomePageContent() {
             // If database says minted, show success
             if (mintStatus.hasMinted && mintStatus.tokenId > 0) {
               console.log("✅ User already minted (DB)! Redirecting to success...");
+              setPaymentReady(false);
               setAlreadyMinted(true);
               setMintedTokenId(mintStatus.tokenId?.toString() || null);
               setStep("mint");
               return;
+            }
+
+            if (!mintStatus.hasMinted && mintStatus.hasPaid) {
+              console.log("🟢 Payment recorded in DB, awaiting mint confirmation");
+              setPaymentReady(true);
+            } else if (!mintStatus.hasMinted) {
+              setPaymentReady(false);
             }
           }
           
@@ -357,6 +380,7 @@ function HomePageContent() {
             
             if (isUsed) {
               console.log("✅ User already minted (CONTRACT)! Redirecting to success...");
+              setPaymentReady(false);
               setAlreadyMinted(true);
               // Try to get token_id from database, if not available, show without it
               setMintedTokenId(mintStatus?.tokenId > 0 ? mintStatus.tokenId?.toString() : null);
@@ -365,6 +389,7 @@ function HomePageContent() {
           }
         } catch (error) {
           console.warn("⚠️ Mint status check failed (non-critical):", error);
+          setPaymentReady(false);
         }
       }
     };
@@ -381,6 +406,7 @@ function HomePageContent() {
     setTransactionHash(null);
     setError(null);
     setAlreadyMinted(false);
+    setPaymentReady(false);
     setStep("connect");
     
     // 🗑️ Clear localStorage
@@ -409,6 +435,7 @@ function HomePageContent() {
     setTransactionHash(null);
     setError(null);
     setAlreadyMinted(false);
+    setPaymentReady(false);
     setStep("connect");
     
     // 🗑️ Clear localStorage
@@ -512,6 +539,7 @@ function HomePageContent() {
     try {
       setLoading(true);
       setError(null);
+      setPaymentReady(false);
       
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -599,58 +627,81 @@ function HomePageContent() {
     console.log("✅ All checks passed - starting mint flow with x402-fetch");
     try {
       setLoading(true);
-      setError("Preparing payment... Please approve the USDC permit signature in your wallet.");
-      
-      if (!walletClient) {
-        throw new Error("Wallet client not available. Please connect your wallet first.");
-      }
-      if (!walletClient.account) {
-        throw new Error("Wallet account not found. Please reconnect your wallet.");
+      setError(
+        paymentReady
+          ? "Payment detected. Preparing your mint permit..."
+          : "Preparing payment... Please approve the 5 USDC permit signature in your wallet."
+      );
+
+      let response: Response;
+
+      if (paymentReady) {
+        console.log("🟢 Payment already completed. Requesting mint permit without charging again...");
+        response = await fetch("/api/mint-permit-v2", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            wallet,
+            x_user_id: userId,
+          }),
+        });
+      } else {
+        if (!walletClient) {
+          throw new Error("Wallet client not available. Please connect your wallet first.");
+        }
+        if (!walletClient.account) {
+          throw new Error("Wallet account not found. Please reconnect your wallet.");
         }
 
-      console.log("💳 Using x402-fetch to handle payment automatically...");
-      console.log("   This will:");
-      console.log("   1. Get 402 response from server");
-      console.log("   2. Request USDC permit signature from your wallet");
-      console.log("   3. Send permit to CDP facilitator");
-      console.log("   4. Retry request with payment proof");
-      
-      const userAddress = walletClient.account.address;
-      console.log(`Using wallet address: ${userAddress}`);
-          
-      // Wrap fetch with x402 payment handling
-      // maxValue: 5_000_000 = 5 USDC (6 decimals)
-      // @ts-ignore - viem version mismatch between dependencies
-      const fetchWithPayment = wrapFetchWithPayment(fetch, walletClient, BigInt(5_000_000));
-      
-      // x402-fetch automatically handles the entire payment flow
-      // Server-side manual verification (EIP-2612 USDC Permit)
-      const response = await fetchWithPayment("/api/mint-permit-v2", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              wallet,
-              x_user_id: userId,
-            }),
-          });
-          
-      console.log("✅ Payment completed, parsing response...");
-      
-      // wrapFetchWithPayment returns the Response object after successful payment
+        console.log("💳 Using x402-fetch to handle payment automatically...");
+        console.log("   This will:");
+        console.log("   1. Get 402 response from server");
+        console.log("   2. Request USDC permit signature from your wallet");
+        console.log("   3. Send permit to CDP facilitator");
+        console.log("   4. Retry request with payment proof");
+        
+        const userAddress = walletClient.account.address;
+        console.log(`Using wallet address: ${userAddress}`);
+            
+        // Wrap fetch with x402 payment handling
+        // maxValue: 5_000_000 = 5 USDC (6 decimals)
+        // @ts-ignore - viem version mismatch between dependencies
+        const fetchWithPayment = wrapFetchWithPayment(fetch, walletClient, BigInt(5_000_000));
+        
+        // x402-fetch automatically handles the entire payment flow
+        // Server-side manual verification (EIP-2612 USDC Permit)
+        response = await fetchWithPayment("/api/mint-permit-v2", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            wallet,
+            x_user_id: userId,
+          }),
+        });
+      }
+
+      console.log("✅ Mint permit response received, parsing...");
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
         console.error("Mint permit failed:", errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to get mint permit');
-          }
-          
+
+        if (paymentReady && response.status === 402) {
+          setPaymentReady(false);
+        }
+
+        throw new Error(errorData.error || errorData.message || "Failed to get mint permit");
+      }
+
       const permitData: MintPermitResponse = await response.json();
-          console.log("✅ Permit data received:", permitData);
-      
+      console.log("✅ Permit data received:", permitData);
+
       // Now mint the NFT with the permit
-          await mintNFT(permitData);
-      
+      await mintNFT(permitData);
     } catch (err: any) {
       console.error("❌ Request mint permit error:", err);
           
@@ -979,6 +1030,7 @@ function HomePageContent() {
       
       // Mark as minted so user can't mint again
       setAlreadyMinted(true);
+      setPaymentReady(false);
       setStep("mint");
       setError(null);
     } catch (err: any) {
@@ -1274,6 +1326,12 @@ function HomePageContent() {
             <div className="card text-center">
               <h3 className="text-2xl font-bold mb-4 text-gray-800">Your xFrora NFT</h3>
               
+              {paymentReady && (
+                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-200">
+                  Payment received! Click “Complete Mint” to finish on-chain minting.
+                </div>
+              )}
+              
               {/* NFT Image */}
               <div className="max-w-md mx-auto mb-6">
                 {generated.preview || generated.imageUrl ? (
@@ -1331,10 +1389,16 @@ function HomePageContent() {
                   disabled={loading}
                   className="btn-primary w-full max-w-md mx-auto"
                 >
-                  {loading ? "Minting..." : "Mint on Base (5 USDC)"}
+                  {loading
+                    ? "Minting..."
+                    : paymentReady
+                    ? "Complete Mint"
+                    : "Mint on Base (5 USDC)"}
                 </button>
                 <p className="mt-3 text-xs text-gray-500 dark:text-slate-400">
-                  Step 1: Approve 5 USDC payment · Step 2: Confirm mint transaction
+                  {paymentReady
+                    ? "Payment confirmed · Step 2: Approve the mint transaction"
+                    : "Step 1: Approve 5 USDC payment · Step 2: Confirm mint transaction"}
                 </p>
               </div>
             </div>
