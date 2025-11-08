@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db, tokens } from "@/lib/db";
+import { db, tokens, payments } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { isMockMode } from "@/env.mjs";
 
@@ -34,13 +34,30 @@ export async function POST(request: NextRequest) {
 
         const tokenData = existingToken?.[0];
         const tokenId = tokenData?.token_id;
-        const status = tokenData?.status || "unknown";
+        let status = tokenData?.status || "unknown";
+
+        let paymentRecord: any = null;
+        try {
+          const paymentRows = await db
+            .select()
+            .from(payments)
+            .where(eq(payments.x_user_id, x_user_id))
+            .limit(1);
+          paymentRecord = paymentRows?.[0] || null;
+        } catch (paymentError) {
+          console.warn("⚠️ Payment lookup failed (non-critical):", paymentError);
+        }
+        const hasCompletedPayment = paymentRecord?.status === "completed";
+        if (status === "unknown" && hasCompletedPayment) {
+          status = "paid";
+        }
+        const recordedWallet = tokenData?.wallet_address || paymentRecord?.wallet_address || null;
         
         // hasMinted = true if status='minted' OR token_id > 0
         const hasMinted = (status === "minted") || (tokenId != null && tokenId > 0);
         
         // hasPaid = true if status='paid' (payment done, waiting for mint)
-        const hasPaid = status === "paid";
+        const hasPaid = status === "paid" || hasCompletedPayment;
 
         console.log("✅ Mint status checked:", {
           x_user_id,
@@ -49,6 +66,7 @@ export async function POST(request: NextRequest) {
           hasPaid,
           token_id: tokenId,
           has_metadata: !!tokenData?.metadata_uri,
+          recordedWallet,
           logic: `status=${status}, hasMinted=${hasMinted}, hasPaid=${hasPaid}`
         });
 
@@ -60,6 +78,7 @@ export async function POST(request: NextRequest) {
           status,
           imageUri: tokenData?.image_uri || null,
           metadataUri: tokenData?.metadata_uri || null,
+          walletAddress: recordedWallet,
         });
       } catch (dbError) {
         console.error("❌ Database check error:", dbError);

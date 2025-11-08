@@ -283,14 +283,23 @@ export async function POST(request: NextRequest) {
     
     // Lookup existing token state (if any)
     let existingTokenRecord: any = null;
+    let existingPaymentRecord: any = null;
     if (!isMockMode && db) {
       try {
-        const existingTokens = await db
-          .select()
-          .from(tokens)
-          .where(eq(tokens.x_user_id, x_user_id))
-          .limit(1);
-        existingTokenRecord = existingTokens?.[0] || null;
+        const [tokenRows, paymentRows] = await Promise.all([
+          db
+            .select()
+            .from(tokens)
+            .where(eq(tokens.x_user_id, x_user_id))
+            .limit(1),
+          db
+            .select()
+            .from(payments)
+            .where(eq(payments.x_user_id, x_user_id))
+            .limit(1),
+        ]);
+        existingTokenRecord = tokenRows?.[0] || null;
+        existingPaymentRecord = paymentRows?.[0] || null;
       } catch (dbError) {
         console.error("⚠️ Supabase token lookup failed:", dbError);
       }
@@ -299,8 +308,11 @@ export async function POST(request: NextRequest) {
     const normalizedWallet = wallet.toLowerCase();
     const recordedWallet = existingTokenRecord?.wallet_address
       ? String(existingTokenRecord.wallet_address).toLowerCase()
+      : existingPaymentRecord?.wallet_address
+      ? String(existingPaymentRecord.wallet_address).toLowerCase()
       : null;
     const recordedStatus = existingTokenRecord?.status || null;
+    const hasCompletedPayment = existingPaymentRecord?.status === "completed";
 
     const hash = ethers.id(x_user_id);
     const xUserIdBigInt = BigInt(hash);
@@ -384,7 +396,7 @@ export async function POST(request: NextRequest) {
     const paymentHeader = request.headers.get("x-payment");
 
     if (!paymentHeader) {
-      const hasRecordedPayment = recordedStatus === "paid";
+      const hasRecordedPayment = recordedStatus === "paid" || hasCompletedPayment;
       if (hasRecordedPayment) {
         console.log("💳 Payment already recorded in Supabase. Skipping 402 flow.");
         if (recordedWallet && recordedWallet !== normalizedWallet) {
