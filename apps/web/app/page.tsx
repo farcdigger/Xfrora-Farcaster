@@ -1077,7 +1077,9 @@ function HomePageContent() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold"
               >
-                <span className="text-lg">🌊</span>
+                <span className="text-lg">
+                  <img src="/opensea-icon.svg" alt="OpenSea icon" className="w-5 h-5" />
+                </span>
                 <span>OpenSea</span>
               </a>
               {/* X Account Button */}
@@ -1448,7 +1450,9 @@ function HomePageContent() {
                       mintedTokenId ? "" : "opacity-80"
                     }`}
                   >
-                    <span className="text-xl">🌊</span>
+                    <span className="text-xl">
+                      <img src="/opensea-icon.svg" alt="OpenSea icon" className="w-5 h-5" />
+                    </span>
                     {mintedTokenId ? `View on OpenSea` : "View Collection on OpenSea"}
                   </a>
                 )}
@@ -1529,7 +1533,7 @@ function HomePageContent() {
         <footer className="mt-16 py-8 border-t border-gray-300">
           <div className="container mx-auto px-4">
             <p className="text-center text-gray-600 text-sm">
-              Your digital identity is reborn as an AI work of art.✨ Developed using{" "}
+              Your digital identity is reborn as an AI work of art. Developed using{" "}
               <a
                 href="https://x.com/daydreamsagents"
                 target="_blank"
@@ -1538,7 +1542,7 @@ function HomePageContent() {
               >
                 Daydreams infrastructure
               </a>
-              .💳 Generated instantly via x402 Protocol.⛓️{" "}
+              . Generated instantly via x402 Protocol.{" "}
               <a
                 href="https://base.org"
                 target="_blank"
@@ -1810,9 +1814,10 @@ function HomePageContent() {
                   href={`https://opensea.io/assets/base/${env.NEXT_PUBLIC_CONTRACT_ADDRESS}/${mintedTokenId || ""}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-center transition-colors"
+                  className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-center transition-colors flex items-center justify-center gap-2"
                 >
-                  🌊 View on OpenSea
+                  <img src="/opensea-icon.svg" alt="OpenSea icon" className="w-6 h-6" />
+                  View on OpenSea
                 </a>
                 
                 {/* BaseScan Link */}
