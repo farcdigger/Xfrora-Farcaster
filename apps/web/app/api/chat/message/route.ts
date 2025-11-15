@@ -110,7 +110,8 @@ export async function POST(request: NextRequest) {
     let currentPoints = 0;
     try {
       if (isMockMode) {
-        const { mockTokenBalances } = await import("../token-balance/route");
+        const { getMockTokenBalances } = await import("@/lib/chat-tokens-mock");
+        const mockTokenBalances = getMockTokenBalances();
         const userData = mockTokenBalances.get(walletAddress.toLowerCase()) || { balance: 0, points: 0 };
         currentBalance = userData.balance;
         currentPoints = userData.points;
@@ -237,7 +238,8 @@ export async function POST(request: NextRequest) {
       let newPoints = currentPoints;
       
       if (isMockMode) {
-        const { mockTokenBalances } = await import("../token-balance/route");
+        const { getMockTokenBalances } = await import("@/lib/chat-tokens-mock");
+        const mockTokenBalances = getMockTokenBalances();
         const userData = mockTokenBalances.get(walletAddress.toLowerCase()) || { balance: 0, points: 0, totalTokensSpent: 0 };
         totalTokensSpent = (userData.totalTokensSpent || 0) + tokensUsed;
         // Calculate points based on total tokens spent

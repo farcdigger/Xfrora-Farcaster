@@ -6,42 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, chat_tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { isMockMode } from "@/env.mjs";
-
-// Mock token balance and points storage (in-memory) - fallback for mock mode
-// Use global to persist across API route requests in Next.js
-interface MockUserData {
-  balance: number;
-  points: number;
-  totalTokensSpent?: number; // Track total tokens spent for points calculation
-}
-
-const getMockTokenBalances = (): Map<string, MockUserData> => {
-  if (typeof global !== 'undefined') {
-    if (!(global as any).mockTokenBalances) {
-      (global as any).mockTokenBalances = new Map<string, MockUserData>();
-    }
-    // Migrate old format (number) to new format (MockUserData)
-    const map = (global as any).mockTokenBalances;
-    map.forEach((value: any, key: string) => {
-      if (typeof value === 'number') {
-        map.set(key, { balance: value, points: 0, totalTokensSpent: 0 });
-      }
-    });
-    return map;
-  }
-  // Fallback for environments without global
-  if (!(globalThis as any).mockTokenBalances) {
-    (globalThis as any).mockTokenBalances = new Map<string, MockUserData>();
-  }
-  // Migrate old format
-  const map = (globalThis as any).mockTokenBalances;
-  map.forEach((value: any, key: string) => {
-    if (typeof value === 'number') {
-      map.set(key, { balance: value, points: 0, totalTokensSpent: 0 });
-    }
-  });
-  return map;
-};
+import { getMockTokenBalances } from "@/lib/chat-tokens-mock";
 
 const mockTokenBalances = getMockTokenBalances();
 
@@ -236,6 +201,6 @@ export async function addTokens(
   }
 }
 
-// Export mock storage for backward compatibility
-export { mockTokenBalances };
+// Note: mockTokenBalances is not exported as Next.js routes can only export HTTP methods
+// Access via getMockTokenBalances() function or global.mockTokenBalances
 

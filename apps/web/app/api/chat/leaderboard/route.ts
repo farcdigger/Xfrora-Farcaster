@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
 
     if (isMockMode) {
       // Mock mode: return empty leaderboard or mock data
-      const { mockTokenBalances } = await import("../token-balance/route");
+      const { getMockTokenBalances } = await import("@/lib/chat-tokens-mock");
+      const mockTokenBalances = getMockTokenBalances();
       
       // Convert Map to array and sort by points
       const users = Array.from(mockTokenBalances.entries())
@@ -123,7 +124,8 @@ export async function POST(request: NextRequest) {
     const normalizedAddress = walletAddress.toLowerCase();
 
     if (isMockMode) {
-      const { mockTokenBalances } = await import("../token-balance/route");
+      const { getMockTokenBalances } = await import("@/lib/chat-tokens-mock");
+      const mockTokenBalances = getMockTokenBalances();
       const userData = mockTokenBalances.get(normalizedAddress);
       
       if (!userData) {
