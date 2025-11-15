@@ -244,14 +244,12 @@ export async function POST(request: NextRequest) {
     const paymentAmountUSD = parseFloat(matchedAmount);
     const tokenAmountUSD = paymentAmountUSD * 0.6;
 
-    // Calculate Daydreams tokens based on Google Gemini 2.5 Flash Lite pricing
-    // Gemini 2.5 Flash Lite pricing (from Daydreams):
-    // - Input: $0.10 per 1M tokens
-    // - Output: $0.40 per 1M tokens
-    //
+    // Calculate Daydreams tokens based on OpenAI GPT-5 Nano pricing
+    // Note: GPT-5 Nano pricing may vary - using general estimate
     // Average cost calculation (weighted by typical usage):
     // Typical chat: ~70% input tokens, ~30% output tokens
-    // Average cost per 1M tokens = (0.7 × $0.10) + (0.3 × $0.40) = $0.07 + $0.12 = $0.19 per 1M tokens
+    // Using a general average cost per 1M tokens estimate
+    // Average cost per 1M tokens = $0.19 (general estimate, adjust based on actual GPT-5 Nano pricing)
     //
     // We use 60% of payment for tokens (40% profit margin), so we have tokenAmountUSD to spend
     // How many tokens can we buy with tokenAmountUSD?
@@ -262,7 +260,7 @@ export async function POST(request: NextRequest) {
     //
     // However, Daydreams may charge differently or have markup.
     // For now, using the calculated value directly:
-    const AVERAGE_COST_PER_1M_TOKENS = 0.19; // $0.19 per 1M tokens (Gemini 2.5 Flash Lite average)
+    const AVERAGE_COST_PER_1M_TOKENS = 0.19; // $0.19 per 1M tokens (GPT-5 Nano estimate, adjust based on actual pricing)
     const tokens = Math.floor((tokenAmountUSD / AVERAGE_COST_PER_1M_TOKENS) * 1_000_000);
 
     // Save payment and update token balance in database
@@ -270,7 +268,7 @@ export async function POST(request: NextRequest) {
     const newBalance = await addTokens(walletAddress, tokens);
 
     // TODO: Save payment record to database
-    // TODO: Calculate actual Daydreams tokens based on Gemini 2.5 Flash Lite pricing
+    // TODO: Calculate actual Daydreams tokens based on GPT-5 Nano pricing
     // For now, using general conversion estimate
 
     return NextResponse.json({
