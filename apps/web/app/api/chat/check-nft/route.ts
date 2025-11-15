@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
     let method = "contract";
     let nftImageUrl: string | null = null;
     let tokenId: number | null = null;
+    let nftTraits: any | null = null;
     
     try {
       console.log("🔍 Checking NFT ownership via contract:", {
@@ -200,7 +201,14 @@ export async function POST(request: NextRequest) {
               }
               
               if (tokenRows && tokenRows.length > 0) {
-                const imageUri = tokenRows[0].image_uri || tokenRows[0].token_uri;
+                const tokenRow = tokenRows[0];
+                const imageUri = tokenRow.image_uri || tokenRow.token_uri;
+                
+                // Get traits from database
+                if (tokenRow.traits) {
+                  nftTraits = tokenRow.traits;
+                }
+                
                 if (imageUri) {
                   // Convert IPFS URL to gateway URL if needed
                   if (imageUri.startsWith("ipfs://")) {
@@ -212,6 +220,7 @@ export async function POST(request: NextRequest) {
                     tokenId,
                     imageUri: imageUri.substring(0, 50) + "...",
                     nftImageUrl: nftImageUrl ? nftImageUrl.substring(0, 50) + "..." : null,
+                    hasTraits: !!nftTraits,
                   });
                 } else {
                   console.warn("⚠️ Database record found but no image_uri or token_uri");
@@ -309,6 +318,7 @@ export async function POST(request: NextRequest) {
       method: method, // "contract" or "opensea"
       nftImageUrl: nftImageUrl || null, // NFT image URL if available
       tokenId: tokenId || null, // Token ID if available
+      traits: nftTraits || null, // NFT traits if available
     });
   } catch (error: any) {
     console.error("Error in check-nft endpoint:", error);

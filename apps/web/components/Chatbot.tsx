@@ -26,6 +26,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   const [checkingNFT, setCheckingNFT] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [nftImageUrl, setNftImageUrl] = useState<string | null>(null);
+  const [nftTraits, setNftTraits] = useState<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { address } = useAccount();
@@ -131,6 +132,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const data = await response.json();
       setHasNFT(data.hasNFT || false);
       setNftImageUrl(data.nftImageUrl || null);
+      setNftTraits(data.traits || null);
     } catch (error: any) {
       console.error("Error checking NFT:", error);
       setHasNFT(false);
@@ -178,6 +180,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
             role: m.role,
             content: m.content,
           })),
+          nftTraits: nftTraits, // Send cached traits to avoid fetching on every message
         }),
       });
 

@@ -131,7 +131,7 @@ function calculateTokensFromResponse(response: any): number {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, message, conversationHistory } = body;
+    const { walletAddress, message, conversationHistory, nftTraits: providedTraits } = body;
 
     if (!walletAddress || !message) {
       return NextResponse.json(
@@ -183,7 +183,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get NFT traits for system prompt
-    const nftTraits = await getNFTTraits(walletAddress);
+    // Use provided traits if available (from component cache), otherwise fetch
+    let nftTraits = providedTraits;
+    if (!nftTraits) {
+      // Only fetch if not provided (shouldn't happen in normal flow, but fallback)
+      nftTraits = await getNFTTraits(walletAddress);
+    }
     
     // Generate system prompt based on NFT traits
     // If no traits found, use default
@@ -238,12 +243,12 @@ export async function POST(request: NextRequest) {
 
     // Retry configuration for Daydreams API
     const MAX_RETRIES = 2;
-    const INITIAL_TIMEOUT = 60000; // 60 seconds
+    const INITIAL_TIMEOUT = 30000; // 30 seconds (reduced from 60)
     let lastError: any = null;
     
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const timeout = INITIAL_TIMEOUT + (attempt * 10000); // Increase timeout on retry
+        const timeout = INITIAL_TIMEOUT + (attempt * 5000); // Increase timeout on retry (5s per attempt)
         
         if (attempt > 0) {
           console.log(`🔄 Retrying Daydreams API call (attempt ${attempt + 1}/${MAX_RETRIES + 1})...`);
@@ -268,7 +273,7 @@ export async function POST(request: NextRequest) {
               Authorization: `Bearer ${env.INFERENCE_API_KEY}`,
               "Content-Type": "application/json",
             },
-            timeout: timeout, // Increased timeout to 60 seconds (with retry increases)
+            timeout: timeout, // 30 seconds initial timeout (with retry increases)
           }
         );
         
