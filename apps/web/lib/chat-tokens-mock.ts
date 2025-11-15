@@ -93,26 +93,29 @@ export async function updateTokenBalance(
       record: existing && existing.length > 0 ? existing[0] : null,
     });
 
+    // Ensure all values are the correct type (numbers, not strings)
     const updateData: any = {
-      balance: newBalance,
+      balance: Number(newBalance), // Ensure it's a number
       updated_at: new Date().toISOString(),
     };
     
     // Always update points if provided (even if 0)
     if (newPoints !== undefined) {
-      updateData.points = newPoints;
-      console.log("⭐ Points will be updated to:", newPoints);
+      updateData.points = Number(newPoints); // Ensure it's a number
+      console.log("⭐ Points will be updated to:", newPoints, "(type:", typeof updateData.points, ")");
     } else {
       console.warn("⚠️ newPoints is undefined - points will not be updated");
     }
     
     // Always update total_tokens_spent if provided
     if (totalTokensSpent !== undefined) {
-      updateData.total_tokens_spent = totalTokensSpent;
-      console.log("📊 Total tokens spent will be updated to:", totalTokensSpent);
+      updateData.total_tokens_spent = Number(totalTokensSpent); // Ensure it's a number
+      console.log("📊 Total tokens spent will be updated to:", totalTokensSpent, "(type:", typeof updateData.total_tokens_spent, ")");
     } else {
       console.warn("⚠️ totalTokensSpent is undefined - total_tokens_spent will not be updated");
     }
+    
+    console.log("📦 Final updateData object:", JSON.stringify(updateData, null, 2));
 
     console.log("💾 Updating Supabase:", {
       walletAddress: normalizedAddress,
