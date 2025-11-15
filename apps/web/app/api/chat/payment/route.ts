@@ -254,10 +254,10 @@ export async function POST(request: NextRequest) {
     //
     // We use 60% of payment for tokens (40% profit margin), so we have tokenAmountUSD to spend
     // How many tokens can we buy with tokenAmountUSD?
-    // tokens = (tokenAmountUSD / $0.19) × 1,000,000
+    // tokens = (tokenAmountUSD / $0.285) × 1,000,000
     // 
     // Example: If tokenAmountUSD = $0.60 (from $1 payment, 60%):
-    // tokens = ($0.60 / $0.19) × 1,000,000 = 3.158 × 1,000,000 = 3,158,000 tokens
+    // tokens = ($0.60 / $0.285) × 1,000,000 = 2.105 × 1,000,000 = 2,105,000 tokens
     //
     // However, Daydreams may charge differently or have markup.
     // For now, using the calculated value directly:
