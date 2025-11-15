@@ -405,14 +405,96 @@ export const db = {
               const client = supabaseClient as any;
               let query = client.from(tableName).update(values);
 
-              // Parse Drizzle eq() condition
-              if (condition && condition._column) {
-                const columnName = condition._column.name || condition._column._?.name;
-                const value = condition._value?.value ?? condition._value;
+              // Parse Drizzle eq() condition - use same detailed parsing as select()
+              if (condition) {
+                let columnName: string | undefined;
+                let value: any;
                 
-                if (columnName && value !== undefined) {
-                  query = query.eq(columnName, value);
+                // Method 1: Try queryChunks format (newer Drizzle format)
+                if (condition.queryChunks && Array.isArray(condition.queryChunks)) {
+                  // Parse queryChunks: [..., { name: "column_name" }, ..., "value", ...]
+                  for (let i = 0; i < condition.queryChunks.length; i++) {
+                    const chunk = condition.queryChunks[i];
+                    // Look for object with name property (column name)
+                    if (typeof chunk === 'object' && chunk !== null && chunk.name) {
+                      columnName = chunk.name;
+                    }
+                    // Look for string value (after column name)
+                    if (columnName && typeof chunk === 'string' && chunk.length > 0 && !chunk.includes('=') && !chunk.includes(' ')) {
+                      value = chunk;
+                      break;
+                    }
+                  }
+                  // Also try direct string value in queryChunks
+                  if (columnName && !value) {
+                    for (const chunk of condition.queryChunks) {
+                      if (typeof chunk === 'string' && chunk.length > 0 && chunk !== ' = ' && !chunk.match(/^[\s=]*$/)) {
+                        value = chunk;
+                        break;
+                      }
+                    }
+                  }
                 }
+                
+                // Method 2: Direct _column access
+                if (!columnName && condition._column) {
+                  columnName = condition._column.name || 
+                               condition._column._?.name || 
+                               condition._column._?.column?.name ||
+                               condition._column.column?.name;
+                  
+                  // Try to get value from _value
+                  if (condition._value !== undefined) {
+                    value = condition._value.value !== undefined ? condition._value.value : condition._value;
+                  }
+                }
+                
+                // Method 3: Try column property
+                if (!columnName && condition.column) {
+                  columnName = condition.column.name || condition.column._?.name;
+                  value = condition.value;
+                }
+                
+                // Method 4: Try to extract from Drizzle's internal structure
+                if (!columnName && typeof condition === 'object') {
+                  // Drizzle might store column name in different places
+                  const keys = Object.keys(condition);
+                  for (const key of keys) {
+                    if (key.includes('column') || key.includes('name')) {
+                      const colObj = (condition as any)[key];
+                      if (colObj && (colObj.name || colObj._?.name)) {
+                        columnName = colObj.name || colObj._?.name;
+                        break;
+                      }
+                    }
+                  }
+                  
+                  // Try to find value
+                  if (!value) {
+                    if (condition._value !== undefined) {
+                      value = condition._value.value ?? condition._value;
+                    } else if ((condition as any).value !== undefined) {
+                      value = (condition as any).value;
+                    }
+                  }
+                }
+                
+                // Apply filter if we found both column name and value
+                if (columnName && value !== undefined) {
+                  console.log(`🔍 Applying update filter: ${columnName} = ${value}`);
+                  query = query.eq(columnName, value);
+                } else {
+                  console.error(`❌ CRITICAL: Could not parse WHERE condition for UPDATE in ${tableName}!`, {
+                    conditionKeys: Object.keys(condition),
+                    condition: JSON.stringify(condition, null, 2).substring(0, 500),
+                    columnName,
+                    value,
+                  });
+                  throw new Error(`UPDATE requires a WHERE clause - could not parse condition for ${tableName}`);
+                }
+              } else {
+                console.error(`❌ CRITICAL: No WHERE condition provided for UPDATE in ${tableName}!`);
+                throw new Error(`UPDATE requires a WHERE clause - no condition provided for ${tableName}`);
               }
 
               const { data, error } = await query.select();
