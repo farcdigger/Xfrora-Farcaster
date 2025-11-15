@@ -87,7 +87,8 @@ export async function updateTokenBalance(
       await db
         .update(chat_tokens)
         .set(updateData)
-        .where(eq(chat_tokens.wallet_address, normalizedAddress));
+        .where(eq(chat_tokens.wallet_address, normalizedAddress))
+        .execute();
     } else {
       // Insert new record
       await db.insert(chat_tokens).values({
@@ -151,7 +152,8 @@ export async function addTokens(
           points: currentPoints, // Preserve existing points
           updated_at: new Date(),
         })
-        .where(eq(chat_tokens.wallet_address, normalizedAddress));
+        .where(eq(chat_tokens.wallet_address, normalizedAddress))
+        .execute();
     } else {
       await db.insert(chat_tokens).values({
         wallet_address: normalizedAddress,
