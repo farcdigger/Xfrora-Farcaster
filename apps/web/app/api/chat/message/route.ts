@@ -13,7 +13,7 @@ import { ethers } from "ethers";
 import { generateSystemPrompt } from "@/lib/chat-prompt";
 import { updateTokenBalance } from "@/lib/chat-tokens-mock";
 
-const MODEL = "openai/gpt-5-nano"; // Daydreams model name
+const MODEL = "gpt-5-nano"; // Daydreams model name
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
