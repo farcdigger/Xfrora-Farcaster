@@ -25,7 +25,6 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   const [hasNFT, setHasNFT] = useState<boolean | null>(null);
   const [checkingNFT, setCheckingNFT] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [nftImageUrl, setNftImageUrl] = useState<string | null>(null);
   const [nftTraits, setNftTraits] = useState<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -131,12 +130,10 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       
       const data = await response.json();
       setHasNFT(data.hasNFT || false);
-      setNftImageUrl(data.nftImageUrl || null);
       setNftTraits(data.traits || null);
     } catch (error: any) {
       console.error("Error checking NFT:", error);
       setHasNFT(false);
-      setNftImageUrl(null);
     } finally {
       setCheckingNFT(false);
     }
@@ -262,38 +259,19 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border-2 border-purple-500 flex-shrink-0 bg-gradient-to-br from-purple-500 to-blue-500">
-                {nftImageUrl ? (
-                  <img 
-                    src={nftImageUrl} 
-                    alt="Your NFT" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback to default logo if NFT image fails
-                      const target = e.target as HTMLImageElement;
-                      target.src = "/frora-logo.png";
-                      target.onerror = () => {
-                        target.style.display = 'none';
-                        if (target.parentElement) {
-                          target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white font-bold text-lg">xF</div>';
-                        }
-                      };
-                    }}
-                  />
-                ) : (
-                  <img 
-                    src="/frora-logo.png" 
-                    alt="xFrora" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback to text if image fails
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      if (target.parentElement) {
-                        target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white font-bold text-lg">xF</div>';
-                      }
-                    }}
-                  />
-                )}
+                <img 
+                  src="/frora-logo.png" 
+                  alt="xFrora" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to text if image fails
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    if (target.parentElement) {
+                      target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white font-bold text-lg">xF</div>';
+                    }
+                  }}
+                />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100">

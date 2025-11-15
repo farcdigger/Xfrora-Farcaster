@@ -23,9 +23,9 @@ const ERC721_ABI = [
 
 /**
  * Check NFT ownership via OpenSea API (fallback method)
- * Returns both ownership status and image URL
+ * Returns ownership status only
  */
-async function checkViaOpenSea(walletAddress: string): Promise<{ hasNFT: boolean; imageUrl: string | null }> {
+async function checkViaOpenSea(walletAddress: string): Promise<{ hasNFT: boolean }> {
   try {
     console.log("🔍 Checking NFT via OpenSea API...");
     
@@ -54,19 +54,6 @@ async function checkViaOpenSea(walletAddress: string): Promise<{ hasNFT: boolean
     });
     
     const hasNFT = matchingNFTs.length > 0;
-    let imageUrl: string | null = null;
-
-    // Get image from first matching NFT
-    if (hasNFT && matchingNFTs[0]) {
-      const nft = matchingNFTs[0];
-      // OpenSea API v2 returns image in different possible fields
-      imageUrl = nft.image_url || nft.image || nft.image_original_url || null;
-      
-      // If no direct image, try to get from collection
-      if (!imageUrl && nft.collection?.image_url) {
-        imageUrl = nft.collection.image_url;
-      }
-    }
 
     console.log("✅ OpenSea API check result:", {
       walletAddress,
@@ -74,15 +61,9 @@ async function checkViaOpenSea(walletAddress: string): Promise<{ hasNFT: boolean
       totalNFTs: nfts.length,
       matchingNFTs: matchingNFTs.length,
       hasNFT,
-      hasImage: !!imageUrl,
-      sampleNFT: matchingNFTs[0] ? {
-        identifier: matchingNFTs[0].identifier,
-        contract: matchingNFTs[0].contract || matchingNFTs[0].contract_address,
-        imageUrl: imageUrl?.substring(0, 50) + "...",
-      } : null,
     });
 
-    return { hasNFT, imageUrl };
+    return { hasNFT };
   } catch (error: any) {
     console.error("❌ OpenSea API check failed:", {
       error: error.message,
@@ -90,7 +71,7 @@ async function checkViaOpenSea(walletAddress: string): Promise<{ hasNFT: boolean
       statusText: error.response?.statusText,
       data: error.response?.data,
     });
-    return { hasNFT: false, imageUrl: null };
+    return { hasNFT: false };
   }
 }
 
@@ -120,7 +101,6 @@ export async function POST(request: NextRequest) {
     let hasNFT = false;
     let balance = "0";
     let method = "contract";
-    let nftImageUrl: string | null = null;
     let tokenId: number | null = null;
     let nftTraits: any | null = null;
     
@@ -138,13 +118,13 @@ export async function POST(request: NextRequest) {
       hasNFT = balanceResult > 0n;
       balance = balanceResult.toString();
 
-      // If NFT exists, get the first token ID and fetch image from database
+      // If NFT exists, get the first token ID and fetch traits from database
       if (hasNFT) {
         try {
           const firstTokenId = await contract.tokenOfOwnerByIndex(normalizedAddress, 0);
           tokenId = Number(firstTokenId);
           
-          // Try to get image from database
+          // Try to get traits from database
           if (db) {
             try {
               // First try to find by token_id
@@ -202,65 +182,24 @@ export async function POST(request: NextRequest) {
               
               if (tokenRows && tokenRows.length > 0) {
                 const tokenRow = tokenRows[0];
-                const imageUri = tokenRow.image_uri || tokenRow.token_uri;
                 
                 // Get traits from database
                 if (tokenRow.traits) {
                   nftTraits = tokenRow.traits;
-                }
-                
-                if (imageUri) {
-                  // Convert IPFS URL to gateway URL if needed
-                  if (imageUri.startsWith("ipfs://")) {
-                    nftImageUrl = `https://gateway.pinata.cloud/ipfs/${imageUri.replace("ipfs://", "")}`;
-                  } else {
-                    nftImageUrl = imageUri;
-                  }
-                  console.log("✅ Found NFT image from database:", {
+                  console.log("✅ Found NFT traits from database:", {
                     tokenId,
-                    imageUri: imageUri.substring(0, 50) + "...",
-                    nftImageUrl: nftImageUrl ? nftImageUrl.substring(0, 50) + "..." : null,
                     hasTraits: !!nftTraits,
                   });
-                } else {
-                  console.warn("⚠️ Database record found but no image_uri or token_uri");
                 }
               } else {
                 console.warn("⚠️ No database record found for tokenId:", tokenId);
-                // Try to get image from contract tokenURI
-                try {
-                  const tokenURI = await contract.tokenURI(tokenId);
-                  if (tokenURI) {
-                    // Fetch metadata from tokenURI
-                    let metadataUrl = tokenURI;
-                    if (tokenURI.startsWith("ipfs://")) {
-                      metadataUrl = `https://gateway.pinata.cloud/ipfs/${tokenURI.replace("ipfs://", "")}`;
-                    }
-                    const metadataResponse = await axios.get(metadataUrl, { timeout: 5000 });
-                    const metadata = metadataResponse.data;
-                    if (metadata?.image) {
-                      let imageUrl = metadata.image;
-                      if (imageUrl.startsWith("ipfs://")) {
-                        nftImageUrl = `https://gateway.pinata.cloud/ipfs/${imageUrl.replace("ipfs://", "")}`;
-                      } else {
-                        nftImageUrl = imageUrl;
-                      }
-                      console.log("✅ Found NFT image from tokenURI metadata:", {
-                        tokenId,
-                        nftImageUrl: nftImageUrl ? nftImageUrl.substring(0, 50) + "..." : null,
-                      });
-                    }
-                  }
-                } catch (tokenURIError: any) {
-                  console.warn("Failed to get image from tokenURI:", tokenURIError.message);
-                }
               }
             } catch (dbError) {
-              console.warn("Database lookup failed for NFT image:", dbError);
+              console.warn("Database lookup failed for NFT traits:", dbError);
             }
           }
         } catch (tokenError: any) {
-          console.warn("Failed to get token ID or image:", tokenError.message);
+          console.warn("Failed to get token ID or traits:", tokenError.message);
         }
       }
 
@@ -269,7 +208,7 @@ export async function POST(request: NextRequest) {
         balance,
         hasNFT,
         tokenId,
-        hasImage: !!nftImageUrl,
+        hasTraits: !!nftTraits,
       });
     } catch (error: any) {
       console.warn("⚠️ Contract check failed, trying OpenSea API:", {
@@ -281,9 +220,6 @@ export async function POST(request: NextRequest) {
       try {
         const openseaResult = await checkViaOpenSea(normalizedAddress);
         hasNFT = openseaResult.hasNFT;
-        if (openseaResult.imageUrl && !nftImageUrl) {
-          nftImageUrl = openseaResult.imageUrl;
-        }
         method = "opensea";
         balance = hasNFT ? "1" : "0"; // OpenSea doesn't return exact balance easily
         
@@ -316,7 +252,6 @@ export async function POST(request: NextRequest) {
       hasNFT: hasNFT,
       balance: balance,
       method: method, // "contract" or "opensea"
-      nftImageUrl: nftImageUrl || null, // NFT image URL if available
       tokenId: tokenId || null, // Token ID if available
       traits: nftTraits || null, // NFT traits if available
     });
