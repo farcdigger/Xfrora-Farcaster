@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ethers } from "ethers";
 import { env } from "@/env.mjs";
 import axios from "axios";
-import { db, tokens } from "@/lib/db";
+import { db, tokens, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
 const CONTRACT_ADDRESS = env.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396";
@@ -146,11 +146,33 @@ export async function POST(request: NextRequest) {
           // Try to get image from database
           if (db) {
             try {
-              const tokenRows = await db
+              // First try to find by token_id
+              let tokenRows = await db
                 .select()
                 .from(tokens)
                 .where(eq(tokens.token_id, tokenId))
                 .limit(1);
+              
+              // If not found by token_id, try to find by wallet_address via users table
+              if (tokenRows.length === 0) {
+                try {
+                  const userRows = await db
+                    .select()
+                    .from(users)
+                    .where(eq(users.wallet_address, normalizedAddress))
+                    .limit(1);
+                  
+                  if (userRows.length > 0 && userRows[0].x_user_id) {
+                    tokenRows = await db
+                      .select()
+                      .from(tokens)
+                      .where(eq(tokens.x_user_id, userRows[0].x_user_id))
+                      .limit(1);
+                  }
+                } catch (userError) {
+                  console.warn("Failed to find token via users table:", userError);
+                }
+              }
               
               if (tokenRows && tokenRows.length > 0) {
                 const imageUri = tokenRows[0].image_uri || tokenRows[0].token_uri;
