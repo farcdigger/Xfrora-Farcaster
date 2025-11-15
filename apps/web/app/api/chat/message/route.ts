@@ -22,6 +22,7 @@ interface ChatMessage {
 
 /**
  * Get NFT traits for wallet address
+ * Gracefully handles errors - returns null if NFT not found or errors occur
  */
 async function getNFTTraits(walletAddress: string): Promise<any | null> {
   try {
@@ -37,14 +38,51 @@ async function getNFTTraits(walletAddress: string): Promise<any | null> {
     ];
     
     const contract = new ethers.Contract(contractAddress, ERC721_ABI, provider);
-    const balance = await contract.balanceOf(walletAddress);
+    
+    // Check balance with timeout and error handling
+    let balance;
+    try {
+      balance = await Promise.race([
+        contract.balanceOf(walletAddress),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Balance check timeout")), 5000)
+        ),
+      ]) as bigint;
+    } catch (balanceError: any) {
+      // If rate limited or other RPC error, gracefully return null
+      if (balanceError?.info?.error?.code === -32016 || balanceError?.code === "CALL_EXCEPTION") {
+        console.warn("RPC rate limit or error checking NFT balance, using default traits:", balanceError.message);
+        return null;
+      }
+      throw balanceError;
+    }
     
     if (balance === 0n) {
       return null; // No NFT owned
     }
     
-    // Get first token ID
-    const tokenId = await contract.tokenOfOwnerByIndex(walletAddress, 0);
+    // Get first token ID with error handling
+    let tokenId;
+    try {
+      tokenId = await Promise.race([
+        contract.tokenOfOwnerByIndex(walletAddress, 0),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Token ID check timeout")), 5000)
+        ),
+      ]) as bigint;
+    } catch (tokenError: any) {
+      // If require(false) or other contract error, user doesn't have NFT
+      if (tokenError?.code === "CALL_EXCEPTION" || tokenError?.reason === "require(false)") {
+        console.warn("User does not own NFT (contract revert), using default traits");
+        return null;
+      }
+      // If rate limited, gracefully return null
+      if (tokenError?.info?.error?.code === -32016) {
+        console.warn("RPC rate limit checking token ID, using default traits");
+        return null;
+      }
+      throw tokenError;
+    }
     
     // Try to get traits from database
     if (db) {
@@ -65,8 +103,9 @@ async function getNFTTraits(walletAddress: string): Promise<any | null> {
     
     // If not in database, return null to use default traits
     return null;
-  } catch (error) {
-    console.error("Error getting NFT traits:", error);
+  } catch (error: any) {
+    // Log error but don't fail the request - use default traits instead
+    console.warn("Error getting NFT traits (using default):", error?.message || error);
     return null;
   }
 }
@@ -197,136 +236,181 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    try {
-      const response = await axios.post(
-        "https://api-beta.daydreams.systems/v1/chat/completions",
-        {
-          model: MODEL,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          temperature: 0.7, // Slightly lower for faster responses
-          max_tokens: 500, // Reduced from 1000 to speed up generation
-          stream: false, // Explicitly disable streaming for now
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${env.INFERENCE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          timeout: 30000, // 30 second timeout
+    // Retry configuration for Daydreams API
+    const MAX_RETRIES = 2;
+    const INITIAL_TIMEOUT = 60000; // 60 seconds
+    let lastError: any = null;
+    
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const timeout = INITIAL_TIMEOUT + (attempt * 10000); // Increase timeout on retry
+        
+        if (attempt > 0) {
+          console.log(`🔄 Retrying Daydreams API call (attempt ${attempt + 1}/${MAX_RETRIES + 1})...`);
+          // Exponential backoff: wait 2^attempt seconds
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
         }
-      );
+        
+        const response = await axios.post(
+          "https://api-beta.daydreams.systems/v1/chat/completions",
+          {
+            model: MODEL,
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            temperature: 0.7, // Slightly lower for faster responses
+            max_tokens: 500, // Reduced from 1000 to speed up generation
+            stream: false, // Explicitly disable streaming for now
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${env.INFERENCE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            timeout: timeout, // Increased timeout to 60 seconds (with retry increases)
+          }
+        );
+        
+        // Success - break out of retry loop
+        const assistantMessage = response.data.choices[0]?.message?.content;
+        const usage = response.data.usage;
 
-      const assistantMessage = response.data.choices[0]?.message?.content;
-      const usage = response.data.usage;
+        if (!assistantMessage) {
+          throw new Error("No response from Daydreams API");
+        }
 
-      if (!assistantMessage) {
-        throw new Error("No response from Daydreams API");
+        // Calculate tokens used
+        const tokensUsed = usage?.total_tokens || calculateTokensFromResponse(response.data);
+        
+        // Deduct tokens from balance in database
+        const newBalance = Math.max(0, currentBalance - tokensUsed);
+        
+        // Calculate points: every 10,000 tokens spent = 1 point
+        // We need to track total tokens spent across all messages
+        let totalTokensSpent = 0;
+        let newPoints = currentPoints;
+        
+        if (isMockMode) {
+          const { getMockTokenBalances } = await import("@/lib/chat-tokens-mock");
+          const mockTokenBalances = getMockTokenBalances();
+          const userData = mockTokenBalances.get(walletAddress.toLowerCase()) || { balance: 0, points: 0, totalTokensSpent: 0 };
+          totalTokensSpent = (userData.totalTokensSpent || 0) + tokensUsed;
+          // Calculate points based on total tokens spent: every 10,000 tokens = 1 point
+          newPoints = Math.floor(totalTokensSpent / 10000);
+          
+          console.log("🎯 Points calculation (mock mode):", {
+            tokensUsed,
+            previousTotalSpent: userData.totalTokensSpent || 0,
+            totalTokensSpent,
+            newPoints,
+            formula: `Math.floor(${totalTokensSpent} / 10000) = ${newPoints}`,
+          });
+          
+          // Update totalTokensSpent in mock storage
+          mockTokenBalances.set(walletAddress.toLowerCase(), {
+            balance: newBalance,
+            points: newPoints,
+            totalTokensSpent: totalTokensSpent,
+          });
+        } else {
+          // For database mode, get current total_tokens_spent and update it
+          const result = await db
+            .select()
+            .from(chat_tokens)
+            .where(eq(chat_tokens.wallet_address, walletAddress.toLowerCase()))
+            .limit(1);
+          
+          const currentTotalSpent = result && result.length > 0
+            ? Number(result[0].total_tokens_spent) || 0
+            : 0;
+          
+          totalTokensSpent = currentTotalSpent + tokensUsed;
+          // Calculate points based on total tokens spent: every 10,000 tokens = 1 point
+          newPoints = Math.floor(totalTokensSpent / 10000);
+          
+          console.log("🎯 Points calculation:", {
+            tokensUsed,
+            currentTotalSpent,
+            totalTokensSpent,
+            newPoints,
+            formula: `Math.floor(${totalTokensSpent} / 10000) = ${newPoints}`,
+          });
+        }
+        
+        // Update balance, points, and total_tokens_spent in database
+        console.log("💾 Updating token balance with points:", {
+          walletAddress,
+          newBalance,
+          newPoints,
+          totalTokensSpent,
+          pointsFormula: `${totalTokensSpent} / 10000 = ${newPoints} points`,
+        });
+        await updateTokenBalance(walletAddress, newBalance, newPoints, totalTokensSpent);
+
+        // Check if balance is low
+        if (newBalance <= 0) {
+          // Return response but indicate low balance
+          return NextResponse.json({
+            response: assistantMessage,
+            tokensUsed,
+            newBalance: newBalance,
+            points: newPoints,
+            lowBalance: true,
+        });
       }
 
-      // Calculate tokens used
-      const tokensUsed = usage?.total_tokens || calculateTokensFromResponse(response.data);
-      
-      // Deduct tokens from balance in database
-      const newBalance = Math.max(0, currentBalance - tokensUsed);
-      
-      // Calculate points: every 10,000 tokens spent = 1 point
-      // We need to track total tokens spent across all messages
-      let totalTokensSpent = 0;
-      let newPoints = currentPoints;
-      
-      if (isMockMode) {
-        const { getMockTokenBalances } = await import("@/lib/chat-tokens-mock");
-        const mockTokenBalances = getMockTokenBalances();
-        const userData = mockTokenBalances.get(walletAddress.toLowerCase()) || { balance: 0, points: 0, totalTokensSpent: 0 };
-        totalTokensSpent = (userData.totalTokensSpent || 0) + tokensUsed;
-        // Calculate points based on total tokens spent: every 10,000 tokens = 1 point
-        newPoints = Math.floor(totalTokensSpent / 10000);
-        
-        console.log("🎯 Points calculation (mock mode):", {
-          tokensUsed,
-          previousTotalSpent: userData.totalTokensSpent || 0,
-          totalTokensSpent,
-          newPoints,
-          formula: `Math.floor(${totalTokensSpent} / 10000) = ${newPoints}`,
-        });
-        
-        // Update totalTokensSpent in mock storage
-        mockTokenBalances.set(walletAddress.toLowerCase(), {
-          balance: newBalance,
-          points: newPoints,
-          totalTokensSpent: totalTokensSpent,
-        });
-      } else {
-        // For database mode, get current total_tokens_spent and update it
-        const result = await db
-          .select()
-          .from(chat_tokens)
-          .where(eq(chat_tokens.wallet_address, walletAddress.toLowerCase()))
-          .limit(1);
-        
-        const currentTotalSpent = result && result.length > 0
-          ? Number(result[0].total_tokens_spent) || 0
-          : 0;
-        
-        totalTokensSpent = currentTotalSpent + tokensUsed;
-        // Calculate points based on total tokens spent: every 10,000 tokens = 1 point
-        newPoints = Math.floor(totalTokensSpent / 10000);
-        
-        console.log("🎯 Points calculation:", {
-          tokensUsed,
-          currentTotalSpent,
-          totalTokensSpent,
-          newPoints,
-          formula: `Math.floor(${totalTokensSpent} / 10000) = ${newPoints}`,
-        });
-      }
-      
-      // Update balance, points, and total_tokens_spent in database
-      console.log("💾 Updating token balance with points:", {
-        walletAddress,
-        newBalance,
-        newPoints,
-        totalTokensSpent,
-        pointsFormula: `${totalTokensSpent} / 10000 = ${newPoints} points`,
-      });
-      await updateTokenBalance(walletAddress, newBalance, newPoints, totalTokensSpent);
-
-      // Check if balance is low
-      if (newBalance <= 0) {
-        // Return response but indicate low balance
         return NextResponse.json({
           response: assistantMessage,
           tokensUsed,
           newBalance: newBalance,
           points: newPoints,
-          lowBalance: true,
         });
+      } catch (error: any) {
+        lastError = error;
+        console.error(`Daydreams API error (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, {
+          message: error.message,
+          code: error.code,
+          timeout: error.code === "ECONNABORTED",
+        });
+        
+        // If payment required, don't retry
+        if (error.response?.status === 402) {
+          return NextResponse.json(
+            {
+              error: "Payment required for Daydreams API",
+              paymentRequired: true,
+            },
+            { status: 402 }
+          );
+        }
+        
+        // If this was the last attempt, throw the error
+        if (attempt === MAX_RETRIES) {
+          // Return user-friendly error message for timeout
+          if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+            return NextResponse.json(
+              {
+                error: "The AI service is taking longer than expected. Please try again in a moment.",
+                timeout: true,
+              },
+              { status: 504 }
+            );
+          }
+          
+          throw error;
+        }
       }
-
-      return NextResponse.json({
-        response: assistantMessage,
-        tokensUsed,
-        newBalance: newBalance,
-        points: newPoints,
-      });
-    } catch (error: any) {
-      console.error("Daydreams API error:", error);
-      
-      if (error.response?.status === 402) {
-        return NextResponse.json(
-          {
-            error: "Payment required for Daydreams API",
-            paymentRequired: true,
-          },
-          { status: 402 }
-        );
-      }
-
-      throw error;
     }
+    
+    // If we get here, all retries failed
+    return NextResponse.json(
+      {
+        error: "Failed to get response from AI service after multiple attempts. Please try again later.",
+        timeout: true,
+      },
+      { status: 504 }
+    );
   } catch (error: any) {
     console.error("Error in chat message endpoint:", error);
     return NextResponse.json(
