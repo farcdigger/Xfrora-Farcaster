@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
                   console.log("✅ Found NFT image from database:", {
                     tokenId,
                     imageUri: imageUri.substring(0, 50) + "...",
-                    nftImageUrl: nftImageUrl.substring(0, 50) + "...",
+                    nftImageUrl: nftImageUrl ? nftImageUrl.substring(0, 50) + "..." : null,
                   });
                 } else {
                   console.warn("⚠️ Database record found but no image_uri or token_uri");
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
                       }
                       console.log("✅ Found NFT image from tokenURI metadata:", {
                         tokenId,
-                        nftImageUrl: nftImageUrl.substring(0, 50) + "...",
+                        nftImageUrl: nftImageUrl ? nftImageUrl.substring(0, 50) + "..." : null,
                       });
                     }
                   }
