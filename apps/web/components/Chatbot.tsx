@@ -43,6 +43,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       checkNFTOwnership();
       fetchTokenBalance();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, walletAddress]);
 
   const checkNFTOwnership = async () => {
@@ -278,7 +279,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                 Start a conversation
               </h3>
               <p className="text-gray-600 dark:text-slate-400 max-w-md">
-                Your NFT's unique personality is ready to chat! Ask anything and discover what makes your xFrora special.
+                Your NFT&apos;s unique personality is ready to chat! Ask anything and discover what makes your xFrora special.
               </p>
             </div>
           ) : (
@@ -360,7 +361,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
               <div className="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    You're out of tokens! Add more to continue chatting.
+                    You&apos;re out of tokens! Add more to continue chatting.
                   </p>
                   <button
                     onClick={() => setShowPaymentModal(true)}
