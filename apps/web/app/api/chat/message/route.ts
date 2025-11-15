@@ -243,12 +243,12 @@ export async function POST(request: NextRequest) {
 
     // Retry configuration for Daydreams API
     const MAX_RETRIES = 2;
-    const INITIAL_TIMEOUT = 30000; // 30 seconds (reduced from 60)
+    const INITIAL_TIMEOUT = 60000; // 60 seconds (increased from 30 - API needs more time)
     let lastError: any = null;
     
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const timeout = INITIAL_TIMEOUT + (attempt * 5000); // Increase timeout on retry (5s per attempt)
+        const timeout = INITIAL_TIMEOUT + (attempt * 10000); // Increase timeout on retry (10s per attempt: 60s, 70s, 80s)
         
         if (attempt > 0) {
           console.log(`🔄 Retrying Daydreams API call (attempt ${attempt + 1}/${MAX_RETRIES + 1})...`);
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
               Authorization: `Bearer ${env.INFERENCE_API_KEY}`,
               "Content-Type": "application/json",
             },
-            timeout: timeout, // 30 seconds initial timeout (with retry increases)
+            timeout: timeout, // 60 seconds initial timeout (with retry increases: 60s, 70s, 80s)
           }
         );
         
