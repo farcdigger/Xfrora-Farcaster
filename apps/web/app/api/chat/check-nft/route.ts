@@ -7,14 +7,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { ethers } from "ethers";
 import { env } from "@/env.mjs";
 import axios from "axios";
+import { db, tokens } from "@/lib/db";
+import { eq } from "drizzle-orm";
 
 const CONTRACT_ADDRESS = env.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396";
 const RPC_URL = env.RPC_URL || "https://mainnet.base.org";
 
-// ERC721 ABI for balanceOf
+// ERC721 ABI for balanceOf and tokenOfOwnerByIndex
 const ERC721_ABI = [
   "function balanceOf(address owner) external view returns (uint256)",
   "function ownerOf(uint256 tokenId) external view returns (address)",
+  "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)",
 ];
 
 /**
@@ -100,6 +103,8 @@ export async function POST(request: NextRequest) {
     let hasNFT = false;
     let balance = "0";
     let method = "contract";
+    let nftImageUrl: string | null = null;
+    let tokenId: number | null = null;
     
     try {
       console.log("🔍 Checking NFT ownership via contract:", {
@@ -115,10 +120,47 @@ export async function POST(request: NextRequest) {
       hasNFT = balanceResult > 0n;
       balance = balanceResult.toString();
 
+      // If NFT exists, get the first token ID and fetch image from database
+      if (hasNFT) {
+        try {
+          const firstTokenId = await contract.tokenOfOwnerByIndex(normalizedAddress, 0);
+          tokenId = Number(firstTokenId);
+          
+          // Try to get image from database
+          if (db) {
+            try {
+              const tokenRows = await db
+                .select()
+                .from(tokens)
+                .where(eq(tokens.token_id, tokenId))
+                .limit(1);
+              
+              if (tokenRows && tokenRows.length > 0) {
+                const imageUri = tokenRows[0].image_uri || tokenRows[0].token_uri;
+                if (imageUri) {
+                  // Convert IPFS URL to gateway URL if needed
+                  if (imageUri.startsWith("ipfs://")) {
+                    nftImageUrl = `https://gateway.pinata.cloud/ipfs/${imageUri.replace("ipfs://", "")}`;
+                  } else {
+                    nftImageUrl = imageUri;
+                  }
+                }
+              }
+            } catch (dbError) {
+              console.warn("Database lookup failed for NFT image:", dbError);
+            }
+          }
+        } catch (tokenError: any) {
+          console.warn("Failed to get token ID or image:", tokenError.message);
+        }
+      }
+
       console.log("✅ Contract check result:", {
         walletAddress: normalizedAddress,
         balance,
         hasNFT,
+        tokenId,
+        hasImage: !!nftImageUrl,
       });
     } catch (error: any) {
       console.warn("⚠️ Contract check failed, trying OpenSea API:", {
@@ -161,6 +203,8 @@ export async function POST(request: NextRequest) {
       hasNFT: hasNFT,
       balance: balance,
       method: method, // "contract" or "opensea"
+      nftImageUrl: nftImageUrl || null, // NFT image URL if available
+      tokenId: tokenId || null, // Token ID if available
     });
   } catch (error: any) {
     console.error("Error in check-nft endpoint:", error);
