@@ -11,7 +11,7 @@ import { db, tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { ethers } from "ethers";
 import { generateSystemPrompt } from "@/lib/chat-prompt";
-import { updateTokenBalance, addTokens } from "../token-balance/route";
+import { updateTokenBalance } from "@/lib/chat-tokens-mock";
 
 const MODEL = "openai/gpt-4o-mini"; // Daydreams model name
 

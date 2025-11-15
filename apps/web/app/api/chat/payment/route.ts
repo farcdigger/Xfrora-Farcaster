@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
     const tokens = Math.floor((tokenAmountUSD / AVERAGE_COST_PER_1M_TOKENS) * 1_000_000);
 
     // Save payment and update token balance in database
-    const { addTokens } = await import("../token-balance/route");
+    const { addTokens } = await import("@/lib/chat-tokens-mock");
     const newBalance = await addTokens(walletAddress, tokens);
 
     // TODO: Save payment record to database
