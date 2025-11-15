@@ -455,6 +455,7 @@ function PaymentModal({
     try {
       const amountInUSDC = Math.floor(amount * 1_000_000);
       
+      // @ts-ignore - viem version mismatch between dependencies
       const fetchWithPayment = wrapFetchWithPayment(fetch, walletClient, BigInt(amountInUSDC));
       
       const response = await fetchWithPayment(`/api/chat/payment?amount=${amount}`, {
