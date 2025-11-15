@@ -1,6 +1,6 @@
 /**
  * Chat message endpoint
- * Handles chat messages with Daydreams API (OpenAI GPT-5 Nano)
+ * Handles chat messages with Daydreams API (OpenAI GPT-4o-mini)
  * Tracks token usage and deducts from user balance
  */
 
@@ -13,7 +13,7 @@ import { ethers } from "ethers";
 import { generateSystemPrompt } from "@/lib/chat-prompt";
 import { updateTokenBalance } from "@/lib/chat-tokens-mock";
 
-const MODEL = "gpt-5-nano"; // Daydreams model name
+const MODEL = "openai/gpt-4o-mini"; // Daydreams model name (gpt-5-nano not available)
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
