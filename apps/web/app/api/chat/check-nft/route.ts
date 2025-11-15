@@ -156,11 +156,37 @@ export async function POST(request: NextRequest) {
               // If not found by token_id, try to find by wallet_address via users table
               if (tokenRows.length === 0) {
                 try {
+                  // Try both normalized and original address formats
                   const userRows = await db
                     .select()
                     .from(users)
                     .where(eq(users.wallet_address, normalizedAddress))
                     .limit(1);
+                  
+                  // If still not found, try case-insensitive search via direct Supabase query
+                  if (userRows.length === 0) {
+                    try {
+                      const { supabaseClient } = await import("@/lib/db-supabase");
+                      if (supabaseClient) {
+                        const client = supabaseClient as any;
+                        const { data: userData } = await client
+                          .from("users")
+                          .select("x_user_id")
+                          .ilike("wallet_address", normalizedAddress)
+                          .limit(1);
+                        
+                        if (userData && userData.length > 0) {
+                          tokenRows = await db
+                            .select()
+                            .from(tokens)
+                            .where(eq(tokens.x_user_id, userData[0].x_user_id))
+                            .limit(1);
+                        }
+                      }
+                    } catch (supabaseError) {
+                      console.warn("Failed to find user via Supabase ilike:", supabaseError);
+                    }
+                  }
                   
                   if (userRows.length > 0 && userRows[0].x_user_id) {
                     tokenRows = await db
