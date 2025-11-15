@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
         // Deduct tokens from balance in database
         const newBalance = Math.max(0, currentBalance - tokensUsed);
         
-        // Calculate points: every 10,000 tokens spent = 1 point
+        // Calculate points: every 2,000 tokens spent = 1 point
         // We need to track total tokens spent across all messages
         let totalTokensSpent = 0;
         let newPoints = currentPoints;
@@ -301,15 +301,15 @@ export async function POST(request: NextRequest) {
           const mockTokenBalances = getMockTokenBalances();
           const userData = mockTokenBalances.get(walletAddress.toLowerCase()) || { balance: 0, points: 0, totalTokensSpent: 0 };
           totalTokensSpent = (userData.totalTokensSpent || 0) + tokensUsed;
-          // Calculate points based on total tokens spent: every 10,000 tokens = 1 point
-          newPoints = Math.floor(totalTokensSpent / 10000);
+          // Calculate points based on total tokens spent: every 2,000 tokens = 1 point
+          newPoints = Math.floor(totalTokensSpent / 2000);
           
           console.log("🎯 Points calculation (mock mode):", {
             tokensUsed,
             previousTotalSpent: userData.totalTokensSpent || 0,
             totalTokensSpent,
             newPoints,
-            formula: `Math.floor(${totalTokensSpent} / 10000) = ${newPoints}`,
+            formula: `Math.floor(${totalTokensSpent} / 2000) = ${newPoints}`,
           });
           
           // Update totalTokensSpent in mock storage
@@ -331,15 +331,15 @@ export async function POST(request: NextRequest) {
             : 0;
           
           totalTokensSpent = currentTotalSpent + tokensUsed;
-          // Calculate points based on total tokens spent: every 10,000 tokens = 1 point
-          newPoints = Math.floor(totalTokensSpent / 10000);
+          // Calculate points based on total tokens spent: every 2,000 tokens = 1 point
+          newPoints = Math.floor(totalTokensSpent / 2000);
           
           console.log("🎯 Points calculation:", {
             tokensUsed,
             currentTotalSpent,
             totalTokensSpent,
             newPoints,
-            formula: `Math.floor(${totalTokensSpent} / 10000) = ${newPoints}`,
+            formula: `Math.floor(${totalTokensSpent} / 2000) = ${newPoints}`,
           });
         }
         
@@ -349,7 +349,7 @@ export async function POST(request: NextRequest) {
           newBalance,
           newPoints,
           totalTokensSpent,
-          pointsFormula: `${totalTokensSpent} / 10000 = ${newPoints} points`,
+          pointsFormula: `${totalTokensSpent} / 2000 = ${newPoints} points`,
         });
         await updateTokenBalance(walletAddress, newBalance, newPoints, totalTokensSpent);
 
