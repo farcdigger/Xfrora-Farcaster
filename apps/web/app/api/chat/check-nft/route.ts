@@ -18,12 +18,14 @@ const ERC721_ABI = [
   "function balanceOf(address owner) external view returns (uint256)",
   "function ownerOf(uint256 tokenId) external view returns (address)",
   "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)",
+  "function tokenURI(uint256 tokenId) external view returns (string)",
 ];
 
 /**
  * Check NFT ownership via OpenSea API (fallback method)
+ * Returns both ownership status and image URL
  */
-async function checkViaOpenSea(walletAddress: string): Promise<boolean> {
+async function checkViaOpenSea(walletAddress: string): Promise<{ hasNFT: boolean; imageUrl: string | null }> {
   try {
     console.log("🔍 Checking NFT via OpenSea API...");
     
@@ -52,6 +54,19 @@ async function checkViaOpenSea(walletAddress: string): Promise<boolean> {
     });
     
     const hasNFT = matchingNFTs.length > 0;
+    let imageUrl: string | null = null;
+
+    // Get image from first matching NFT
+    if (hasNFT && matchingNFTs[0]) {
+      const nft = matchingNFTs[0];
+      // OpenSea API v2 returns image in different possible fields
+      imageUrl = nft.image_url || nft.image || nft.image_original_url || null;
+      
+      // If no direct image, try to get from collection
+      if (!imageUrl && nft.collection?.image_url) {
+        imageUrl = nft.collection.image_url;
+      }
+    }
 
     console.log("✅ OpenSea API check result:", {
       walletAddress,
@@ -59,13 +74,15 @@ async function checkViaOpenSea(walletAddress: string): Promise<boolean> {
       totalNFTs: nfts.length,
       matchingNFTs: matchingNFTs.length,
       hasNFT,
+      hasImage: !!imageUrl,
       sampleNFT: matchingNFTs[0] ? {
         identifier: matchingNFTs[0].identifier,
         contract: matchingNFTs[0].contract || matchingNFTs[0].contract_address,
+        imageUrl: imageUrl?.substring(0, 50) + "...",
       } : null,
     });
 
-    return hasNFT;
+    return { hasNFT, imageUrl };
   } catch (error: any) {
     console.error("❌ OpenSea API check failed:", {
       error: error.message,
@@ -144,6 +161,42 @@ export async function POST(request: NextRequest) {
                   } else {
                     nftImageUrl = imageUri;
                   }
+                  console.log("✅ Found NFT image from database:", {
+                    tokenId,
+                    imageUri: imageUri.substring(0, 50) + "...",
+                    nftImageUrl: nftImageUrl.substring(0, 50) + "...",
+                  });
+                } else {
+                  console.warn("⚠️ Database record found but no image_uri or token_uri");
+                }
+              } else {
+                console.warn("⚠️ No database record found for tokenId:", tokenId);
+                // Try to get image from contract tokenURI
+                try {
+                  const tokenURI = await contract.tokenURI(tokenId);
+                  if (tokenURI) {
+                    // Fetch metadata from tokenURI
+                    let metadataUrl = tokenURI;
+                    if (tokenURI.startsWith("ipfs://")) {
+                      metadataUrl = `https://gateway.pinata.cloud/ipfs/${tokenURI.replace("ipfs://", "")}`;
+                    }
+                    const metadataResponse = await axios.get(metadataUrl, { timeout: 5000 });
+                    const metadata = metadataResponse.data;
+                    if (metadata?.image) {
+                      let imageUrl = metadata.image;
+                      if (imageUrl.startsWith("ipfs://")) {
+                        nftImageUrl = `https://gateway.pinata.cloud/ipfs/${imageUrl.replace("ipfs://", "")}`;
+                      } else {
+                        nftImageUrl = imageUrl;
+                      }
+                      console.log("✅ Found NFT image from tokenURI metadata:", {
+                        tokenId,
+                        nftImageUrl: nftImageUrl.substring(0, 50) + "...",
+                      });
+                    }
+                  }
+                } catch (tokenURIError: any) {
+                  console.warn("Failed to get image from tokenURI:", tokenURIError.message);
                 }
               }
             } catch (dbError) {
@@ -170,7 +223,11 @@ export async function POST(request: NextRequest) {
       
       // Fallback to OpenSea API
       try {
-        hasNFT = await checkViaOpenSea(normalizedAddress);
+        const openseaResult = await checkViaOpenSea(normalizedAddress);
+        hasNFT = openseaResult.hasNFT;
+        if (openseaResult.imageUrl && !nftImageUrl) {
+          nftImageUrl = openseaResult.imageUrl;
+        }
         method = "opensea";
         balance = hasNFT ? "1" : "0"; // OpenSea doesn't return exact balance easily
         
