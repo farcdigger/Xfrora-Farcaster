@@ -30,6 +30,66 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
+  // localStorage key for messages (per wallet address)
+  const getStorageKey = (wallet: string | null) => {
+    if (!wallet) return null;
+    return `chatbot_messages_${wallet.toLowerCase()}`;
+  };
+
+  // Load messages from localStorage
+  const loadMessagesFromStorage = (wallet: string | null) => {
+    if (typeof window === "undefined" || !wallet) return [];
+    
+    try {
+      const storageKey = getStorageKey(wallet);
+      if (!storageKey) return [];
+      
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert timestamp strings back to Date objects
+        return parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }));
+      }
+    } catch (error) {
+      console.error("Error loading messages from localStorage:", error);
+    }
+    return [];
+  };
+
+  // Save messages to localStorage
+  const saveMessagesToStorage = (wallet: string | null, msgs: Message[]) => {
+    if (typeof window === "undefined" || !wallet) return;
+    
+    try {
+      const storageKey = getStorageKey(wallet);
+      if (!storageKey) return;
+      
+      localStorage.setItem(storageKey, JSON.stringify(msgs));
+    } catch (error) {
+      console.error("Error saving messages to localStorage:", error);
+    }
+  };
+
+  // Load messages when wallet address changes or component mounts
+  useEffect(() => {
+    if (walletAddress) {
+      const loadedMessages = loadMessagesFromStorage(walletAddress);
+      setMessages(loadedMessages);
+    } else {
+      setMessages([]);
+    }
+  }, [walletAddress]);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (walletAddress && messages.length > 0) {
+      saveMessagesToStorage(walletAddress, messages);
+    }
+  }, [messages, walletAddress]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -158,6 +218,17 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
   const handleNewChat = () => {
     setMessages([]);
+    // Clear messages from localStorage
+    if (walletAddress) {
+      const storageKey = getStorageKey(walletAddress);
+      if (storageKey) {
+        try {
+          localStorage.removeItem(storageKey);
+        } catch (error) {
+          console.error("Error clearing messages from localStorage:", error);
+        }
+      }
+    }
     fetchTokenBalance();
   };
 
