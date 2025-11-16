@@ -28,15 +28,25 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      // Filter out posts with null or invalid created_at, and ensure proper sorting
+      const validPosts = (data || [])
+        .filter((post: any) => post.created_at != null)
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.created_at).getTime();
+          const dateB = new Date(b.created_at).getTime();
+          return dateB - dateA; // Newest first
+        })
+        .slice(0, POSTS_LIMIT);
+
       return NextResponse.json({
-        posts: (data || []).map((post: any) => ({
-          id: post.id,
-          nft_token_id: post.nft_token_id,
-          content: post.content,
+        posts: validPosts.map((post: any) => ({
+          id: Number(post.id),
+          nft_token_id: Number(post.nft_token_id) || 0,
+          content: post.content || "",
           fav_count: Number(post.fav_count) || 0,
           created_at: post.created_at,
         })),
-        total: data?.length || 0,
+        total: validPosts.length,
       });
     }
 
@@ -55,15 +65,18 @@ export async function GET(request: NextRequest) {
       })
       .slice(0, POSTS_LIMIT);
 
+    // Filter out posts with null or invalid created_at
+    const validPosts = sortedPosts.filter((post: any) => post.created_at != null);
+
     return NextResponse.json({
-      posts: sortedPosts.map((post: any) => ({
-        id: post.id,
-        nft_token_id: post.nft_token_id,
-        content: post.content,
+      posts: validPosts.map((post: any) => ({
+        id: Number(post.id),
+        nft_token_id: Number(post.nft_token_id) || 0,
+        content: post.content || "",
         fav_count: Number(post.fav_count) || 0,
         created_at: post.created_at,
       })),
-      total: sortedPosts.length,
+      total: validPosts.length,
     });
   } catch (error: any) {
     console.error("Error fetching posts:", error);

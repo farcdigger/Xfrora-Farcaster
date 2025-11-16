@@ -193,6 +193,11 @@ export default function SocialPage() {
       // Clear input
       setNewPostContent("");
       
+      // Add the new post optimistically to the list immediately
+      if (data.post) {
+        setPosts((prev) => [data.post, ...prev]);
+      }
+      
       // Reload posts and token balance to get accurate data from server
       await Promise.all([
         loadPosts(),

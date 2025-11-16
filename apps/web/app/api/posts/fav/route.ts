@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     const { walletAddress, postId } = body;
 
     // Validate input
-    if (!walletAddress || !postId) {
+    if (!walletAddress || postId === undefined || postId === null) {
       return NextResponse.json(
         { error: "Missing required fields: walletAddress and postId" },
         { status: 400 }
@@ -106,6 +106,15 @@ export async function POST(request: NextRequest) {
     if (!ethers.isAddress(walletAddress)) {
       return NextResponse.json(
         { error: "Invalid wallet address" },
+        { status: 400 }
+      );
+    }
+
+    // Ensure postId is a number
+    const postIdNum = typeof postId === 'string' ? parseInt(postId, 10) : Number(postId);
+    if (isNaN(postIdNum) || postIdNum <= 0) {
+      return NextResponse.json(
+        { error: "Invalid post ID" },
         { status: 400 }
       );
     }
@@ -136,16 +145,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if post exists
+    // Check if post exists - use numeric postId
+    console.log("🔍 Looking for post with ID:", postIdNum);
     const postResult = await db
       .select()
       .from(posts)
-      .where(eq(posts.id, postId))
+      .where(eq(posts.id, postIdNum))
       .limit(1);
 
     if (!postResult || postResult.length === 0) {
+      console.error("❌ Post not found:", { postId: postIdNum, postIdType: typeof postId });
       return NextResponse.json(
-        { error: "Post not found" },
+        { error: "Post not found", postId: postIdNum },
         { status: 404 }
       );
     }
@@ -171,47 +182,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get NFT token ID from database (users table or tokens table)
-    // If user has token balance, they have NFT - get token ID from database
-    let tokenId: number | null = null;
+    // Get NFT token ID directly from contract (most reliable method)
+    const { hasNFT, tokenId } = await checkNFTOwnership(normalizedAddress);
     
-    try {
-      // Try to get token ID from tokens table via users table
-      const { users, tokens } = await import("@/lib/db");
-      const userResult = await db
-        .select()
-        .from(users)
-        .where(eq(users.wallet_address, normalizedAddressLower))
-        .limit(1);
-      
-      if (userResult && userResult.length > 0) {
-        const tokenResult = await db
-          .select()
-          .from(tokens)
-          .where(eq(tokens.x_user_id, userResult[0].x_user_id))
-          .limit(1);
-        
-        if (tokenResult && tokenResult.length > 0 && tokenResult[0].token_id) {
-          tokenId = Number(tokenResult[0].token_id);
-        }
-      }
-      
-      // If still no token ID, check NFT ownership directly (fallback)
-      if (!tokenId) {
-        const { hasNFT, tokenId: checkedTokenId } = await checkNFTOwnership(normalizedAddress);
-        if (hasNFT && checkedTokenId) {
-          tokenId = checkedTokenId;
-        }
-      }
-    } catch (error) {
-      console.error("Error getting token ID:", error);
-      // Continue with tokenId = null, will use 0 as fallback
+    if (!hasNFT || !tokenId || tokenId === 0) {
+      return NextResponse.json(
+        { 
+          error: "NFT ownership verification failed",
+          message: "Could not verify NFT ownership or retrieve token ID."
+        },
+        { status: 403 }
+      );
     }
     
-    // Use token ID 0 as fallback if not found (shouldn't happen if user has tokens)
-    if (!tokenId) {
-      tokenId = 0;
-    }
+    console.log("✅ NFT token ID verified from contract for fav:", {
+      address: normalizedAddress,
+      tokenId,
+    });
 
     // Get current points and total tokens spent
     const currentPoints = tokenBalanceResult && tokenBalanceResult.length > 0
