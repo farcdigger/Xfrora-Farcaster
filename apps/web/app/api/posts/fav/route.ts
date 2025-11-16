@@ -110,10 +110,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Normalize address - use ethers.getAddress for proper checksum format
-    const normalizedAddress = ethers.isAddress(walletAddress) 
-      ? ethers.getAddress(walletAddress) 
-      : walletAddress.toLowerCase();
+    // Normalize address - ethers.getAddress converts to checksum format
+    const normalizedAddress = ethers.getAddress(walletAddress);
 
     // Check if post exists
     const postResult = await db
