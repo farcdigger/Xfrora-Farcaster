@@ -494,7 +494,7 @@ export default function SocialPage() {
               loadTokenBalance();
             }
           }}
-          walletAddress={address}
+          walletAddress={address ? address : null}
         />
       )}
     </div>

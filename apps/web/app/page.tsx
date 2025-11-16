@@ -1618,7 +1618,7 @@ function HomePageContent() {
           onPaymentSuccess={() => {
             setShowPaymentModal(false);
           }}
-          walletAddress={address ?? null}
+          walletAddress={address ? address : null}
         />
       )}
         
