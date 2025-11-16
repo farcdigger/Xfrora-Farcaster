@@ -130,6 +130,102 @@ type Database = {
           updated_at?: string | null;
         };
       };
+      posts: {
+        Row: {
+          id: number;
+          wallet_address: string;
+          nft_token_id: number;
+          content: string;
+          fav_count: number;
+          points_earned: number;
+          tokens_burned: number;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          wallet_address: string;
+          nft_token_id: number;
+          content: string;
+          fav_count?: number;
+          points_earned?: number;
+          tokens_burned?: number;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: number;
+          wallet_address?: string;
+          nft_token_id?: number;
+          content?: string;
+          fav_count?: number;
+          points_earned?: number;
+          tokens_burned?: number;
+          created_at?: string | null;
+        };
+      };
+      post_favs: {
+        Row: {
+          id: number;
+          post_id: number;
+          wallet_address: string;
+          nft_token_id: number;
+          tokens_burned: number;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          post_id: number;
+          wallet_address: string;
+          nft_token_id: number;
+          tokens_burned?: number;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: number;
+          post_id?: number;
+          wallet_address?: string;
+          nft_token_id?: number;
+          tokens_burned?: number;
+          created_at?: string | null;
+        };
+      };
+      weekly_rewards: {
+        Row: {
+          id: number;
+          week_start_date: string;
+          week_end_date: string;
+          reward_type: string;
+          winner_wallet_address: string;
+          winner_nft_token_id: number | null;
+          winner_post_id: number | null;
+          tokens_awarded: number;
+          status: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          week_start_date: string;
+          week_end_date: string;
+          reward_type: string;
+          winner_wallet_address: string;
+          winner_nft_token_id?: number | null;
+          winner_post_id?: number | null;
+          tokens_awarded?: number;
+          status?: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: number;
+          week_start_date?: string;
+          week_end_date?: string;
+          reward_type?: string;
+          winner_wallet_address?: string;
+          winner_nft_token_id?: number | null;
+          winner_post_id?: number | null;
+          tokens_awarded?: number;
+          status?: string;
+          created_at?: string | null;
+        };
+      };
     };
   };
 };
@@ -190,6 +286,9 @@ function extractTableName(table: any): string {
   if (table === users) return usersTable;
   if (table === payments) return paymentsTable;
   if (table === chat_tokens) return chatTokensTable;
+  if (table === posts) return postsTable;
+  if (table === post_favs) return postFavsTable;
+  if (table === weekly_rewards) return weeklyRewardsTable;
 
   return "tokens"; // Default fallback
 }
@@ -530,6 +629,9 @@ export const tokensTable = "tokens";
 export const usersTable = "users";
 export const paymentsTable = "payments";
 export const chatTokensTable = "chat_tokens";
+export const postsTable = "posts";
+export const postFavsTable = "post_favs";
+export const weeklyRewardsTable = "weekly_rewards";
 
 // Export helper function (for backward compatibility)
 export function getTableName(table: any): string {
@@ -569,6 +671,42 @@ export const chat_tokens = {
   points: { name: "points" },
   total_tokens_spent: { name: "total_tokens_spent" },
   id: { name: "id" },
+} as any;
+
+export const posts = {
+  name: postsTable,
+  id: { name: "id" },
+  wallet_address: { name: "wallet_address" },
+  nft_token_id: { name: "nft_token_id" },
+  content: { name: "content" },
+  fav_count: { name: "fav_count" },
+  points_earned: { name: "points_earned" },
+  tokens_burned: { name: "tokens_burned" },
+  created_at: { name: "created_at" },
+} as any;
+
+export const post_favs = {
+  name: postFavsTable,
+  id: { name: "id" },
+  post_id: { name: "post_id" },
+  wallet_address: { name: "wallet_address" },
+  nft_token_id: { name: "nft_token_id" },
+  tokens_burned: { name: "tokens_burned" },
+  created_at: { name: "created_at" },
+} as any;
+
+export const weekly_rewards = {
+  name: weeklyRewardsTable,
+  id: { name: "id" },
+  week_start_date: { name: "week_start_date" },
+  week_end_date: { name: "week_end_date" },
+  reward_type: { name: "reward_type" },
+  winner_wallet_address: { name: "winner_wallet_address" },
+  winner_nft_token_id: { name: "winner_nft_token_id" },
+  winner_post_id: { name: "winner_post_id" },
+  tokens_awarded: { name: "tokens_awarded" },
+  status: { name: "status" },
+  created_at: { name: "created_at" },
 } as any;
 
 // Export Supabase client for direct access if needed

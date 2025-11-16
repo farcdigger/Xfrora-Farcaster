@@ -1,6 +1,6 @@
 // Use Supabase REST API instead of direct PostgreSQL connection
 // This is more reliable on Vercel and doesn't require DATABASE_URL
-import { db as supabaseDb, tokens, users, payments, chat_tokens as supabaseChatTokens, getTableName } from "./db-supabase";
+import { db as supabaseDb, tokens, users, payments, chat_tokens as supabaseChatTokens, getTableName, posts as supabasePosts, post_favs as supabasePostFavs, weekly_rewards as supabaseWeeklyRewards } from "./db-supabase";
 import { env } from "../env.mjs";
 import { eq } from "drizzle-orm";
 
@@ -13,11 +13,17 @@ const mockDb: {
   tokens: any[];
   payments: any[];
   chat_tokens: any[];
+  posts: any[];
+  post_favs: any[];
+  weekly_rewards: any[];
 } = {
   users: [],
   tokens: [],
   payments: [],
   chat_tokens: [],
+  posts: [],
+  post_favs: [],
+  weekly_rewards: [],
 };
 
 // Helper function to evaluate where conditions
@@ -236,6 +242,45 @@ export const chat_tokens = isSupabaseConfigured ? supabaseChatTokens : {
   points: { name: "points" },
   total_tokens_spent: { name: "total_tokens_spent" },
   id: { name: "id" },
+} as any;
+
+// Export new table objects
+import { posts as supabasePosts, post_favs as supabasePostFavs, weekly_rewards as supabaseWeeklyRewards } from "./db-supabase";
+
+export const posts = isSupabaseConfigured ? supabasePosts : {
+  name: "posts",
+  id: { name: "id" },
+  wallet_address: { name: "wallet_address" },
+  nft_token_id: { name: "nft_token_id" },
+  content: { name: "content" },
+  fav_count: { name: "fav_count" },
+  points_earned: { name: "points_earned" },
+  tokens_burned: { name: "tokens_burned" },
+  created_at: { name: "created_at" },
+} as any;
+
+export const post_favs = isSupabaseConfigured ? supabasePostFavs : {
+  name: "post_favs",
+  id: { name: "id" },
+  post_id: { name: "post_id" },
+  wallet_address: { name: "wallet_address" },
+  nft_token_id: { name: "nft_token_id" },
+  tokens_burned: { name: "tokens_burned" },
+  created_at: { name: "created_at" },
+} as any;
+
+export const weekly_rewards = isSupabaseConfigured ? supabaseWeeklyRewards : {
+  name: "weekly_rewards",
+  id: { name: "id" },
+  week_start_date: { name: "week_start_date" },
+  week_end_date: { name: "week_end_date" },
+  reward_type: { name: "reward_type" },
+  winner_wallet_address: { name: "winner_wallet_address" },
+  winner_nft_token_id: { name: "winner_nft_token_id" },
+  winner_post_id: { name: "winner_post_id" },
+  tokens_awarded: { name: "tokens_awarded" },
+  status: { name: "status" },
+  created_at: { name: "created_at" },
 } as any;
 
 // Export mock DB for debugging (only in development)
