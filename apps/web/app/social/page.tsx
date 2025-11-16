@@ -61,7 +61,8 @@ export default function SocialPage() {
   const loadTokenBalance = async () => {
     if (!address) return;
     try {
-      const response = await fetch(`/api/chat/token-balance?wallet=${address}`);
+      // Add cache-busting timestamp to ensure fresh data
+      const response = await fetch(`/api/chat/token-balance?wallet=${address}&t=${Date.now()}`);
       if (response.ok) {
         const data = await response.json();
         setTokenBalance(data.balance || 0);
@@ -159,26 +160,48 @@ export default function SocialPage() {
     }
 
     setPosting(true);
+    
+    // Optimistic update: immediately update UI
+    const optimisticBalance = tokenBalance !== null ? tokenBalance - 20000 : 0;
+    const optimisticPoints = points !== null ? points + 8 : 8;
+    setTokenBalance(optimisticBalance);
+    setPoints(optimisticPoints);
+    
+    // Save current content for potential revert
+    const contentToPost = newPostContent.trim();
+    
     try {
       const response = await fetch("/api/posts/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           walletAddress: address,
-          content: newPostContent.trim(),
+          content: contentToPost,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        setTokenBalance(tokenBalance);
+        setPoints(points);
         throw new Error(data.error || "Failed to create post");
       }
 
+      // Clear input
       setNewPostContent("");
-      await loadPosts();
-      await loadTokenBalance();
+      
+      // Reload posts and token balance to get accurate data from server
+      await Promise.all([
+        loadPosts(),
+        loadTokenBalance(),
+        loadTopStats(), // Also refresh top stats
+      ]);
     } catch (err: any) {
+      // Revert optimistic update on error
+      setTokenBalance(tokenBalance);
+      setPoints(points);
       alert(err.message || "Failed to create post");
     } finally {
       setPosting(false);
@@ -200,6 +223,22 @@ export default function SocialPage() {
     }
 
     setFavLoading((prev) => ({ ...prev, [postId]: true }));
+    
+    // Optimistic update: immediately update UI
+    const optimisticBalance = tokenBalance !== null ? tokenBalance - 100 : 0;
+    setTokenBalance(optimisticBalance);
+    
+    // Find the post and update fav count optimistically
+    const currentPost = posts.find(p => p.id === postId);
+    const optimisticFavCount = currentPost ? currentPost.fav_count + 1 : 0;
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId
+          ? { ...post, fav_count: optimisticFavCount }
+          : post
+      )
+    );
+    
     try {
       const response = await fetch("/api/posts/fav", {
         method: "POST",
@@ -213,9 +252,19 @@ export default function SocialPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        setTokenBalance(tokenBalance);
+        setPosts((prev) =>
+          prev.map((post) =>
+            post.id === postId
+              ? { ...post, fav_count: currentPost?.fav_count || 0 }
+              : post
+          )
+        );
         throw new Error(data.error || "Failed to favorite post");
       }
 
+      // Update with server response
       setPosts((prev) =>
         prev.map((post) =>
           post.id === postId
@@ -224,10 +273,21 @@ export default function SocialPage() {
         )
       );
 
-      if (data.newBalance !== undefined) {
-        setTokenBalance(data.newBalance);
-      }
+      // Reload token balance to get accurate data from server
+      await loadTokenBalance();
+      
+      // Refresh top stats
+      await loadTopStats();
     } catch (err: any) {
+      // Revert optimistic update on error
+      setTokenBalance(tokenBalance);
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? { ...post, fav_count: currentPost?.fav_count || 0 }
+            : post
+        )
+      );
       alert(err.message || "Failed to favorite post");
     } finally {
       setFavLoading((prev) => ({ ...prev, [postId]: false }));
