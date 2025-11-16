@@ -53,6 +53,14 @@ CREATE INDEX IF NOT EXISTS idx_post_favs_created_at ON post_favs(created_at);
 CREATE INDEX IF NOT EXISTS idx_weekly_rewards_week_start_date ON weekly_rewards(week_start_date);
 CREATE INDEX IF NOT EXISTS idx_weekly_rewards_reward_type ON weekly_rewards(reward_type);
 
+-- Enable Row Level Security (RLS) for all tables (consistent with other tables)
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_favs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weekly_rewards ENABLE ROW LEVEL SECURITY;
+
+-- Note: Service Role Key bypasses RLS, so API access will still work
+-- RLS is enabled for consistency with other tables in the database
+
 -- Add foreign key constraints (optional, for data integrity)
 -- ALTER TABLE post_favs ADD CONSTRAINT fk_post_favs_post_id FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
 
