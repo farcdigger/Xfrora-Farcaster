@@ -8,6 +8,10 @@ import { eq } from "drizzle-orm";
 import { isMockMode } from "@/env.mjs";
 import { getMockTokenBalances } from "@/lib/chat-tokens-mock";
 
+// Force dynamic rendering to avoid static generation errors
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const mockTokenBalances = getMockTokenBalances();
 
 export async function GET(request: NextRequest) {

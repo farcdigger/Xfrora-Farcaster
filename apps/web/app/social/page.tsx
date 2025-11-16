@@ -5,7 +5,6 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
-import { checkNFTOwnershipWithCache, clearCachedNFTVerification } from "@/lib/nft-cache";
 
 interface Post {
   id: number;
@@ -44,11 +43,11 @@ export default function SocialPage() {
     }
   };
 
-  // Load token balance
+  // Load token balance (same as chatbot)
   const loadTokenBalance = async () => {
     if (!address) return;
     try {
-      const response = await fetch(`/api/chat/token-balance?walletAddress=${address}`);
+      const response = await fetch(`/api/chat/token-balance?wallet=${address}`);
       if (response.ok) {
         const data = await response.json();
         setTokenBalance(data.balance || 0);
@@ -59,25 +58,33 @@ export default function SocialPage() {
     }
   };
 
-  // Check NFT ownership (with cache)
+  // Check NFT ownership (same as chatbot)
   const checkNFT = async () => {
     if (!address) return;
     setCheckingNFT(true);
     try {
-      // Use address as-is, API will normalize it properly
-      // But for cache key, use lowercase for consistency
-      const cacheKey = address.toLowerCase();
-      const result = await checkNFTOwnershipWithCache(address);
-      console.log("NFT check result:", {
-        address,
-        result,
-        hasNFT: result.hasNFT,
-        tokenId: result.tokenId,
+      console.log("🔍 Checking NFT ownership for:", address);
+      
+      const response = await fetch("/api/chat/check-nft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: address }),
       });
-      setNftVerified(result.hasNFT);
-      setNftTokenId(result.tokenId);
+
+      if (!response.ok) {
+        console.error("❌ NFT check failed:", response.status, response.statusText);
+        setNftVerified(false);
+        setNftTokenId(null);
+        return;
+      }
+
+      const data = await response.json();
+      console.log("✅ NFT check result:", data);
+      
+      setNftVerified(data.hasNFT || false);
+      setNftTokenId(data.tokenId || null);
     } catch (err: any) {
-      console.error("Error checking NFT:", {
+      console.error("❌ Error checking NFT:", {
         error: err.message,
         address,
       });
@@ -91,9 +98,6 @@ export default function SocialPage() {
   // Handle wallet change
   useEffect(() => {
     if (address) {
-      // Normalize address before clearing cache
-      const normalizedAddress = address.toLowerCase();
-      clearCachedNFTVerification(normalizedAddress);
       checkNFT();
       loadTokenBalance();
     } else {
