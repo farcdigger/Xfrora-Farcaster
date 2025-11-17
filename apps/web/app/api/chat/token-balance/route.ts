@@ -11,6 +11,7 @@ import { getMockTokenBalances } from "@/lib/chat-tokens-mock";
 // Force dynamic rendering to avoid static generation errors
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const revalidate = 0; // Never cache, always fetch fresh
 
 const mockTokenBalances = getMockTokenBalances();
 

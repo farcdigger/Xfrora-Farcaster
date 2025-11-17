@@ -4,7 +4,7 @@
  */
 
 const CACHE_KEY_PREFIX = "nft_verification_";
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds (reduced from 1 hour to avoid stale data)
+const CACHE_DURATION = 0; // NO CACHE - always fetch fresh from Supabase
 
 export interface NFTVerificationCache {
   verified: boolean;

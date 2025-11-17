@@ -261,7 +261,9 @@ function HomePageContent() {
       }
       
       // Not minted yet - check for generated metadata
-      const response = await fetch(`/api/generate?x_user_id=${xUserId}`);
+      const response = await fetch(`/api/generate?x_user_id=${xUserId}`, {
+        cache: 'no-store',
+      });
       
       if (response.ok) {
         const data: GenerateResponse = await response.json();
@@ -315,7 +317,9 @@ function HomePageContent() {
     const checkSession = async () => {
       try {
         // Check for existing X session
-        const sessionResponse = await fetch("/api/auth/x/session");
+        const sessionResponse = await fetch("/api/auth/x/session", {
+          cache: 'no-store',
+        });
         const sessionData = await sessionResponse.json();
         
         if (sessionData.authenticated && sessionData.user) {
@@ -478,7 +482,9 @@ function HomePageContent() {
       setError(null);
       
       // Get OAuth URL from backend (more secure - client ID not exposed)
-      const response = await fetch("/api/auth/x/authorize");
+      const response = await fetch("/api/auth/x/authorize", {
+        cache: 'no-store',
+      });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Failed to initiate X OAuth" }));

@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const revalidate = 0; // Never cache, always fetch fresh
 
 // Convert IPFS URL to HTTP gateway URL
 function ipfsToHttp(url: string): string {
@@ -101,6 +102,7 @@ export async function GET(request: NextRequest) {
 
     // If no NFT found
     if (!nftImage) {
+      console.log("❌ No NFT image found for:", { walletAddress, nftTokenId });
       return NextResponse.json(
         { 
           hasNFT: false,
@@ -110,7 +112,9 @@ export async function GET(request: NextRequest) {
         { 
           status: 404,
           headers: {
-            'Cache-Control': 'public, max-age=60', // Cache for 1 minute
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
           },
         }
       );
@@ -118,6 +122,11 @@ export async function GET(request: NextRequest) {
 
     // Convert IPFS to HTTP if needed
     const httpImageUrl = ipfsToHttp(nftImage);
+    
+    console.log("✅ NFT image found:", {
+      wallet: walletAddress?.substring(0, 10),
+      hasImage: !!httpImageUrl,
+    });
 
     return NextResponse.json(
       { 
@@ -127,7 +136,9 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       }
     );

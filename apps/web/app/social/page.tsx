@@ -50,16 +50,23 @@ export default function SocialPage() {
     if (!walletAddress || nftImages[walletAddress]) return;
     
     try {
-      const response = await fetch(`/api/nft-image?wallet=${walletAddress}`);
+      // Add timestamp to prevent caching + explicit no-store
+      const response = await fetch(`/api/nft-image?wallet=${walletAddress}&t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.hasNFT && data.imageUrl) {
           setNftImages((prev) => ({ ...prev, [walletAddress]: data.imageUrl }));
           console.log("✅ NFT image loaded for wallet:", walletAddress.substring(0, 10));
+        } else {
+          console.log("⚠️ No NFT image found for wallet:", walletAddress.substring(0, 10));
         }
+      } else {
+        console.log("⚠️ NFT image API failed for wallet:", walletAddress.substring(0, 10));
       }
     } catch (err) {
-      console.error(`Error loading NFT image for wallet ${walletAddress}:`, err);
+      console.error(`❌ Error loading NFT image for wallet ${walletAddress}:`, err);
     }
   };
 
@@ -67,7 +74,9 @@ export default function SocialPage() {
   const loadPosts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/posts?t=${Date.now()}`);
+      const response = await fetch(`/api/posts?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (!response.ok) throw new Error("Failed to load posts");
       const data = await response.json();
       const loadedPosts = data.posts || [];
@@ -90,7 +99,9 @@ export default function SocialPage() {
   const loadTokenBalance = async () => {
     if (!address) return;
     try {
-      const response = await fetch(`/api/chat/token-balance?wallet=${address}&t=${Date.now()}`);
+      const response = await fetch(`/api/chat/token-balance?wallet=${address}&t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (response.ok) {
         const data = await response.json();
         setTokenBalance(data.balance || 0);
@@ -113,7 +124,9 @@ export default function SocialPage() {
   // Load weekly winners and top stats
   const loadWeeklyWinners = async () => {
     try {
-      const response = await fetch("/api/posts/weekly-winners");
+      const response = await fetch(`/api/posts/weekly-winners?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (response.ok) {
         const data = await response.json();
         setWeeklyWinners(data.winners || []);
@@ -125,8 +138,10 @@ export default function SocialPage() {
 
   const loadTopStats = async () => {
     try {
-      // Use cache-busting to get fresh data
-      const postsResponse = await fetch(`/api/posts?t=${Date.now()}`);
+      // Use cache-busting to get fresh data + explicit no-store
+      const postsResponse = await fetch(`/api/posts?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (postsResponse.ok) {
         const postsData = await postsResponse.json();
         const posts = postsData.posts || [];
@@ -151,7 +166,9 @@ export default function SocialPage() {
         }
       }
 
-      const topFaverResponse = await fetch(`/api/posts/top-faver?t=${Date.now()}`);
+      const topFaverResponse = await fetch(`/api/posts/top-faver?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (topFaverResponse.ok) {
         const topFaverData = await topFaverResponse.json();
         setTopFaver(topFaverData.topFaver || null);

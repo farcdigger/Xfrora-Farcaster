@@ -131,8 +131,10 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   const fetchTokenBalance = async () => {
     if (!walletAddress) return;
     try {
-      // Use cache-busting to get fresh data
-      const response = await fetch(`/api/chat/token-balance?wallet=${walletAddress}&t=${Date.now()}`);
+      // Use cache-busting to get fresh data + explicit no-store
+      const response = await fetch(`/api/chat/token-balance?wallet=${walletAddress}&t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (!response.ok) {
         console.error("Failed to fetch token balance:", response.status);
         // Don't reset to 0 on error - keep existing values
@@ -150,16 +152,23 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   const fetchNftImage = async () => {
     if (!walletAddress) return;
     try {
-      const response = await fetch(`/api/nft-image?wallet=${walletAddress}`);
+      // Add timestamp to prevent caching + explicit no-store
+      const response = await fetch(`/api/nft-image?wallet=${walletAddress}&t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.hasNFT && data.imageUrl) {
           setNftImage(data.imageUrl);
-          console.log("✅ NFT image loaded for chatbot");
+          console.log("✅ NFT image loaded for chatbot:", walletAddress.substring(0, 10));
+        } else {
+          console.log("⚠️ No NFT image found for chatbot:", walletAddress.substring(0, 10));
         }
+      } else {
+        console.log("⚠️ NFT image API failed for chatbot");
       }
     } catch (error) {
-      console.error("Error fetching NFT image:", error);
+      console.error("❌ Error fetching NFT image:", error);
     }
   };
 

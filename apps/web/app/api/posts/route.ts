@@ -10,6 +10,7 @@ import { supabaseClient } from "@/lib/db-supabase";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const revalidate = 0; // Never cache, always fetch fresh
 
 const POSTS_LIMIT = 200;
 
