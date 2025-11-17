@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       
       console.log("✅ Post created successfully:", {
         id: insertedPost.id,
-        nft_token_id: tokenId,
+        wallet_address: normalizedAddressLower,
         content_length: content.trim().length,
         created_at: insertedPost.created_at,
       });

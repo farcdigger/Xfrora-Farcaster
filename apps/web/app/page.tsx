@@ -34,6 +34,7 @@ function HomePageContent() {
   const [paymentReady, setPaymentReady] = useState(false);
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -41,6 +42,18 @@ function HomePageContent() {
   useEffect(() => {
     setWallet(address ?? null);
   }, [address]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuOpen && !(event.target as Element).closest('.relative')) {
+        setMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!introVideoRef.current) return;
@@ -1076,85 +1089,103 @@ function HomePageContent() {
             {/* Right: User Info & Buttons */}
             <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end">
               <ThemeToggle />
-              <a
-                href="https://opensea.io/collection/xfrora"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors font-semibold"
-              >
-                <span className="text-lg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/opensea-icon.png" alt="OpenSea icon" className="w-5 h-5" />
-                </span>
-                <span>OpenSea</span>
-              </a>
-              {/* X Account Button */}
-              <a
-                href="https://x.com/XFroraNFT"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                </svg>
-                <span className="hidden sm:inline">Follow</span>
-              </a>
-              
-              <Link
-                href="/social"
-                className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors font-semibold flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <span className="hidden sm:inline">Social</span>
-              </Link>
-              
-              <Link
-                href="/leaderboard"
-                className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors font-semibold flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-                <span className="hidden sm:inline">Leaderboard</span>
-              </Link>
-              
-              {isConnected && address && (
+              {/* Dropdown Menu */}
+              <div className="relative">
                 <button
-                  onClick={() => setShowPaymentModal(true)}
-                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors font-semibold flex items-center gap-2"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors font-semibold"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
-                  <span className="hidden sm:inline">Load Tokens</span>
+                  <span>Menu</span>
                 </button>
-              )}
-              
-              <button
-                onClick={() => setChatbotOpen(true)}
-                className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white dark:bg-black text-black dark:text-white border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors font-semibold flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <span className="hidden sm:inline">Chat</span>
-              </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-black border border-gray-200 dark:border-gray-800 shadow-lg z-50">
+                    <a
+                      href="https://opensea.io/collection/xfrora"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/opensea-icon.png" alt="OpenSea" className="w-5 h-5" />
+                      <span>OpenSea</span>
+                    </a>
+                    
+                    <a
+                      href="https://x.com/XFroraNFT"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                      </svg>
+                      <span>Follow on X</span>
+                    </a>
+                    
+                    <Link
+                      href="/social"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <span>Social</span>
+                    </Link>
+                    
+                    <Link
+                      href="/leaderboard"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                      </svg>
+                      <span>Leaderboard</span>
+                    </Link>
+                    
+                    {isConnected && address && (
+                      <button
+                        onClick={() => {
+                          setShowPaymentModal(true);
+                          setMenuOpen(false);
+                        }}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white w-full text-left"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Credits</span>
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => {
+                        setChatbotOpen(true);
+                        setMenuOpen(false);
+                      }}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white w-full text-left"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <span>Chat</span>
+                    </button>
+                  </div>
+                )}
+              </div>
               
               <div className="flex items-center gap-2">
-                {xUser ? (
+                {xUser && (
                   <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-sm dark:bg-slate-800 dark:text-slate-100">
                     <span className="text-gray-700 dark:text-slate-100">@{xUser.username}</span>
                   </div>
-                ) : (
-                  <button
-                    onClick={connectX}
-                    className="px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
-                  >
-                    Connect X
-                  </button>
                 )}
 
                 <div className="flex">
