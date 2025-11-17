@@ -41,6 +41,26 @@ function HomePageContent() {
   const { data: walletClient } = useWalletClient();
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
 
+  // Fetch token balance and points
+  const fetchTokenBalanceAndPoints = async (walletAddress: string) => {
+    try {
+      const response = await fetch(`/api/chat/token-balance?wallet=${walletAddress}&t=${Date.now()}`, {
+        cache: 'no-store',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTokenBalance(data.balance || 0);
+        setPoints(data.points || 0);
+        console.log("✅ Header - Token balance loaded:", { balance: data.balance, points: data.points });
+      } else {
+        console.error("❌ Header - Token balance API error:", response.status);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching token balance:", error);
+    }
+  };
+
   useEffect(() => {
     setWallet(address ?? null);
     
@@ -51,24 +71,8 @@ function HomePageContent() {
       setTokenBalance(null);
       setPoints(0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
-
-  // Fetch token balance and points
-  const fetchTokenBalanceAndPoints = async (walletAddress: string) => {
-    try {
-      const response = await fetch(`/api/chat/token-balance?walletAddress=${walletAddress}`, {
-        cache: 'no-store',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTokenBalance(data.balance || 0);
-        setPoints(data.points || 0);
-      }
-    } catch (error) {
-      console.error("Error fetching token balance:", error);
-    }
-  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -1135,14 +1139,12 @@ function HomePageContent() {
               {isConnected && address && (
                 <div className="flex items-center gap-2">
                   {/* Credits */}
-                  {tokenBalance !== null && (
-                    <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded-full bg-white dark:bg-black">
-                      <div className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full"></div>
-                      <span className="text-xs sm:text-sm font-semibold text-black dark:text-white whitespace-nowrap">
-                        {tokenBalance.toLocaleString('en-US')} credits
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded-full bg-white dark:bg-black">
+                    <div className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full"></div>
+                    <span className="text-xs sm:text-sm font-semibold text-black dark:text-white whitespace-nowrap">
+                      {tokenBalance !== null ? tokenBalance.toLocaleString('en-US') : '0'} credits
+                    </span>
+                  </div>
                   
                   {/* Points */}
                   <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-full">
@@ -1715,6 +1717,10 @@ function HomePageContent() {
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={() => {
             setShowPaymentModal(false);
+            // Refresh token balance and points after successful payment
+            if (address) {
+              fetchTokenBalanceAndPoints(address);
+            }
           }}
           walletAddress={address ? address : null}
         />
