@@ -51,22 +51,40 @@ export default function SocialPage() {
     
     try {
       // Add timestamp to prevent caching + explicit no-store
+      console.log(`🖼️ [NFT-IMAGE] Fetching for wallet: ${walletAddress.substring(0, 10)}...`);
       const response = await fetch(`/api/nft-image?wallet=${walletAddress}&t=${Date.now()}`, {
         cache: 'no-store',
       });
+      
+      console.log(`🖼️ [NFT-IMAGE] Response status: ${response.status} for ${walletAddress.substring(0, 10)}`);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log(`🖼️ [NFT-IMAGE] Response data:`, { 
+          hasNFT: data.hasNFT,
+          hasImageUrl: !!data.imageUrl,
+          wallet: walletAddress.substring(0, 10),
+        });
+        
         if (data.hasNFT && data.imageUrl) {
           setNftImages((prev) => ({ ...prev, [walletAddress]: data.imageUrl }));
-          console.log("✅ NFT image loaded for wallet:", walletAddress.substring(0, 10));
+          console.log(`✅ [NFT-IMAGE] SUCCESS - Image loaded for ${walletAddress.substring(0, 10)}`);
         } else {
-          console.log("⚠️ No NFT image found for wallet:", walletAddress.substring(0, 10));
+          console.log(`⚠️  [NFT-IMAGE] NO IMAGE - hasNFT: ${data.hasNFT}, imageUrl: ${!!data.imageUrl}`);
         }
       } else {
-        console.log("⚠️ NFT image API failed for wallet:", walletAddress.substring(0, 10));
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`❌ [NFT-IMAGE] API ERROR (${response.status}):`, {
+          wallet: walletAddress.substring(0, 10),
+          status: response.status,
+          error: errorData,
+        });
       }
-    } catch (err) {
-      console.error(`❌ Error loading NFT image for wallet ${walletAddress}:`, err);
+    } catch (err: any) {
+      console.error(`❌ [NFT-IMAGE] FETCH ERROR for ${walletAddress.substring(0, 10)}:`, {
+        message: err.message,
+        error: err,
+      });
     }
   };
 
@@ -252,6 +270,12 @@ export default function SocialPage() {
           }
           return [data.post, ...prev];
         });
+        
+        // Load NFT image for the new post immediately
+        if (data.post.wallet_address) {
+          console.log("🖼️ Loading NFT image for new post:", data.post.wallet_address.substring(0, 10));
+          loadNftImage(data.post.wallet_address);
+        }
       }
       
       // Reload all data from server to ensure consistency
