@@ -481,6 +481,14 @@ function HomePageContent() {
       setLoading(true);
       setError(null);
       
+      // Save wallet address to cookie for callback to use
+      if (address) {
+        document.cookie = `temp_wallet_address=${address}; path=/; max-age=3600; SameSite=Lax`;
+        console.log("💾 Saved wallet address to cookie:", address.substring(0, 10) + "...");
+      } else {
+        console.log("⚠️ No wallet connected yet - will save address later");
+      }
+      
       // Get OAuth URL from backend (more secure - client ID not exposed)
       const response = await fetch("/api/auth/x/authorize", {
         cache: 'no-store',

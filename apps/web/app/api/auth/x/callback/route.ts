@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForToken, verifyXToken } from "@/lib/x";
 import { env } from "@/env.mjs";
 import { kv } from "@/lib/kv";
+import { db, users } from "@/lib/db";
+import { eq } from "drizzle-orm";
 
 /**
  * Decode verifier from encrypted state parameter
@@ -374,6 +376,55 @@ export async function GET(request: NextRequest) {
     
     console.log("✅ User verified:", { username: xUser.username, x_user_id: xUser.x_user_id });
     
+    // Get wallet_address from localStorage (will be sent from frontend via cookie)
+    const walletCookie = request.cookies.get("temp_wallet_address");
+    const walletAddress = walletCookie?.value || null;
+    const normalizedWallet = walletAddress ? walletAddress.toLowerCase() : null;
+    
+    console.log("💾 Saving/updating user in database:", {
+      x_user_id: xUser.x_user_id,
+      username: xUser.username,
+      wallet_address: normalizedWallet?.substring(0, 10) + "..." || "NULL",
+    });
+    
+    // Store/update user in database with wallet_address
+    try {
+      // Check if user exists
+      const existingUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.x_user_id, xUser.x_user_id))
+        .limit(1);
+      
+      if (existingUser && existingUser.length > 0) {
+        // Update existing user
+        await db
+          .update(users)
+          .set({
+            username: xUser.username,
+            profile_image_url: xUser.profile_image_url,
+            wallet_address: normalizedWallet || existingUser[0].wallet_address,
+            updated_at: new Date().toISOString(),
+          })
+          .where(eq(users.x_user_id, xUser.x_user_id));
+        
+        console.log("✅ User updated in database");
+      } else {
+        // Insert new user
+        await db.insert(users).values({
+          x_user_id: xUser.x_user_id,
+          username: xUser.username,
+          profile_image_url: xUser.profile_image_url,
+          wallet_address: normalizedWallet,
+        });
+        
+        console.log("✅ User inserted into database");
+      }
+    } catch (dbError: any) {
+      console.error("❌ Database error:", dbError);
+      // Don't fail the auth flow if DB fails
+    }
+    
     // Redirect back to main page with user data in query params (or use session/cookies)
     const redirectUrl = new URL("/", request.url);
     redirectUrl.searchParams.set("x_user_id", xUser.x_user_id);
@@ -422,6 +473,10 @@ export async function GET(request: NextRequest) {
       const cookieName = `x_oauth_verifier_${state}`;
       response.cookies.delete(cookieName);
     }
+    
+    // Clean up temporary wallet address cookie
+    response.cookies.delete("temp_wallet_address");
+    console.log("🗑️ Cleaned up temp_wallet_address cookie");
     
     return response;
   } catch (error) {
