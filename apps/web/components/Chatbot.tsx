@@ -320,7 +320,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                   <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded-full">
                     <div className="w-2 h-2 bg-black dark:bg-white rounded-full"></div>
                     <span className="text-sm font-semibold text-black dark:text-white">
-                      {formatTokenBalance(tokenBalance)} tokens
+                      {formatTokenBalance(tokenBalance)} credits
                     </span>
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1.5 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-full">
@@ -369,16 +369,16 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">
-                Load Tokens to Get Started
+                Load Credits to Get Started
               </h3>
               <p className="text-gray-600 dark:text-slate-400 mb-4 max-w-md">
-                Token purchase requires NFT ownership verification. Load tokens to start chatting!
+                Credit purchase requires NFT ownership verification. Load credits to start chatting!
               </p>
               <button
                 onClick={() => setShowPaymentModal(true)}
                 className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white hover:bg-gray-900 dark:hover:bg-gray-100 rounded-lg font-semibold transition-colors"
               >
-                Load Tokens
+                Load Credits
               </button>
               <p className="text-xs text-gray-400 dark:text-slate-500 mt-4">
                 Wallet: {walletAddress?.substring(0, 6)}...{walletAddress?.substring(38)}
@@ -477,13 +477,13 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
               <div className="mb-3 p-3 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-black dark:text-white">
-                    You&apos;re out of tokens! Add more to continue chatting.
+                    You&apos;re out of credits! Add more to continue chatting.
                   </p>
                   <button
                     onClick={() => setShowPaymentModal(true)}
                     className="px-4 py-1.5 text-sm font-medium bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white hover:bg-gray-900 dark:hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    Add Tokens
+                    Add Credits
                   </button>
                 </div>
               </div>
@@ -495,7 +495,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={tokenBalance !== null && tokenBalance <= 0 ? "Add tokens to continue..." : "Type your message..."}
+                  placeholder={tokenBalance !== null && tokenBalance <= 0 ? "Add credits to continue..." : "Type your message..."}
                   className="w-full px-4 py-3 pr-12 border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent resize-none max-h-32"
                   rows={1}
                   disabled={loading || (tokenBalance !== null && tokenBalance <= 0)}

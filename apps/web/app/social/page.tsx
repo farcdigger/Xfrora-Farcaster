@@ -196,7 +196,7 @@ export default function SocialPage() {
     }
 
     if (tokenBalance === null || tokenBalance === 0) {
-      alert("You need to load tokens first. Token purchase requires NFT ownership verification.");
+      alert("You need to load credits first. Credit purchase requires NFT ownership verification.");
       setShowPaymentModal(true);
       return;
     }
@@ -277,7 +277,7 @@ export default function SocialPage() {
     }
 
     if (tokenBalance === null || tokenBalance < 100) {
-      alert("You need to load tokens first. Token purchase requires NFT ownership verification.");
+      alert("You need to load credits first. Credit purchase requires NFT ownership verification.");
       setShowPaymentModal(true);
       return;
     }
@@ -436,7 +436,7 @@ export default function SocialPage() {
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">
-                  Tokens
+                  Credits
                 </p>
                 <p className="text-2xl font-bold text-black dark:text-white">
                   {tokenBalance !== null ? tokenBalance.toLocaleString() : "..."}
@@ -455,7 +455,7 @@ export default function SocialPage() {
                   onClick={() => setShowPaymentModal(true)}
                   className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
                 >
-                  Load Tokens
+                  Load Credits
                 </button>
               </div>
             </div>
@@ -482,7 +482,7 @@ export default function SocialPage() {
                 disabled={posting || !newPostContent.trim() || newPostContent.length > 280}
                 className="px-6 py-2 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
               >
-                {posting ? "Posting..." : "Post (20K tokens)"}
+                {posting ? "Posting..." : "Post (20K credits)"}
               </button>
             </div>
           </div>
@@ -531,13 +531,13 @@ export default function SocialPage() {
           <div className="mb-6 p-4 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
             <div className="flex items-center justify-between">
               <p className="text-black dark:text-white">
-                <span className="font-semibold">Load tokens to get started.</span> Token purchase requires NFT ownership verification.
+                <span className="font-semibold">Load credits to get started.</span> Credit purchase requires NFT ownership verification.
               </p>
               <button
                 onClick={() => setShowPaymentModal(true)}
                 className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
               >
-                Load Tokens
+                Load Credits
               </button>
             </div>
           </div>

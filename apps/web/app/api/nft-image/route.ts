@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
             nftImage = token.image_uri || "";
             tokenId = token.token_id || null;
             
-            console.log("✅ Found NFT image by wallet address:", {
+            console.log("✅ Found NFT image by wallet address (via users table):", {
               wallet: normalizedAddress,
               x_user_id: user.x_user_id,
               hasImage: !!nftImage,
@@ -96,7 +96,32 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.warn("⚠️ Error fetching NFT by wallet address:", error);
+        console.warn("⚠️ Error fetching NFT by wallet address (users table):", error);
+      }
+    }
+
+    // Method 3: Direct lookup in tokens table by wallet_address (fallback)
+    // This handles cases where user posted but isn't in users table yet
+    if (!nftImage && normalizedAddress) {
+      try {
+        const tokenResult = await db
+          .select()
+          .from(tokens)
+          .where(eq(tokens.wallet_address, normalizedAddress))
+          .limit(1);
+
+        if (tokenResult && tokenResult.length > 0) {
+          const token = tokenResult[0];
+          nftImage = token.image_uri || "";
+          tokenId = token.token_id || null;
+          
+          console.log("✅ Found NFT image by wallet address (direct tokens lookup):", {
+            wallet: normalizedAddress,
+            hasImage: !!nftImage,
+          });
+        }
+      } catch (error) {
+        console.warn("⚠️ Error fetching NFT by wallet address (direct tokens lookup):", error);
       }
     }
 
