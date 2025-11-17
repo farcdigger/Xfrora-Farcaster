@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, tokens, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { ethers } from "ethers";
+import { env } from "@/env.mjs";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,6 +21,86 @@ function ipfsToHttp(url: string): string {
     return url.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
   }
   return url;
+}
+
+// Fetch NFT image from blockchain (fallback)
+async function fetchNFTImageFromBlockchain(walletAddress: string): Promise<{ imageUrl: string | null; tokenId: number | null }> {
+  try {
+    const CONTRACT_ADDRESS = env.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396";
+    const RPC_URL = env.RPC_URL || "https://mainnet.base.org";
+
+    const ERC721_ABI = [
+      "function balanceOf(address owner) external view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)",
+      "function tokenURI(uint256 tokenId) external view returns (string)",
+    ];
+
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
+
+    console.log("🔗 Fetching NFT from blockchain:", { walletAddress: walletAddress.substring(0, 10) });
+
+    // Check balance with timeout to prevent hanging
+    const balance = await Promise.race([
+      contract.balanceOf(walletAddress),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Balance check timeout")), 5000)
+      ),
+    ]) as bigint;
+
+    if (balance === 0n) {
+      console.log("❌ No NFT found on blockchain for wallet");
+      return { imageUrl: null, tokenId: null };
+    }
+
+    // Get first token ID
+    const tokenId = await Promise.race([
+      contract.tokenOfOwnerByIndex(walletAddress, 0),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Token ID fetch timeout")), 5000)
+      ),
+    ]) as bigint;
+
+    console.log("✅ Found NFT token ID:", Number(tokenId));
+
+    // Get tokenURI (metadata URL)
+    const tokenURI = await Promise.race([
+      contract.tokenURI(tokenId),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("TokenURI fetch timeout")), 5000)
+      ),
+    ]) as string;
+
+    console.log("✅ Got tokenURI:", tokenURI.substring(0, 50));
+
+    // Fetch metadata from tokenURI
+    const metadataUrl = ipfsToHttp(tokenURI);
+    const metadataResponse = await fetch(metadataUrl, {
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!metadataResponse.ok) {
+      throw new Error(`Failed to fetch metadata: ${metadataResponse.status}`);
+    }
+
+    const metadata = await metadataResponse.json();
+    const imageUrl = ipfsToHttp(metadata.image || "");
+
+    console.log("✅ Got NFT image from blockchain:", {
+      tokenId: Number(tokenId),
+      hasImage: !!imageUrl,
+    });
+
+    return { imageUrl, tokenId: Number(tokenId) };
+  } catch (error: any) {
+    // Gracefully handle rate limit errors
+    if (error?.info?.error?.code === -32016) {
+      console.warn("⚠️ RPC rate limit hit, cannot fetch from blockchain");
+    } else {
+      console.error("❌ Error fetching NFT from blockchain:", error.message);
+    }
+    return { imageUrl: null, tokenId: null };
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -125,9 +207,36 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // If no NFT found
+    // Method 4: Blockchain fallback (if database doesn't have image)
+    // Only use this as last resort to avoid rate limits
+    if (!nftImage && normalizedAddress) {
+      console.log("⚠️ Database has no image, trying blockchain fallback...");
+      const blockchainResult = await fetchNFTImageFromBlockchain(normalizedAddress);
+      
+      if (blockchainResult.imageUrl) {
+        nftImage = blockchainResult.imageUrl;
+        tokenId = blockchainResult.tokenId;
+        
+        console.log("✅ Got image from blockchain, updating database...");
+        
+        // Update database with the fetched image for future requests
+        try {
+          if (tokenId && tokenId > 0) {
+            await db
+              .update(tokens)
+              .set({ image_uri: nftImage })
+              .where(eq(tokens.token_id, tokenId));
+            console.log("✅ Database updated with blockchain image");
+          }
+        } catch (updateError) {
+          console.warn("⚠️ Could not update database with image:", updateError);
+        }
+      }
+    }
+
+    // If STILL no NFT found after all methods
     if (!nftImage) {
-      console.log("❌ No NFT image found for:", { walletAddress, nftTokenId });
+      console.log("❌ No NFT image found after all lookup methods:", { walletAddress, nftTokenId });
       return NextResponse.json(
         { 
           hasNFT: false,
