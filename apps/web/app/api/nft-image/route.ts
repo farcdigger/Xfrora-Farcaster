@@ -147,16 +147,18 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const walletAddress = searchParams.get("wallet");
     const nftTokenId = searchParams.get("nft_token_id");
+    const xUserId = searchParams.get("x_user_id"); // ✅ NEW: x_user_id parameter
 
     console.log(`📝 [${requestId}] GET /api/nft-image - Request params:`, {
+      x_user_id: xUserId || "NONE",
       wallet: walletAddress?.substring(0, 10) + "..." || "NONE",
       nft_token_id: nftTokenId || "NONE",
     });
 
-    if (!walletAddress && !nftTokenId) {
+    if (!walletAddress && !nftTokenId && !xUserId) {
       console.error(`❌ [${requestId}] GET /api/nft-image - Missing parameters`);
       return NextResponse.json(
-        { error: "Missing wallet or nft_token_id parameter" },
+        { error: "Missing wallet, x_user_id, or nft_token_id parameter" },
         { status: 400 }
       );
     }
@@ -167,19 +169,20 @@ export async function GET(request: NextRequest) {
     let nftImage: string | null = null;
     let tokenId: number | null = null;
 
-    // Method 1: Get by NFT token ID (fastest, direct lookup)
-    if (nftTokenId) {
-      console.log(`🔍 [${requestId}] Method 1: Searching by nft_token_id in tokens table...`);
+    // Method 1: Get by X user ID (PRIORITY - most reliable for minted NFTs on our site)
+    if (!nftImage && xUserId) {
+      console.log(`🔍 [${requestId}] Method 1: Searching by x_user_id in tokens table...`);
       try {
         const tokenResult = await db
           .select()
           .from(tokens)
-          .where(eq(tokens.token_id, Number(nftTokenId)))
+          .where(eq(tokens.x_user_id, xUserId))
           .limit(1);
 
         console.log(`📊 [${requestId}] Method 1: Database query result:`, {
           found: tokenResult && tokenResult.length > 0,
           count: tokenResult?.length || 0,
+          x_user_id: xUserId,
         });
 
         if (tokenResult && tokenResult.length > 0) {
@@ -187,13 +190,13 @@ export async function GET(request: NextRequest) {
           nftImage = token.image_uri || "";
           tokenId = token.token_id || null;
           
-          console.log(`✅ [${requestId}] Method 1: SUCCESS - Found NFT image by token_id:`, {
-            nft_token_id: nftTokenId,
+          console.log(`✅ [${requestId}] Method 1: SUCCESS - Found NFT image by x_user_id:`, {
+            x_user_id: xUserId,
             hasImage: !!nftImage,
             imageUrl: nftImage?.substring(0, 50) + "...",
           });
         } else {
-          console.log(`❌ [${requestId}] Method 1: NOT FOUND - No token in database with ID ${nftTokenId}`);
+          console.log(`❌ [${requestId}] Method 1: NOT FOUND - No token in database with x_user_id ${xUserId}`);
         }
       } catch (error: any) {
         console.error(`❌ [${requestId}] Method 1: ERROR:`, {
@@ -203,9 +206,45 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Method 2: Get by wallet address (lookup user, then token)
+    // Method 2: Get by NFT token ID (direct lookup)
+    if (!nftImage && nftTokenId) {
+      console.log(`🔍 [${requestId}] Method 2: Searching by nft_token_id in tokens table...`);
+      try {
+        const tokenResult = await db
+          .select()
+          .from(tokens)
+          .where(eq(tokens.token_id, Number(nftTokenId)))
+          .limit(1);
+
+        console.log(`📊 [${requestId}] Method 2: Database query result:`, {
+          found: tokenResult && tokenResult.length > 0,
+          count: tokenResult?.length || 0,
+        });
+
+        if (tokenResult && tokenResult.length > 0) {
+          const token = tokenResult[0];
+          nftImage = token.image_uri || "";
+          tokenId = token.token_id || null;
+          
+          console.log(`✅ [${requestId}] Method 2: SUCCESS - Found NFT image by token_id:`, {
+            nft_token_id: nftTokenId,
+            hasImage: !!nftImage,
+            imageUrl: nftImage?.substring(0, 50) + "...",
+          });
+        } else {
+          console.log(`❌ [${requestId}] Method 2: NOT FOUND - No token in database with ID ${nftTokenId}`);
+        }
+      } catch (error: any) {
+        console.error(`❌ [${requestId}] Method 2: ERROR:`, {
+          error: error.message,
+          code: error.code,
+        });
+      }
+    }
+
+    // Method 3: Get by wallet address (lookup user, then token)
     if (!nftImage && normalizedAddress) {
-      console.log(`🔍 [${requestId}] Method 2: Searching wallet → users → tokens...`);
+      console.log(`🔍 [${requestId}] Method 3: Searching wallet → users → tokens...`);
       try {
         // Get user's x_user_id from wallet address
         const userResult = await db
@@ -214,14 +253,14 @@ export async function GET(request: NextRequest) {
           .where(eq(users.wallet_address, normalizedAddress))
           .limit(1);
 
-        console.log(`📊 [${requestId}] Method 2: User lookup result:`, {
+        console.log(`📊 [${requestId}] Method 3: User lookup result:`, {
           found: userResult && userResult.length > 0,
           wallet: normalizedAddress?.substring(0, 10) + "...",
         });
 
         if (userResult && userResult.length > 0) {
           const user = userResult[0];
-          console.log(`✅ [${requestId}] Method 2: User found, looking for token...`, {
+          console.log(`✅ [${requestId}] Method 3: User found, looking for token...`, {
             x_user_id: user.x_user_id,
           });
           
@@ -232,7 +271,7 @@ export async function GET(request: NextRequest) {
             .where(eq(tokens.x_user_id, user.x_user_id))
             .limit(1);
 
-          console.log(`📊 [${requestId}] Method 2: Token lookup result:`, {
+          console.log(`📊 [${requestId}] Method 3: Token lookup result:`, {
             found: tokenResult && tokenResult.length > 0,
           });
 
@@ -241,31 +280,31 @@ export async function GET(request: NextRequest) {
             nftImage = token.image_uri || "";
             tokenId = token.token_id || null;
             
-            console.log(`✅ [${requestId}] Method 2: SUCCESS - Found NFT image:`, {
+            console.log(`✅ [${requestId}] Method 3: SUCCESS - Found NFT image:`, {
               wallet: normalizedAddress?.substring(0, 10) + "...",
               x_user_id: user.x_user_id,
               hasImage: !!nftImage,
               imageUrl: nftImage?.substring(0, 50) + "...",
             });
           } else {
-            console.log(`❌ [${requestId}] Method 2: NOT FOUND - No token for this x_user_id`);
+            console.log(`❌ [${requestId}] Method 3: NOT FOUND - No token for this x_user_id`);
           }
         } else {
-          console.log(`❌ [${requestId}] Method 2: NOT FOUND - Wallet not in users table`);
+          console.log(`❌ [${requestId}] Method 3: NOT FOUND - Wallet not in users table`);
         }
       } catch (error: any) {
-        console.error(`❌ [${requestId}] Method 2: ERROR:`, {
+        console.error(`❌ [${requestId}] Method 3: ERROR:`, {
           error: error.message,
           code: error.code,
         });
       }
     }
 
-    // Method 3: Direct lookup in tokens table by wallet_address (fallback)
+    // Method 4: Direct lookup in tokens table by wallet_address (fallback)
     // This handles cases where user posted but isn't in users table yet
     if (!nftImage && normalizedAddress) {
-      console.log(`🔍 [${requestId}] Method 3: Direct wallet lookup in tokens table...`);
-      console.log(`🔍 [${requestId}] Method 3: Searching for wallet: ${normalizedAddress}`);
+      console.log(`🔍 [${requestId}] Method 4: Direct wallet lookup in tokens table...`);
+      console.log(`🔍 [${requestId}] Method 4: Searching for wallet: ${normalizedAddress}`);
       try {
         const tokenResult = await db
           .select()
@@ -273,7 +312,7 @@ export async function GET(request: NextRequest) {
           .where(eq(tokens.wallet_address, normalizedAddress))
           .limit(1);
 
-        console.log(`📊 [${requestId}] Method 3: Database query result:`, {
+        console.log(`📊 [${requestId}] Method 4: Database query result:`, {
           found: tokenResult && tokenResult.length > 0,
           count: tokenResult?.length || 0,
           wallet: normalizedAddress?.substring(0, 10) + "...",
@@ -284,7 +323,7 @@ export async function GET(request: NextRequest) {
           nftImage = token.image_uri || "";
           tokenId = token.token_id || null;
           
-          console.log(`✅ [${requestId}] Method 3: SUCCESS - Token found in database:`, {
+          console.log(`✅ [${requestId}] Method 4: SUCCESS - Token found in database:`, {
             wallet: normalizedAddress?.substring(0, 10) + "...",
             hasImageUri: !!token.image_uri,
             imageUri: token.image_uri?.substring(0, 50) + "..." || "NULL",
@@ -293,13 +332,13 @@ export async function GET(request: NextRequest) {
           });
           
           if (!nftImage) {
-            console.log(`⚠️  [${requestId}] Method 3: Token found BUT image_uri is EMPTY/NULL!`);
+            console.log(`⚠️  [${requestId}] Method 4: Token found BUT image_uri is EMPTY/NULL!`);
           }
         } else {
-          console.log(`❌ [${requestId}] Method 3: NOT FOUND - No token with this wallet address in database`);
+          console.log(`❌ [${requestId}] Method 4: NOT FOUND - No token with this wallet address in database`);
         }
       } catch (error: any) {
-        console.error(`❌ [${requestId}] Method 3: ERROR:`, {
+        console.error(`❌ [${requestId}] Method 4: ERROR:`, {
           error: error.message,
           code: error.code,
         });

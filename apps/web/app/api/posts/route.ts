@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
         posts: validPosts.map((post: any) => ({
           id: Number(post.id),
           wallet_address: post.wallet_address, // Add wallet address for NFT image lookup
+          x_user_id: post.x_user_id || null, // ✅ Add x_user_id for NFT image lookup (priority)
           nft_token_id: Number(post.nft_token_id) || 0,
           content: post.content || "",
           fav_count: Number(post.fav_count) || 0,

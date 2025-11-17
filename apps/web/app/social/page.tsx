@@ -10,6 +10,7 @@ import PaymentModal from "@/components/PaymentModal";
 interface Post {
   id: number;
   wallet_address: string; // Add wallet address for NFT image lookup
+  x_user_id?: string | null; // ✅ Add x_user_id for NFT image lookup (priority)
   nft_token_id: number;
   content: string;
   fav_count: number;
@@ -44,15 +45,20 @@ export default function SocialPage() {
   const [topFaver, setTopFaver] = useState<{ wallet_address: string; fav_count: number } | null>(null);
   const [nftImages, setNftImages] = useState<Record<string, string>>({});  // wallet_address -> image URL
 
-  // Load NFT image for a specific wallet address
-  const loadNftImage = async (walletAddress: string) => {
+  // Load NFT image for a specific wallet address or x_user_id
+  const loadNftImage = async (walletAddress: string, xUserId?: string | null) => {
     // Skip if already loaded or invalid
     if (!walletAddress || nftImages[walletAddress]) return;
     
     try {
+      // Prefer x_user_id over wallet_address for better performance
+      const queryParam = xUserId 
+        ? `x_user_id=${xUserId}` 
+        : `wallet=${walletAddress}`;
+      
       // Add timestamp to prevent caching + explicit no-store
-      console.log(`🖼️ [NFT-IMAGE] Fetching for wallet: ${walletAddress.substring(0, 10)}...`);
-      const response = await fetch(`/api/nft-image?wallet=${walletAddress}&t=${Date.now()}`, {
+      console.log(`🖼️ [NFT-IMAGE] Fetching for ${xUserId ? 'x_user_id' : 'wallet'}: ${xUserId || walletAddress.substring(0, 10)}...`);
+      const response = await fetch(`/api/nft-image?${queryParam}&t=${Date.now()}`, {
         cache: 'no-store',
       });
       
@@ -103,7 +109,7 @@ export default function SocialPage() {
       // Load NFT images for all posts using wallet address
       loadedPosts.forEach((post: Post) => {
         if (post.wallet_address) {
-          loadNftImage(post.wallet_address);
+          loadNftImage(post.wallet_address, post.x_user_id); // ✅ Pass x_user_id for priority lookup
         }
       });
     } catch (err: any) {
@@ -239,12 +245,17 @@ export default function SocialPage() {
     const contentToPost = newPostContent.trim();
     
     try {
+      // Get x_user_id from localStorage if available
+      const storedXUser = localStorage.getItem("xUser");
+      const xUserId = storedXUser ? JSON.parse(storedXUser).x_user_id : null;
+      
       const response = await fetch("/api/posts/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           walletAddress: address,
           content: contentToPost,
+          x_user_id: xUserId, // ✅ Include x_user_id for NFT image lookup
         }),
       });
 
@@ -274,7 +285,7 @@ export default function SocialPage() {
         // Load NFT image for the new post immediately
         if (data.post.wallet_address) {
           console.log("🖼️ Loading NFT image for new post:", data.post.wallet_address.substring(0, 10));
-          loadNftImage(data.post.wallet_address);
+          loadNftImage(data.post.wallet_address, data.post.x_user_id); // ✅ Pass x_user_id for priority lookup
         }
       }
       

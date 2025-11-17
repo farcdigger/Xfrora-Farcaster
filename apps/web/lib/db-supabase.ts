@@ -137,6 +137,7 @@ type Database = {
         Row: {
           id: number;
           wallet_address: string;
+          x_user_id: string | null;
           nft_token_id: number;
           content: string;
           fav_count: number;
@@ -147,6 +148,7 @@ type Database = {
         Insert: {
           id?: number;
           wallet_address: string;
+          x_user_id?: string | null;
           nft_token_id: number;
           content: string;
           fav_count?: number;
@@ -157,6 +159,7 @@ type Database = {
         Update: {
           id?: number;
           wallet_address?: string;
+          x_user_id?: string | null;
           nft_token_id?: number;
           content?: string;
           fav_count?: number;

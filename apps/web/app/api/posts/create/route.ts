@@ -95,10 +95,11 @@ async function checkNFTOwnership(walletAddress: string): Promise<{ hasNFT: boole
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, content } = body;
+    const { walletAddress, content, x_user_id } = body; // ✅ Accept x_user_id from frontend
 
     console.log("📝 POST /api/posts/create - Request body:", {
       walletAddress: walletAddress?.substring(0, 10) + "...",
+      x_user_id: x_user_id || "NONE",
       contentLength: content?.length,
     });
 
@@ -202,6 +203,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = await db.insert(posts).values({
         wallet_address: normalizedAddressLower,
+        x_user_id: x_user_id || null, // ✅ Save x_user_id for NFT image lookup
         nft_token_id: 0, // We'll use wallet_address to identify users instead
         content: content.trim(),
         fav_count: 0,
@@ -232,6 +234,7 @@ export async function POST(request: NextRequest) {
     const postResponse = {
       id: Number(insertedPost.id),
       wallet_address: normalizedAddressLower, // Include wallet address for NFT image lookup
+      x_user_id: x_user_id || null, // ✅ Include x_user_id for NFT image lookup (priority)
       nft_token_id: 0, // Not used anymore
       content: insertedPost.content || content.trim(),
       fav_count: Number(insertedPost.fav_count) || 0,

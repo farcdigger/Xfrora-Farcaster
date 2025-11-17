@@ -152,8 +152,17 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   const fetchNftImage = async () => {
     if (!walletAddress) return;
     try {
+      // Get x_user_id from localStorage if available (priority for NFT image lookup)
+      const storedXUser = localStorage.getItem("xUser");
+      const xUserId = storedXUser ? JSON.parse(storedXUser).x_user_id : null;
+      
+      // Prefer x_user_id over wallet_address for better performance
+      const queryParam = xUserId 
+        ? `x_user_id=${xUserId}` 
+        : `wallet=${walletAddress}`;
+      
       // Add timestamp to prevent caching + explicit no-store
-      const response = await fetch(`/api/nft-image?wallet=${walletAddress}&t=${Date.now()}`, {
+      const response = await fetch(`/api/nft-image?${queryParam}&t=${Date.now()}`, {
         cache: 'no-store',
       });
       if (response.ok) {
