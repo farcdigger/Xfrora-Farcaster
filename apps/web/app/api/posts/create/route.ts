@@ -153,13 +153,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get NFT token ID - if user has token balance, they have NFT (verified during token purchase)
-    // Try to get token ID from contract, but don't fail if contract check fails
-    // We can also try database as fallback
+    // Get NFT token ID - MUST be obtained from contract or database
+    // This is critical to ensure each user posts with their own NFT ID
     let tokenId: number | null = null;
     
+    // STEP 1: Try contract first (most reliable)
     try {
-      // Try contract first (most reliable)
       const { hasNFT, tokenId: contractTokenId } = await checkNFTOwnership(normalizedAddress);
       if (hasNFT && contractTokenId && contractTokenId > 0) {
         tokenId = contractTokenId;
@@ -172,7 +171,7 @@ export async function POST(request: NextRequest) {
       console.warn("⚠️ Contract check failed, trying database:", error);
     }
     
-    // If contract check failed, try database as fallback
+    // STEP 2: If contract check failed, try database (tokens table)
     if (!tokenId || tokenId === 0) {
       try {
         const { users, tokens } = await import("@/lib/db");
@@ -189,35 +188,35 @@ export async function POST(request: NextRequest) {
             .where(eq(tokens.x_user_id, userResult[0].x_user_id))
             .limit(1);
           
-          if (tokenResult && tokenResult.length > 0 && tokenResult[0].token_id) {
+          if (tokenResult && tokenResult.length > 0 && tokenResult[0].token_id && Number(tokenResult[0].token_id) > 0) {
             tokenId = Number(tokenResult[0].token_id);
-            console.log("✅ NFT token ID from database:", {
+            console.log("✅ NFT token ID from tokens table:", {
               address: normalizedAddress,
+              x_user_id: userResult[0].x_user_id,
               tokenId,
             });
           }
         }
       } catch (error) {
-        console.warn("⚠️ Database check failed:", error);
+        console.warn("⚠️ Database tokens table check failed:", error);
       }
     }
     
-    // If still no token ID, user has tokens so they must have NFT
-    // Use a default value or get from existing posts
+    // STEP 3: Try existing posts as fallback
     if (!tokenId || tokenId === 0) {
-      // Try to get token ID from user's existing posts
       try {
         const existingPosts = await db
           .select()
           .from(posts)
           .where(eq(posts.wallet_address, normalizedAddressLower));
         
-        // Sort by id descending (newest first) and get first one
+        // Sort by id descending (newest first) and get first one with valid token_id
         const existingPost = existingPosts
+          .filter((p: any) => p.nft_token_id && Number(p.nft_token_id) > 0)
           .sort((a: any, b: any) => Number(b.id) - Number(a.id))
           .slice(0, 1);
         
-        if (existingPost && existingPost.length > 0 && existingPost[0].nft_token_id > 0) {
+        if (existingPost && existingPost.length > 0) {
           tokenId = Number(existingPost[0].nft_token_id);
           console.log("✅ NFT token ID from existing post:", {
             address: normalizedAddress,
@@ -229,14 +228,19 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Final fallback: if user has token balance, they have NFT
-    // We'll use 1 as a safe default (but this shouldn't happen in practice)
+    // STEP 4: If still no token ID found, return error - user must verify NFT first
     if (!tokenId || tokenId === 0) {
-      console.warn("⚠️ Could not determine NFT token ID, using fallback. User has token balance so NFT exists.");
-      // Don't fail - user has tokens so they have NFT
-      // We'll use the post's nft_token_id from the post itself after creation
-      // For now, we need a value - but this is a fallback that shouldn't happen
-      tokenId = 1; // Safe default - but this case shouldn't occur
+      console.error("❌ Could not determine NFT token ID for user:", {
+        address: normalizedAddress,
+        balance: currentBalance,
+      });
+      return NextResponse.json(
+        { 
+          error: "Could not verify your NFT token ID. Please try refreshing the page or contact support.",
+          details: "NFT ownership verification failed",
+        },
+        { status: 403 }
+      );
     }
 
     // Get current points and total tokens spent
@@ -256,25 +260,54 @@ export async function POST(request: NextRequest) {
     // Update token balance (burn tokens and add points)
     await updateTokenBalance(normalizedAddressLower, newBalance, newPoints, newTotalSpent);
 
-    // Create post
-    const [newPost] = await db.insert(posts).values({
-      wallet_address: normalizedAddressLower,
-      nft_token_id: tokenId,
-      content: content.trim(),
-      fav_count: 0,
-      points_earned: POINTS_TO_AWARD,
-      tokens_burned: TOKENS_TO_BURN,
-    });
+    // Create post - created_at will be set by database DEFAULT NOW() in UTC
+    let insertedPost;
+    try {
+      const result = await db.insert(posts).values({
+        wallet_address: normalizedAddressLower,
+        nft_token_id: tokenId,
+        content: content.trim(),
+        fav_count: 0,
+        points_earned: POINTS_TO_AWARD,
+        tokens_burned: TOKENS_TO_BURN,
+      });
+      
+      insertedPost = result[0];
+      
+      // Verify insert worked
+      if (!insertedPost || !insertedPost.id) {
+        console.error("❌ Post insert failed - no ID returned:", insertedPost);
+        throw new Error("Failed to create post - database did not return post ID");
+      }
+      
+      console.log("✅ Post created successfully:", {
+        id: insertedPost.id,
+        nft_token_id: tokenId,
+        content_length: content.trim().length,
+        created_at: insertedPost.created_at,
+      });
+    } catch (insertError: any) {
+      console.error("❌ Error inserting post:", insertError);
+      throw new Error(`Failed to create post: ${insertError.message}`);
+    }
+
+    // Return complete post data with all required fields
+    const postResponse = {
+      id: Number(insertedPost.id),
+      nft_token_id: Number(tokenId),
+      content: insertedPost.content || content.trim(),
+      fav_count: Number(insertedPost.fav_count) || 0,
+      // Ensure created_at is in ISO string format (UTC)
+      created_at: insertedPost.created_at 
+        ? new Date(insertedPost.created_at).toISOString() 
+        : new Date().toISOString(),
+    };
+    
+    console.log("📤 Sending post response:", postResponse);
 
     return NextResponse.json({
       success: true,
-      post: {
-        id: newPost.id,
-        nft_token_id: tokenId,
-        content: newPost.content,
-        fav_count: 0,
-        created_at: newPost.created_at,
-      },
+      post: postResponse,
       newBalance,
       newPoints,
       tokensBurned: TOKENS_TO_BURN,

@@ -31,7 +31,13 @@ export async function GET(request: NextRequest) {
     if (isMockMode) {
       // Mock mode: return in-memory balance and points
       const userData = mockTokenBalances.get(normalizedAddress) || { balance: 0, points: 0 };
-      return NextResponse.json({ balance: userData.balance, points: userData.points });
+      return NextResponse.json({ balance: userData.balance, points: userData.points }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
     }
 
     // Database mode: query from chat_tokens table
@@ -46,6 +52,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ 
           balance: Number(result[0].balance) || 0,
           points: Number(result[0].points) || 0,
+        }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
         });
       }
 
@@ -57,12 +69,24 @@ export async function GET(request: NextRequest) {
         total_tokens_spent: 0,
       });
 
-      return NextResponse.json({ balance: 0, points: 0 });
+      return NextResponse.json({ balance: 0, points: 0 }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
     } catch (dbError: any) {
       console.error("Database error fetching token balance:", dbError);
       // Fallback to mock storage if database fails
       const userData = mockTokenBalances.get(normalizedAddress) || { balance: 0, points: 0 };
-      return NextResponse.json({ balance: userData.balance, points: userData.points });
+      return NextResponse.json({ balance: userData.balance, points: userData.points }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
     }
   } catch (error: any) {
     console.error("Error fetching token balance:", error);

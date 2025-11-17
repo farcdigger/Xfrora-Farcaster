@@ -26,6 +26,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   const [checkingNFT, setCheckingNFT] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [nftTraits, setNftTraits] = useState<any | null>(null);
+  const [nftImage, setNftImage] = useState<string | null>(null);  // NFT profile image
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { address } = useAccount();
@@ -116,10 +117,15 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     if (tokenBalance !== null && tokenBalance > 0) {
       setHasNFT(true);
       setCheckingNFT(false);
+      // Load NFT image when we confirm user has NFT
+      if (walletAddress && !nftImage) {
+        fetchNftImage();
+      }
     } else if (tokenBalance === 0) {
       setHasNFT(false);
       setCheckingNFT(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenBalance]);
 
   const fetchTokenBalance = async () => {
@@ -138,6 +144,22 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     } catch (error) {
       console.error("Error fetching token balance:", error);
       // Don't reset to 0 on error - keep existing values
+    }
+  };
+
+  const fetchNftImage = async () => {
+    if (!walletAddress) return;
+    try {
+      const response = await fetch(`/api/nft-image?wallet=${walletAddress}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.hasNFT && data.imageUrl) {
+          setNftImage(data.imageUrl);
+          console.log("✅ NFT image loaded for chatbot");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching NFT image:", error);
     }
   };
 
@@ -272,22 +294,35 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                 </p>
               </div>
             </div>
-            {tokenBalance !== null && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded-full">
-                  <div className="w-2 h-2 bg-black dark:bg-white rounded-full"></div>
-                  <span className="text-sm font-semibold text-black dark:text-white">
-                    {formatTokenBalance(tokenBalance)} tokens
-                  </span>
+            <div className="flex items-center gap-3">
+              {nftImage && (
+                <div className="flex items-center gap-2 px-2 py-1 border border-gray-200 dark:border-gray-800 rounded-full bg-white dark:bg-black">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={nftImage}
+                    alt="Your NFT"
+                    className="w-6 h-6 rounded-full object-cover"
+                  />
+                  <span className="text-xs text-gray-600 dark:text-gray-400 pr-1">Your NFT</span>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-full">
-                  <div className="w-2 h-2 bg-black dark:bg-white rounded-full"></div>
-                  <span className="text-sm font-semibold text-black dark:text-white">
-                    {points.toLocaleString('en-US')} points
-                  </span>
-                </div>
-              </div>
-            )}
+              )}
+              {tokenBalance !== null && (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded-full">
+                    <div className="w-2 h-2 bg-black dark:bg-white rounded-full"></div>
+                    <span className="text-sm font-semibold text-black dark:text-white">
+                      {formatTokenBalance(tokenBalance)} tokens
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-full">
+                    <div className="w-2 h-2 bg-black dark:bg-white rounded-full"></div>
+                    <span className="text-sm font-semibold text-black dark:text-white">
+                      {points.toLocaleString('en-US')} points
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button

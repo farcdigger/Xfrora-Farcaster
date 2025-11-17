@@ -4,7 +4,7 @@
  */
 
 const CACHE_KEY_PREFIX = "nft_verification_";
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds (reduced from 1 hour to avoid stale data)
 
 export interface NFTVerificationCache {
   verified: boolean;

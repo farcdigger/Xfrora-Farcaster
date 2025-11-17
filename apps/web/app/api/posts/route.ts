@@ -43,9 +43,16 @@ export async function GET(request: NextRequest) {
           nft_token_id: Number(post.nft_token_id) || 0,
           content: post.content || "",
           fav_count: Number(post.fav_count) || 0,
-          created_at: post.created_at,
+          // Ensure created_at is in ISO string format (UTC) with Z suffix
+          created_at: post.created_at ? new Date(post.created_at).toISOString() : new Date().toISOString(),
         })),
         total: validPosts.length,
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
       });
     }
 
@@ -81,9 +88,16 @@ export async function GET(request: NextRequest) {
         nft_token_id: Number(post.nft_token_id) || 0,
         content: post.content || "",
         fav_count: Number(post.fav_count) || 0,
-        created_at: post.created_at,
+        // Ensure created_at is in ISO string format (UTC) with Z suffix
+        created_at: post.created_at ? new Date(post.created_at).toISOString() : new Date().toISOString(),
       })),
       total: validPosts.length,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     });
   } catch (error: any) {
     console.error("Error fetching posts:", error);

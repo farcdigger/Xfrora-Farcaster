@@ -41,6 +41,25 @@ export default function SocialPage() {
   const [weeklyWinners, setWeeklyWinners] = useState<WeeklyWinner[]>([]);
   const [mostFavedPost, setMostFavedPost] = useState<Post | null>(null);
   const [topFaver, setTopFaver] = useState<{ wallet_address: string; fav_count: number } | null>(null);
+  const [nftImages, setNftImages] = useState<Record<number, string>>({});  // NFT token_id -> image URL
+
+  // Load NFT image for a specific token ID
+  const loadNftImage = async (nftTokenId: number) => {
+    // Skip if already loaded
+    if (nftImages[nftTokenId]) return;
+    
+    try {
+      const response = await fetch(`/api/nft-image?nft_token_id=${nftTokenId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.hasNFT && data.imageUrl) {
+          setNftImages((prev) => ({ ...prev, [nftTokenId]: data.imageUrl }));
+        }
+      }
+    } catch (err) {
+      console.error(`Error loading NFT image for token ${nftTokenId}:`, err);
+    }
+  };
 
   // Load posts
   const loadPosts = async () => {
@@ -49,7 +68,15 @@ export default function SocialPage() {
       const response = await fetch(`/api/posts?t=${Date.now()}`);
       if (!response.ok) throw new Error("Failed to load posts");
       const data = await response.json();
-      setPosts(data.posts || []);
+      const loadedPosts = data.posts || [];
+      setPosts(loadedPosts);
+      
+      // Load NFT images for all posts
+      loadedPosts.forEach((post: Post) => {
+        if (post.nft_token_id) {
+          loadNftImage(post.nft_token_id);
+        }
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -102,10 +129,23 @@ export default function SocialPage() {
         const postsData = await postsResponse.json();
         const posts = postsData.posts || [];
         if (posts.length > 0) {
-          const mostFaved = posts.reduce((prev: Post, current: Post) => 
-            (current.fav_count > prev.fav_count) ? current : prev
-          );
-          setMostFavedPost(mostFaved);
+          // Find the post with the highest fav_count
+          // Convert fav_count to number to ensure proper comparison
+          const mostFaved = posts.reduce((prev: Post, current: Post) => {
+            const prevCount = Number(prev.fav_count) || 0;
+            const currentCount = Number(current.fav_count) || 0;
+            return currentCount > prevCount ? current : prev;
+          });
+          
+          // Only set if there's at least one post with fav_count > 0
+          if (Number(mostFaved.fav_count) > 0) {
+            setMostFavedPost(mostFaved);
+          } else {
+            // If no posts have favs yet, still show the first post
+            setMostFavedPost(mostFaved);
+          }
+        } else {
+          setMostFavedPost(null);
         }
       }
 
@@ -179,18 +219,30 @@ export default function SocialPage() {
         throw new Error(data.error || "Failed to create post");
       }
 
+      console.log("✅ Post created successfully:", data.post);
       setNewPostContent("");
       
-      if (data.post) {
-        setPosts((prev) => [data.post, ...prev]);
+      // Optimistically add the new post to the top of the list
+      if (data.post && data.post.id) {
+        setPosts((prev) => {
+          // Check if post already exists (to prevent duplicates)
+          const exists = prev.some(p => p.id === data.post.id);
+          if (exists) {
+            console.log("Post already exists in list, skipping duplicate");
+            return prev;
+          }
+          return [data.post, ...prev];
+        });
       }
       
+      // Reload all data from server to ensure consistency
       await Promise.all([
         loadPosts(),
         loadTokenBalance(),
         loadTopStats(),
       ]);
     } catch (err: any) {
+      console.error("❌ Error creating post:", err);
       setTokenBalance(tokenBalance);
       setPoints(points);
       alert(err.message || "Failed to create post");
@@ -250,10 +302,13 @@ export default function SocialPage() {
         throw new Error(data.error || "Failed to favorite post");
       }
 
+      console.log("✅ Fav successful, new count:", data.favCount);
+      
+      // Update posts with the confirmed fav count from server
       setPosts((prev) =>
         prev.map((post) =>
           post.id === postId
-            ? { ...post, fav_count: data.favCount }
+            ? { ...post, fav_count: Number(data.favCount) || 0 }
             : post
         )
       );
@@ -265,6 +320,7 @@ export default function SocialPage() {
         loadTopStats(),
       ]);
     } catch (err: any) {
+      console.error("❌ Error favoriting post:", err);
       setTokenBalance(tokenBalance);
       setPosts((prev) =>
         prev.map((post) =>
@@ -281,14 +337,45 @@ export default function SocialPage() {
 
   const formatTimeAgo = (dateString: string) => {
     if (!dateString) return "just now";
-    const date = new Date(dateString);
+    
+    // Parse the date string - PostgreSQL returns UTC timestamps
+    // Make sure we interpret it correctly
+    let date: Date;
+    try {
+      // If the date string doesn't include timezone info, PostgreSQL returns UTC
+      // We need to ensure it's parsed as UTC
+      if (!dateString.includes('Z') && !dateString.includes('+')) {
+        // Add Z to indicate UTC if not present
+        date = new Date(dateString + 'Z');
+      } else {
+        date = new Date(dateString);
+      }
+    } catch (e) {
+      console.error('Error parsing date:', dateString, e);
+      return "just now";
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date:', dateString);
+      return "just now";
+    }
+    
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    // Handle negative differences (future dates) - shouldn't happen but just in case
+    if (diffInSeconds < 0) {
+      console.warn('Future date detected:', dateString, 'diff:', diffInSeconds);
+      return "just now";
+    }
 
     if (diffInSeconds < 60) return "just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    
+    // For older dates, show the actual date in local time
     return date.toLocaleDateString();
   };
 
@@ -462,7 +549,24 @@ export default function SocialPage() {
               >
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-sm border border-black dark:border-white">
+                    {nftImages[post.nft_token_id] ? (
+                      <img
+                        src={nftImages[post.nft_token_id]}
+                        alt={`NFT #${post.nft_token_id}`}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-black dark:border-white"
+                        onError={(e) => {
+                          // Fallback to default avatar if image fails to load
+                          e.currentTarget.style.display = 'none';
+                          if (e.currentTarget.nextSibling) {
+                            (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex';
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="w-12 h-12 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-sm border border-black dark:border-white"
+                      style={{ display: nftImages[post.nft_token_id] ? 'none' : 'flex' }}
+                    >
                       #{post.nft_token_id}
                     </div>
                   </div>

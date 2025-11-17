@@ -38,6 +38,12 @@ export async function GET(request: NextRequest) {
           status: reward.status,
           created_at: reward.created_at,
         })),
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
       });
     }
 
@@ -66,6 +72,12 @@ export async function GET(request: NextRequest) {
         status: reward.status,
         created_at: reward.created_at,
       })),
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     });
   } catch (error: any) {
     console.error("Error fetching weekly winners:", error);
