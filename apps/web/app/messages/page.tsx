@@ -19,7 +19,6 @@ export default function MessagesPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [otherParticipant, setOtherParticipant] = useState<string>("");
   const [showUserSearch, setShowUserSearch] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const checkAccess = () => {
@@ -190,7 +189,6 @@ export default function MessagesPage() {
           <div className="flex-1 overflow-y-auto">
             {address && (
               <ConversationList
-                key={refreshKey}
                 currentWallet={address}
                 selectedConversationId={selectedConversationId}
                 onSelectConversation={(conversationId, otherParticipantWallet) => {
@@ -228,7 +226,6 @@ export default function MessagesPage() {
           {/* Messages Area */}
           {address && (
             <MessageThread
-              key={`${selectedConversationId}-${refreshKey}`}
               conversationId={selectedConversationId}
               currentWallet={address}
               otherParticipant={otherParticipant}
@@ -242,9 +239,7 @@ export default function MessagesPage() {
               senderWallet={address}
               receiverWallet={otherParticipant}
               onMessageSent={(newConversationId) => {
-                setRefreshKey((prev) => prev + 1);
-                // If no conversation selected, set the new one
-                if (newConversationId && !selectedConversationId) {
+                if (newConversationId && newConversationId !== selectedConversationId) {
                   setSelectedConversationId(newConversationId);
                 }
               }}
