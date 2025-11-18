@@ -26,10 +26,12 @@ export default function ConversationList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadConversations = async () => {
+  const loadConversations = async (showLoading = false) => {
     if (!currentWallet) return;
 
-    setLoading(true);
+    if (showLoading) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -47,18 +49,18 @@ export default function ConversationList({
     } catch (err: any) {
       setError(err.message || "Failed to load conversations");
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadConversations();
-    // Refresh conversations every 10 seconds as fallback
-    const interval = setInterval(loadConversations, 10000);
+    loadConversations(true);
 
     const client = getSupabaseBrowserClient();
     if (!client || !currentWallet) {
-      return () => clearInterval(interval);
+      return;
     }
 
     const channel = client
@@ -83,10 +85,14 @@ export default function ConversationList({
         },
         () => loadConversations()
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          // after realtime ready, ensure we have latest data
+          loadConversations();
+        }
+      });
 
     return () => {
-      clearInterval(interval);
       channel.unsubscribe();
     };
   }, [currentWallet]);
