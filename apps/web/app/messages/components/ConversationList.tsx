@@ -63,6 +63,43 @@ export default function ConversationList({
       return;
     }
 
+    const updateLocalConversation = (message: any) => {
+      const conversationId = message.conversation_id;
+      const otherParticipant =
+        message.sender_wallet.toLowerCase() === currentWallet.toLowerCase()
+          ? message.receiver_wallet
+          : message.sender_wallet;
+
+      setConversations((prev) => {
+        const existingIndex = prev.findIndex((c) => c.id === conversationId);
+        if (existingIndex === -1) {
+          // conversation not in list yet, fallback to fetch
+          loadConversations();
+          return prev;
+        }
+
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          otherParticipant,
+          lastMessageAt: message.created_at,
+          createdAt: updated[existingIndex].createdAt ?? message.created_at,
+          unreadCount:
+            message.receiver_wallet.toLowerCase() === currentWallet.toLowerCase()
+              ? updated[existingIndex].unreadCount + 1
+              : updated[existingIndex].unreadCount,
+        };
+
+        updated.sort((a, b) => {
+          const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return bTime - aTime;
+        });
+
+        return updated;
+      });
+    };
+
     const channel = client
       .channel(`conversations-realtime-${currentWallet}`)
       .on(
@@ -73,7 +110,9 @@ export default function ConversationList({
           table: "messages",
         filter: `receiver_wallet=eq.${currentWallet}`,
         },
-        () => loadConversations()
+        (payload) => {
+          updateLocalConversation(payload.new);
+        }
       )
       .on(
         "postgres_changes",
@@ -83,7 +122,9 @@ export default function ConversationList({
           table: "messages",
         filter: `sender_wallet=eq.${currentWallet}`,
         },
-        () => loadConversations()
+        (payload) => {
+          updateLocalConversation(payload.new);
+        }
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
