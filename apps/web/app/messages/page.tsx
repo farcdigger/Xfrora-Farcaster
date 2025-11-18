@@ -6,12 +6,20 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { isMessagingEnabled, checkMessagingPermissions } from "@/lib/feature-flags";
+import UserSearch from "./components/UserSearch";
+import ConversationList from "./components/ConversationList";
+import MessageThread from "./components/MessageThread";
+import MessageInput from "./components/MessageInput";
 
 export default function MessagesPage() {
   const { address, isConnected } = useAccount();
   const [hasAccess, setHasAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [accessReason, setAccessReason] = useState<string>("");
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [otherParticipant, setOtherParticipant] = useState<string>("");
+  const [showUserSearch, setShowUserSearch] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const checkAccess = () => {
@@ -20,7 +28,7 @@ export default function MessagesPage() {
       setAccessReason(permissions.reason || "");
       setLoading(false);
       
-      // Erişim yoksa ana sayfaya yönlendir (3 saniye sonra)
+      // Redirect to social page if no access (after 3 seconds)
       if (!permissions.hasAccess && address) {
         setTimeout(() => {
           window.location.href = "/social";
@@ -36,7 +44,7 @@ export default function MessagesPage() {
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-2 border-black dark:border-white border-t-transparent mb-4"></div>
-          <div className="text-black dark:text-white">Yükleniyor...</div>
+          <div className="text-black dark:text-white">Loading...</div>
         </div>
       </div>
     );
@@ -70,10 +78,10 @@ export default function MessagesPage() {
           <div className="text-center max-w-md mx-auto px-4">
             <div className="text-6xl mb-6">🔒</div>
             <h1 className="text-3xl font-bold text-black dark:text-white mb-4">
-              Erişim Yok
+              Access Denied
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {accessReason || "Bu özellik henüz geliştirme aşamasında."}
+              {accessReason || "This feature is still in development."}
             </p>
             {!isConnected && (
               <div className="mb-6">
@@ -85,18 +93,18 @@ export default function MessagesPage() {
                 href="/social"
                 className="block w-full px-6 py-3 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
               >
-                Social Sayfasına Dön
+                Back to Social
               </Link>
               <Link
                 href="/"
                 className="block w-full px-6 py-3 border border-gray-300 dark:border-gray-700 text-black dark:text-white font-semibold hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
               >
-                Ana Sayfaya Dön
+                Back to Home
               </Link>
             </div>
             {address && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-6">
-                Cüzdan: {address.substring(0, 6)}...{address.substring(38)}
+                Wallet: {address.substring(0, 6)}...{address.substring(38)}
               </p>
             )}
           </div>
@@ -137,109 +145,111 @@ export default function MessagesPage() {
       {/* Main Content */}
       <div className="flex h-[calc(100vh-80px)]">
         {/* Sidebar - Conversations List */}
-        <div className="w-1/3 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+        <div className="w-1/3 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex flex-col">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-xl font-bold text-black dark:text-white mb-4">
-              Mesajlar
-              {process.env.NODE_ENV === "development" && (
-                <span className="text-xs bg-yellow-400 text-black px-2 py-1 rounded ml-2">
-                  BETA
-                </span>
-              )}
-            </h2>
-            
-            {/* Search Bar */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Cüzdan adresi ara..."
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
-              />
-              <svg className="absolute right-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-black dark:text-white">
+                Messages
+                {process.env.NODE_ENV === "development" && (
+                  <span className="text-xs bg-yellow-400 text-black px-2 py-1 rounded ml-2">
+                    BETA
+                  </span>
+                )}
+              </h2>
+              <button
+                onClick={() => setShowUserSearch(!showUserSearch)}
+                className="px-3 py-1 text-sm bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
+              >
+                {showUserSearch ? "Cancel" : "New"}
+              </button>
             </div>
+            
+            {/* User Search */}
+            {showUserSearch && address && (
+              <div className="mb-4">
+                <UserSearch
+                  currentWallet={address}
+                  onSelectUser={(wallet, userInfo) => {
+                    if (userInfo.hasExistingConversation && userInfo.conversationId) {
+                      setSelectedConversationId(userInfo.conversationId);
+                      setOtherParticipant(wallet);
+                    } else {
+                      // Create new conversation by sending first message
+                      // This will be handled by MessageInput when user sends first message
+                      setSelectedConversationId(null);
+                      setOtherParticipant(wallet);
+                    }
+                    setShowUserSearch(false);
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Conversations List */}
-          <div className="overflow-y-auto h-full">
-            {/* Placeholder for conversations */}
-            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-              <div className="text-4xl mb-4">💬</div>
-              <p className="text-sm">Henüz konuşma yok</p>
-              <p className="text-xs mt-2">Birisiyle mesajlaşmaya başlamak için cüzdan adresini arayın</p>
-            </div>
+          <div className="flex-1 overflow-y-auto">
+            {address && (
+              <ConversationList
+                key={refreshKey}
+                currentWallet={address}
+                selectedConversationId={selectedConversationId}
+                onSelectConversation={(conversationId, otherParticipantWallet) => {
+                  setSelectedConversationId(conversationId);
+                  setOtherParticipant(otherParticipantWallet);
+                }}
+              />
+            )}
           </div>
         </div>
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           {/* Chat Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
-            <div className="text-center text-gray-500 dark:text-gray-400">
-              <div className="text-4xl mb-2">🚀</div>
-              <h3 className="text-lg font-semibold text-black dark:text-white">
-                Mesajlaşma Sistemi
-              </h3>
-              <p className="text-sm">
-                Geliştirme aşamasında - Yakında aktif olacak!
-              </p>
-            </div>
-          </div>
-
-          {/* Messages Area */}
-          <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-            <div className="text-center text-gray-500 dark:text-gray-400 mt-20">
-              <div className="max-w-md mx-auto">
-                <h4 className="text-lg font-semibold text-black dark:text-white mb-4">
-                  Özellikler
-                </h4>
-                <div className="space-y-3 text-sm text-left">
-                  <div className="flex items-center gap-3">
-                    <span className="text-green-500">✅</span>
-                    <span>Wallet-to-wallet mesajlaşma</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-green-500">✅</span>
-                    <span>Real-time mesaj bildirimleri</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-green-500">✅</span>
-                    <span>Spam koruması (dakikada 10 mesaj)</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-green-500">✅</span>
-                    <span>Otomatik mesaj silme (24 saat)</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-green-500">✅</span>
-                    <span>NFT profil resimleri</span>
-                  </div>
+          {otherParticipant && (
+            <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center border-2 border-black dark:border-white">
+                  <span className="text-xs font-bold text-black dark:text-white">
+                    {otherParticipant.substring(2, 6).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-semibold text-black dark:text-white">
+                    {otherParticipant.substring(0, 6)}...{otherParticipant.substring(38)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                    {otherParticipant}
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Messages Area */}
+          {address && (
+            <MessageThread
+              key={`${selectedConversationId}-${refreshKey}`}
+              conversationId={selectedConversationId}
+              currentWallet={address}
+              otherParticipant={otherParticipant}
+            />
+          )}
 
           {/* Message Input Area */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="Mesaj yazın... (henüz aktif değil)"
-                disabled
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-              />
-              <button
-                disabled
-                className="px-6 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-              >
-                Gönder
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Geliştirme tamamlandığında aktif olacak
-            </p>
-          </div>
+          {address && (
+            <MessageInput
+              conversationId={selectedConversationId}
+              senderWallet={address}
+              receiverWallet={otherParticipant}
+              onMessageSent={(newConversationId) => {
+                setRefreshKey((prev) => prev + 1);
+                // If no conversation selected, set the new one
+                if (newConversationId && !selectedConversationId) {
+                  setSelectedConversationId(newConversationId);
+                }
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

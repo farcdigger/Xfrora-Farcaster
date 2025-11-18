@@ -232,6 +232,87 @@ type Database = {
           created_at?: string | null;
         };
       };
+      conversations: {
+        Row: {
+          id: string;
+          participant1_wallet: string;
+          participant2_wallet: string;
+          last_message_at: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          participant1_wallet: string;
+          participant2_wallet: string;
+          last_message_at?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          participant1_wallet?: string;
+          participant2_wallet?: string;
+          last_message_at?: string | null;
+          created_at?: string | null;
+        };
+      };
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_wallet: string;
+          receiver_wallet: string;
+          content: string;
+          read: boolean;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          sender_wallet: string;
+          receiver_wallet: string;
+          content: string;
+          read?: boolean;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          sender_wallet?: string;
+          receiver_wallet?: string;
+          content?: string;
+          read?: boolean;
+          created_at?: string | null;
+        };
+      };
+      message_rate_limits: {
+        Row: {
+          wallet_address: string;
+          messages_sent_minute: number;
+          messages_sent_hour: number;
+          last_minute_reset: string | null;
+          last_hour_reset: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          wallet_address: string;
+          messages_sent_minute?: number;
+          messages_sent_hour?: number;
+          last_minute_reset?: string | null;
+          last_hour_reset?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          wallet_address?: string;
+          messages_sent_minute?: number;
+          messages_sent_hour?: number;
+          last_minute_reset?: string | null;
+          last_hour_reset?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
     };
   };
 };
@@ -295,6 +376,9 @@ function extractTableName(table: any): string {
   if (table === posts) return postsTable;
   if (table === post_favs) return postFavsTable;
   if (table === weekly_rewards) return weeklyRewardsTable;
+  if (table === conversations) return conversationsTable;
+  if (table === messages) return messagesTable;
+  if (table === message_rate_limits) return messageRateLimitsTable;
 
   return "tokens"; // Default fallback
 }
@@ -638,6 +722,9 @@ export const chatTokensTable = "chat_tokens";
 export const postsTable = "posts";
 export const postFavsTable = "post_favs";
 export const weeklyRewardsTable = "weekly_rewards";
+export const conversationsTable = "conversations";
+export const messagesTable = "messages";
+export const messageRateLimitsTable = "message_rate_limits";
 
 // Export helper function (for backward compatibility)
 export function getTableName(table: any): string {
@@ -713,6 +800,37 @@ export const weekly_rewards = {
   tokens_awarded: { name: "tokens_awarded" },
   status: { name: "status" },
   created_at: { name: "created_at" },
+} as any;
+
+export const conversations = {
+  name: conversationsTable,
+  id: { name: "id" },
+  participant1_wallet: { name: "participant1_wallet" },
+  participant2_wallet: { name: "participant2_wallet" },
+  last_message_at: { name: "last_message_at" },
+  created_at: { name: "created_at" },
+} as any;
+
+export const messages = {
+  name: messagesTable,
+  id: { name: "id" },
+  conversation_id: { name: "conversation_id" },
+  sender_wallet: { name: "sender_wallet" },
+  receiver_wallet: { name: "receiver_wallet" },
+  content: { name: "content" },
+  read: { name: "read" },
+  created_at: { name: "created_at" },
+} as any;
+
+export const message_rate_limits = {
+  name: messageRateLimitsTable,
+  wallet_address: { name: "wallet_address" },
+  messages_sent_minute: { name: "messages_sent_minute" },
+  messages_sent_hour: { name: "messages_sent_hour" },
+  last_minute_reset: { name: "last_minute_reset" },
+  last_hour_reset: { name: "last_hour_reset" },
+  created_at: { name: "created_at" },
+  updated_at: { name: "updated_at" },
 } as any;
 
 // Export Supabase client for direct access if needed
