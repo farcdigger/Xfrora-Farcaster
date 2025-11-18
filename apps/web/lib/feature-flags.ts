@@ -12,13 +12,13 @@ export function isMessagingEnabled(walletAddress?: string | null): boolean {
   }
   
   // Feature flag kapalıysa hiç kimse için aktif değil
-  if (env.ENABLE_MESSAGING_FEATURE !== "true") {
+  if (env.NEXT_PUBLIC_ENABLE_MESSAGING_FEATURE !== "true") {
     return false;
   }
   
   // Geliştirici cüzdan adresi belirtilmişse, sadece o adres için aktif
-  if (env.DEVELOPER_WALLET_ADDRESS) {
-    return walletAddress?.toLowerCase() === env.DEVELOPER_WALLET_ADDRESS.toLowerCase();
+  if (env.NEXT_PUBLIC_DEVELOPER_WALLET_ADDRESS) {
+    return walletAddress?.toLowerCase() === env.NEXT_PUBLIC_DEVELOPER_WALLET_ADDRESS.toLowerCase();
   }
   
   // Hiçbir kısıtlama yoksa herkese açık

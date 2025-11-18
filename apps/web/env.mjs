@@ -36,8 +36,8 @@ const envSchema = z.object({
   MODEL_VERSION: z.string().default("v1.0.0"),
   
   // 🆕 Mesajlaşma geliştirme için
-  DEVELOPER_WALLET_ADDRESS: z.string().optional(), // Geliştirici cüzdan adresi
-  ENABLE_MESSAGING_FEATURE: z.string().optional().default("false"), // Feature flag
+  NEXT_PUBLIC_DEVELOPER_WALLET_ADDRESS: z.string().optional(), // Geliştirici cüzdan adresi
+  NEXT_PUBLIC_ENABLE_MESSAGING_FEATURE: z.string().optional().default("false"), // Feature flag
 }).transform((data) => ({
   ...data,
   // Boş string'leri undefined yap

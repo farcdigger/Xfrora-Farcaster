@@ -14,8 +14,8 @@ export default function DebugMessagingPage() {
     const info = {
       // Environment variables
       NODE_ENV: process.env.NODE_ENV,
-      DEVELOPER_WALLET_ADDRESS: env.DEVELOPER_WALLET_ADDRESS,
-      ENABLE_MESSAGING_FEATURE: env.ENABLE_MESSAGING_FEATURE,
+      DEVELOPER_WALLET_ADDRESS: env.NEXT_PUBLIC_DEVELOPER_WALLET_ADDRESS,
+      ENABLE_MESSAGING_FEATURE: env.NEXT_PUBLIC_ENABLE_MESSAGING_FEATURE,
       
       // Wallet info
       connectedWallet: address,
