@@ -34,6 +34,10 @@ const envSchema = z.object({
   USDC_CONTRACT_ADDRESS: z.string().startsWith("0x").default("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"), // Base mainnet USDC contract
   COLLECTION_THEME: z.string().default("frog"),
   MODEL_VERSION: z.string().default("v1.0.0"),
+  
+  // 🆕 Mesajlaşma geliştirme için
+  DEVELOPER_WALLET_ADDRESS: z.string().optional(), // Geliştirici cüzdan adresi
+  ENABLE_MESSAGING_FEATURE: z.string().optional().default("false"), // Feature flag
 }).transform((data) => ({
   ...data,
   // Boş string'leri undefined yap
