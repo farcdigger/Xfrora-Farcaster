@@ -60,11 +60,8 @@ export default function ConversationList({
 
     const client = getSupabaseBrowserClient();
     if (!client || !currentWallet) {
-      const intervalFallback = setInterval(() => loadConversations(false), 10000);
-      return () => clearInterval(intervalFallback);
+      return;
     }
-
-    const intervalFallback = setInterval(() => loadConversations(false), 10000);
 
     const channel = client
       .channel(`conversations-realtime-${currentWallet}`)
@@ -96,7 +93,6 @@ export default function ConversationList({
       });
 
     return () => {
-      clearInterval(intervalFallback);
       channel.unsubscribe();
     };
   }, [currentWallet]);
