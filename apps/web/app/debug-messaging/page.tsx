@@ -26,11 +26,11 @@ export default function DebugMessagingPage() {
       permissions: checkMessagingPermissions(address),
       
       // Address comparison
-      addressMatch: address?.toLowerCase() === env.DEVELOPER_WALLET_ADDRESS?.toLowerCase(),
+      addressMatch: address?.toLowerCase() === env.NEXT_PUBLIC_DEVELOPER_WALLET_ADDRESS?.toLowerCase(),
       
       // Raw comparison
       walletLower: address?.toLowerCase(),
-      devWalletLower: env.DEVELOPER_WALLET_ADDRESS?.toLowerCase(),
+      devWalletLower: env.NEXT_PUBLIC_DEVELOPER_WALLET_ADDRESS?.toLowerCase(),
     };
     
     setDebugInfo(info);
