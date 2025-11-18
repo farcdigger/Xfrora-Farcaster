@@ -63,6 +63,8 @@ export default function ConversationList({
       return;
     }
 
+    const normalizedWallet = currentWallet.toLowerCase();
+
     const updateLocalConversation = (message: any) => {
       const conversationId = message.conversation_id;
       const otherParticipant =
@@ -101,14 +103,14 @@ export default function ConversationList({
     };
 
     const channel = client
-      .channel(`conversations-realtime-${currentWallet}`)
+      .channel(`conversations-realtime-${normalizedWallet}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-        filter: `receiver_wallet=eq.${currentWallet}`,
+          filter: `receiver_wallet=eq.${normalizedWallet}`,
         },
         (payload) => {
           updateLocalConversation(payload.new);
@@ -120,7 +122,7 @@ export default function ConversationList({
           event: "INSERT",
           schema: "public",
           table: "messages",
-        filter: `sender_wallet=eq.${currentWallet}`,
+          filter: `sender_wallet=eq.${normalizedWallet}`,
         },
         (payload) => {
           updateLocalConversation(payload.new);
