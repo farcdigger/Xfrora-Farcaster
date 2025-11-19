@@ -1481,36 +1481,51 @@ function HomePageContent() {
               )}
               
               {/* NFT Image */}
-              <div className="max-w-md mx-auto mb-6">
+              <div className="max-w-md mx-auto mb-6 relative overflow-hidden rounded-lg">
                 {generated.preview || generated.imageUrl ? (
-                  <img
-                    src={
-                      generated.preview 
-                        ? generated.preview.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")
-                        : generated.imageUrl 
-                        ? generated.imageUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")
-                        : ""
-                    }
-                    alt="Generated NFT"
-                    className="w-full rounded-lg shadow-2xl"
-                    onError={(e) => {
-                      console.error("Image load error:", e);
-                      // Try alternative IPFS gateway
-                      const currentSrc = e.currentTarget.src;
-                      if (currentSrc.includes("gateway.pinata.cloud")) {
-                        e.currentTarget.src = currentSrc.replace("gateway.pinata.cloud", "ipfs.io");
-                      } else if (currentSrc.includes("ipfs.io")) {
-                        e.currentTarget.src = currentSrc.replace("ipfs.io", "cloudflare-ipfs.com");
-                      } else {
-                        // Show placeholder if all gateways fail
-                        e.currentTarget.style.display = "none";
-                        const placeholder = e.currentTarget.parentElement?.querySelector(".image-placeholder");
-                        if (placeholder) {
-                          (placeholder as HTMLElement).style.display = "flex";
-                        }
+                  <>
+                    <img
+                      src={
+                        generated.preview 
+                          ? generated.preview.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")
+                          : generated.imageUrl 
+                          ? generated.imageUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")
+                          : ""
                       }
-                    }}
-                  />
+                      alt="Generated NFT"
+                      className={`w-full rounded-lg shadow-2xl transition-all duration-700 ${
+                        !alreadyMinted ? "blur-md brightness-90 scale-110" : "scale-100"
+                      }`}
+                      onError={(e) => {
+                        console.error("Image load error:", e);
+                        // Try alternative IPFS gateway
+                        const currentSrc = e.currentTarget.src;
+                        if (currentSrc.includes("gateway.pinata.cloud")) {
+                          e.currentTarget.src = currentSrc.replace("gateway.pinata.cloud", "ipfs.io");
+                        } else if (currentSrc.includes("ipfs.io")) {
+                          e.currentTarget.src = currentSrc.replace("ipfs.io", "cloudflare-ipfs.com");
+                        } else {
+                          // Show placeholder if all gateways fail
+                          e.currentTarget.style.display = "none";
+                          const placeholder = e.currentTarget.parentElement?.querySelector(".image-placeholder");
+                          if (placeholder) {
+                            (placeholder as HTMLElement).style.display = "flex";
+                          }
+                        }
+                      }}
+                    />
+                    
+                    {!alreadyMinted && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/10">
+                        <div className="bg-black/40 backdrop-blur-sm p-3 rounded-full border border-white/30 text-white mb-2 shadow-lg">
+                          <span className="text-2xl">🔒</span>
+                        </div>
+                        <p className="text-white font-bold text-base drop-shadow-lg bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
+                          Mint to Reveal
+                        </p>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="w-full aspect-square rounded-lg bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex items-center justify-center">
                     <span className="text-6xl">🎨</span>
