@@ -1099,9 +1099,12 @@ function HomePageContent() {
         try {
           if (typeof window !== "undefined") {
             const storedCode = localStorage.getItem("referralCode");
+            console.log("🔍 Checking referral code in localStorage:", storedCode);
+            
             if (storedCode) {
               console.log("🔗 Tracking referral for wallet:", wallet, "code:", storedCode);
-              await fetch("/api/referrals/track", {
+              
+              const trackResponse = await fetch("/api/referrals/track", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -1110,13 +1113,24 @@ function HomePageContent() {
                   refereeWallet: wallet.toLowerCase(),
                   referralCode: storedCode,
                 }),
-              }).catch((e) => {
-                console.error("Referral track request failed:", e);
               });
+              
+              const trackResult = await trackResponse.json();
+              console.log("✅ Referral tracking response:", trackResult);
+              
+              if (trackResponse.ok && trackResult.success) {
+                console.log("🎉 Referral successfully tracked!");
+                // Clear the referral code after successful tracking
+                localStorage.removeItem("referralCode");
+              } else {
+                console.error("❌ Referral tracking failed:", trackResult);
+              }
+            } else {
+              console.log("ℹ️ No referral code found in localStorage");
             }
           }
         } catch (refError) {
-          console.error("Referral tracking error:", refError);
+          console.error("❌ Referral tracking error:", refError);
         }
         
         // 💾 Update localStorage to persist mint success
