@@ -41,7 +41,7 @@ export default function ConversationList({
   const loadConversations = async (showLoading = false) => {
     if (!currentWallet) return;
 
-    if (showLoading || conversations.length === 0) {
+    if (showLoading) {
       setLoading(true);
     }
     setError(null);
@@ -61,7 +61,7 @@ export default function ConversationList({
     } catch (err: any) {
       setError(err.message || "Failed to load conversations");
     } finally {
-      if (showLoading || conversations.length === 0) {
+      if (showLoading) {
         setLoading(false);
       }
     }

@@ -42,7 +42,7 @@ export default function MessageThread({
   const loadMessages = async (showLoading = true) => {
     if (!conversationId || !currentWallet) return;
 
-    if (showLoading || messages.length === 0) {
+    if (showLoading) {
       setLoading(true);
     }
     setError(null);
@@ -62,7 +62,7 @@ export default function MessageThread({
     } catch (err: any) {
       setError(err.message || "Failed to load messages");
     } finally {
-      if (showLoading || messages.length === 0) {
+      if (showLoading) {
         setLoading(false);
       }
     }
