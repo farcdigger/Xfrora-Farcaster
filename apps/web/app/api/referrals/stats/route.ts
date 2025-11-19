@@ -20,32 +20,42 @@ export async function GET(request: NextRequest) {
     const normalizedWallet = wallet.toLowerCase();
 
     // Get total referrals count
-    const { count } = await client
+    const { count } = await (client as any)
       .from("referrals")
       .select("*", { count: "exact", head: true })
       .eq("referrer_wallet", normalizedWallet);
 
-    // Get total earnings (assuming 0.50 per referral)
-    // Or sum reward_amount column
-    const { data: earnings } = await client
+    // Get total credits earned (50,000 per referral)
+    const { data: earnings } = await (client as any)
       .from("referrals")
-      .select("reward_amount")
+      .select("reward_credits, status")
       .eq("referrer_wallet", normalizedWallet);
       
-    const totalEarned = earnings?.reduce((sum, ref) => sum + (Number(ref.reward_amount) || 0), 0) || 0;
+    const earningsData = earnings as Array<{ reward_credits: number; status: string }> | null;
+    
+    // Only count completed referrals
+    const totalCreditsEarned = earningsData?.reduce((sum, ref) => {
+      return ref.status === 'completed' ? sum + (Number(ref.reward_credits) || 0) : sum;
+    }, 0) || 0;
+    
+    const pendingCredits = earningsData?.reduce((sum, ref) => {
+      return ref.status === 'pending' ? sum + (Number(ref.reward_credits) || 0) : sum;
+    }, 0) || 0;
 
     // Get referral code
-    const { data: codeData } = await client
+    const { data: codeData } = await (client as any)
       .from("referral_codes")
       .select("code")
       .eq("wallet_address", normalizedWallet)
       .single();
 
+    const code = codeData as { code: string } | null;
+
     return NextResponse.json({
-      referralCode: codeData?.code || null,
+      referralCode: code?.code || null,
       totalReferrals: count || 0,
-      totalEarnings: totalEarned,
-      pendingPayment: totalEarned // Assuming all are pending for manual payment
+      totalCreditsEarned,
+      pendingCredits
     });
 
   } catch (error: any) {

@@ -11,7 +11,8 @@ export default function ReferralsPage() {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalReferrals: 0,
-    totalEarnings: 0,
+    totalCreditsEarned: 0,
+    pendingCredits: 0,
   });
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -27,7 +28,8 @@ export default function ReferralsPage() {
       }
       setStats({
         totalReferrals: data.totalReferrals || 0,
-        totalEarnings: data.totalEarnings || 0,
+        totalCreditsEarned: data.totalCreditsEarned || 0,
+        pendingCredits: data.pendingCredits || 0,
       });
     } catch (error) {
       console.error("Failed to load stats", error);
@@ -46,11 +48,18 @@ export default function ReferralsPage() {
         body: JSON.stringify({ walletAddress: address }),
       });
       const data = await res.json();
+      
+      if (res.status === 403) {
+        alert(data.error || "You must own an xFrora NFT to create a referral link.");
+        return;
+      }
+      
       if (data.code) {
         setReferralCode(data.code);
       }
     } catch (error) {
       console.error("Failed to create code", error);
+      alert("Failed to create referral link. Please try again.");
     } finally {
       setCreating(false);
     }
@@ -123,14 +132,19 @@ export default function ReferralsPage() {
         ) : (
           <div className="space-y-6">
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
-                <p className="text-sm text-gray-500 uppercase mb-1">Total Referrals</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Total Referrals</p>
                 <p className="text-3xl font-bold text-black dark:text-white">{stats.totalReferrals}</p>
               </div>
               <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
-                <p className="text-sm text-gray-500 uppercase mb-1">Earnings (USDC)</p>
-                <p className="text-3xl font-bold text-green-600">${stats.totalEarnings.toFixed(2)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Credits Earned</p>
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.totalCreditsEarned.toLocaleString()}</p>
+              </div>
+              <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Pending Credits</p>
+                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingCredits.toLocaleString()}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Awaiting mint</p>
               </div>
             </div>
 
