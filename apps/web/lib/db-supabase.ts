@@ -382,6 +382,9 @@ function extractTableName(table: any): string {
   if (table === conversations) return conversationsTable;
   if (table === messages) return messagesTable;
   if (table === message_rate_limits) return messageRateLimitsTable;
+  if (table === "referral_codes") return "referral_codes";
+  if (table === "referrals") return "referrals";
+  if (table === "pending_referrals") return "pending_referrals";
 
   return "tokens"; // Default fallback
 }

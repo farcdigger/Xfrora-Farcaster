@@ -4,6 +4,7 @@ import { env } from "@/env.mjs";
 import { kv } from "@/lib/kv";
 import { db, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { supabaseClient } from "@/lib/db-supabase";
 
 /**
  * Decode verifier from encrypted state parameter
@@ -438,6 +439,44 @@ export async function GET(request: NextRequest) {
     
     // Set session cookie to persist user authentication across page refreshes
     // This cookie stores encrypted user data so user doesn't need to reconnect
+    // 🔗 REFERRAL TRACKING: Check if user came via referral link
+    // Store pending referral in Supabase for later processing during mint
+    try {
+      const referralCode = request.cookies.get("referralCode")?.value;
+      
+      if (referralCode && supabaseClient) {
+        console.log("🔗 Storing pending referral:", {
+          x_user_id: xUser.x_user_id,
+          referral_code: referralCode,
+        });
+        
+        // Check if already exists (avoid duplicates)
+        const { count } = await (supabaseClient as any)
+          .from("pending_referrals")
+          .select("id", { count: "exact", head: true })
+          .eq("x_user_id", xUser.x_user_id);
+        
+        if (!count || count === 0) {
+          // Insert pending referral
+          await (supabaseClient as any)
+            .from("pending_referrals")
+            .insert({
+              x_user_id: xUser.x_user_id,
+              referral_code: referralCode,
+            });
+          
+          console.log("✅ Pending referral stored successfully!");
+        } else {
+          console.log("ℹ️ Pending referral already exists for this user");
+        }
+      } else {
+        console.log("ℹ️ No referral code found in cookies");
+      }
+    } catch (refError) {
+      console.error("❌ Error storing pending referral:", refError);
+      // Don't fail auth if referral storage fails
+    }
+
     const crypto = require("crypto");
     const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678";
     const iv = crypto.randomBytes(16);

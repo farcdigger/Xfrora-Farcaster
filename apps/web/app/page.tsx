@@ -74,7 +74,7 @@ function HomePageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
 
-  // Capture referral code from URL (?ref=...) - AGGRESSIVE APPROACH
+  // Capture referral code from URL (?ref=...) - Store in BOTH localStorage AND cookie
   useEffect(() => {
     if (typeof window === "undefined") return;
     
@@ -87,11 +87,16 @@ function HomePageContent() {
     
     if (finalRefCode) {
       try {
+        // Store in localStorage (for frontend use)
         const existingCode = localStorage.getItem("referralCode");
         if (existingCode !== finalRefCode) {
           localStorage.setItem("referralCode", finalRefCode);
-          console.log("💾 Referral code stored:", finalRefCode);
+          console.log("💾 Referral code stored in localStorage:", finalRefCode);
         }
+        
+        // Store in cookie (for backend API access during X auth)
+        document.cookie = `referralCode=${finalRefCode}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+        console.log("🍪 Referral code stored in cookie:", finalRefCode);
       } catch (e) {
         console.error("Failed to store referral code:", e);
       }
@@ -100,6 +105,8 @@ function HomePageContent() {
       const storedCode = localStorage.getItem("referralCode");
       if (storedCode) {
         console.log("ℹ️ Using previously stored referral code:", storedCode);
+        // Ensure cookie is also set
+        document.cookie = `referralCode=${storedCode}; path=/; max-age=${60 * 60 * 24 * 7}`;
       }
     }
   }, [searchParams]);
@@ -113,7 +120,8 @@ function HomePageContent() {
     
     if (refCode) {
       localStorage.setItem("referralCode", refCode);
-      console.log("💾 [MOUNT] Referral code captured:", refCode);
+      document.cookie = `referralCode=${refCode}; path=/; max-age=${60 * 60 * 24 * 7}`;
+      console.log("💾 [MOUNT] Referral code captured (localStorage + cookie):", refCode);
     }
   }, []); // Empty deps - only run once on mount
 
@@ -1125,39 +1133,35 @@ function HomePageContent() {
         setTransactionHash(receipt.hash);
         console.log("✅ NFT minted successfully!");
 
-        // 🔗 Referral tracking: if user came via a ?ref=CODE link, record referral after successful mint
+        // 🔗 REFERRAL TRACKING: Check pending_referrals table for this user's x_user_id
         try {
-          if (typeof window !== "undefined") {
-            const storedCode = localStorage.getItem("referralCode");
-            console.log("🔍 Checking referral code in localStorage:", storedCode);
+          if (xUser && xUser.x_user_id) {
+            console.log("🔍 Checking for pending referral for x_user_id:", xUser.x_user_id);
             
-            if (storedCode) {
-              console.log("🔗 Tracking referral for wallet:", wallet, "code:", storedCode);
-              
-              const trackResponse = await fetch("/api/referrals/track", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  refereeWallet: wallet.toLowerCase(),
-                  referralCode: storedCode,
-                }),
-              });
-              
-              const trackResult = await trackResponse.json();
-              console.log("✅ Referral tracking response:", trackResult);
-              
-              if (trackResponse.ok && trackResult.success) {
-                console.log("🎉 Referral successfully tracked!");
-                // Clear the referral code after successful tracking
-                localStorage.removeItem("referralCode");
-              } else {
-                console.error("❌ Referral tracking failed:", trackResult);
-              }
+            const trackResponse = await fetch("/api/referrals/track-by-x-user", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                x_user_id: xUser.x_user_id,
+                wallet: wallet.toLowerCase(),
+              }),
+            });
+            
+            const trackResult = await trackResponse.json();
+            console.log("✅ Referral tracking response:", trackResult);
+            
+            if (trackResponse.ok && trackResult.success) {
+              console.log("🎉 Referral successfully tracked and rewarded!");
+              // Clear localStorage and cookie
+              localStorage.removeItem("referralCode");
+              document.cookie = "referralCode=; path=/; max-age=0";
             } else {
-              console.log("ℹ️ No referral code found in localStorage");
+              console.log("ℹ️ No pending referral found or already processed");
             }
+          } else {
+            console.log("ℹ️ No X user data available for referral tracking");
           }
         } catch (refError) {
           console.error("❌ Referral tracking error:", refError);
