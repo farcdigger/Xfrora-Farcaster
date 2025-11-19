@@ -7,6 +7,8 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import PaymentModal from "@/components/PaymentModal";
 import { isMessagingEnabled } from "@/lib/feature-flags";
+import ChatWidget from "./components/ChatWidget";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 interface Post {
   id: number;
@@ -45,6 +47,10 @@ export default function SocialPage() {
   const [mostFavedPost, setMostFavedPost] = useState<Post | null>(null);
   const [topFaver, setTopFaver] = useState<{ wallet_address: string; fav_count: number } | null>(null);
   const [nftImages, setNftImages] = useState<Record<string, string>>({});  // wallet_address -> image URL
+  
+  // Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Load NFT image for a specific wallet address or x_user_id
   const loadNftImage = async (walletAddress: string, xUserId?: string | null) => {
@@ -144,6 +150,54 @@ export default function SocialPage() {
       setTokenBalance(null);
       setPoints(null);
     }
+  }, [address]);
+  
+  // Unread Count Effect
+  useEffect(() => {
+    if (!address) return;
+    
+    const client = getSupabaseBrowserClient();
+    if (!client) return;
+
+    const normalizedWallet = address.toLowerCase();
+    
+    const fetchUnreadCount = async () => {
+        const { count } = await client
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('receiver_wallet', normalizedWallet)
+            .eq('read', false);
+        setUnreadCount(count || 0);
+    };
+    
+    fetchUnreadCount();
+    
+    const channel = client.channel(`unread-count-${normalizedWallet}`)
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'messages', 
+            filter: `receiver_wallet=eq.${normalizedWallet}` 
+        }, () => {
+            fetchUnreadCount();
+        })
+        .on('postgres_changes', { 
+             event: 'UPDATE', 
+             schema: 'public', 
+             table: 'messages', 
+             filter: `receiver_wallet=eq.${normalizedWallet}` 
+        }, () => {
+            fetchUnreadCount();
+        })
+        .subscribe();
+        
+    // Backup polling
+    const intervalId = setInterval(fetchUnreadCount, 10000);
+
+    return () => {
+        client.removeChannel(channel);
+        clearInterval(intervalId);
+    };
   }, [address]);
 
   // Load weekly winners and top stats
@@ -435,7 +489,10 @@ export default function SocialPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-screen bg-white dark:bg-black relative">
+      {/* Chat Widget */}
+      <ChatWidget isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+
       {/* Navbar */}
       <nav className="border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
@@ -464,9 +521,9 @@ export default function SocialPage() {
             </h1>
             {/* Direct Message Button - Sadece geliştirici cüzdanı için */}
             {isMessagingEnabled(address) && (
-              <Link
-                href="/messages"
-                className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
+              <button
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className="relative flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -475,7 +532,12 @@ export default function SocialPage() {
                 {process.env.NODE_ENV === "development" && (
                   <span className="text-xs bg-yellow-400 text-black px-1 rounded">DEV</span>
                 )}
-              </Link>
+                {unreadCount > 0 && !isChatOpen && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white dark:border-black z-10">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
             )}
           </div>
           <p className="text-gray-600 dark:text-gray-400">
