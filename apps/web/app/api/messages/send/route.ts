@@ -159,7 +159,8 @@ export async function POST(request: NextRequest) {
 
         if (userPoints) {
           // Update existing record
-          await client
+          // Type cast needed due to Supabase client type inference limitations
+          await (client as any)
             .from("chat_tokens")
             .update({ 
               points: (userPoints.points || 0) + 1,
@@ -168,7 +169,8 @@ export async function POST(request: NextRequest) {
             .eq("wallet_address", normalizedSender);
         } else {
           // Create new record
-          await client
+          // Type cast needed due to Supabase client type inference limitations
+          await (client as any)
             .from("chat_tokens")
             .insert({
               wallet_address: normalizedSender,
