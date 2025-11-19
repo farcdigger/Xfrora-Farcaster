@@ -1618,11 +1618,11 @@ function HomePageContent() {
         
         {/* Success Screen */}
         {step === "mint" && alreadyMinted && (
-          <div className="max-w-2xl mx-auto animate-fade-in">
+          <div className="max-w-4xl mx-auto animate-fade-in">
             <div className="card text-center">
               <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-3xl font-bold mb-4 text-gray-800">Success!</h2>
-              <p className="text-lg mb-6 text-gray-700">Your xFrora NFT has been minted!</p>
+              <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-gray-200">Success!</h2>
+              <p className="text-lg mb-6 text-gray-700 dark:text-gray-300">Your xFrora NFT has been minted!</p>
               
               {mintedTokenId && (
                 <div className="mb-6">
@@ -1630,8 +1630,59 @@ function HomePageContent() {
                 </div>
               )}
               
-              {(generated?.preview || generated?.imageUrl) && (
+              {/* Before & After Comparison */}
+              {(generated?.preview || generated?.imageUrl) && xUser && (
+                <div className="mb-8">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8">
+                    {/* X Profile Photo */}
+                    <div className="flex flex-col items-center">
+                      <div className="relative">
+                        <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-full overflow-hidden border-4 border-gray-300 dark:border-gray-700 shadow-xl">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={xUser.profile_image_url.replace('_normal', '_400x400')}
+                            alt={`@${xUser.username}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-lg border-2 border-black dark:border-white">
+                          <p className="text-sm font-bold text-black dark:text-white">@{xUser.username}</p>
+                        </div>
+                      </div>
+                      <p className="mt-6 text-sm text-gray-600 dark:text-gray-400 font-semibold">Your X Profile</p>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="text-4xl text-gray-400 dark:text-gray-600 rotate-90 sm:rotate-0">
+                      →
+                    </div>
+
+                    {/* Minted NFT */}
+                    <div className="flex flex-col items-center">
+                      <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-lg overflow-hidden border-4 border-green-500 dark:border-green-400 shadow-2xl">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={(generated.imageUrl || generated.preview || "").replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")}
+                          alt="Minted NFT"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error("Minted image load error:", e);
+                            if (generated.preview && e.currentTarget.src !== generated.preview) {
+                              e.currentTarget.src = generated.preview.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+                            }
+                          }}
+                        />
+                      </div>
+                      <p className="mt-6 text-sm text-gray-600 dark:text-gray-400 font-semibold">Your xFrora NFT</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fallback: Only NFT if no X profile */}
+              {(generated?.preview || generated?.imageUrl) && !xUser && (
                 <div className="max-w-sm mx-auto mb-6">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={(generated.imageUrl || generated.preview || "").replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")}
                     alt="Minted NFT"

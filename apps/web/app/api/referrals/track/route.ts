@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
         referrer_wallet: referrerWallet,
         referee_wallet: normalizedReferee,
         status: "pending",
-        reward_credits: 50000
+        reward_credits: 50000,
+        reward_usdc: 0.25
       });
 
     if (insertError) {

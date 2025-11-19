@@ -13,6 +13,9 @@ export default function ReferralsPage() {
     totalReferrals: 0,
     totalCreditsEarned: 0,
     pendingCredits: 0,
+    totalUsdcEarned: 0,
+    usdcPaid: 0,
+    usdcPending: 0,
   });
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -30,6 +33,9 @@ export default function ReferralsPage() {
         totalReferrals: data.totalReferrals || 0,
         totalCreditsEarned: data.totalCreditsEarned || 0,
         pendingCredits: data.pendingCredits || 0,
+        totalUsdcEarned: data.totalUsdcEarned || 0,
+        usdcPaid: data.usdcPaid || 0,
+        usdcPending: data.usdcPending || 0,
       });
     } catch (error) {
       console.error("Failed to load stats", error);
@@ -96,7 +102,7 @@ export default function ReferralsPage() {
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
         <h1 className="text-3xl font-bold text-black dark:text-white mb-6">
-          Invite Friends & Earn Credits
+          Invite Friends & Earn Rewards
         </h1>
         
         <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 p-6 rounded-lg mb-8">
@@ -114,11 +120,11 @@ export default function ReferralsPage() {
             </li>
             <li className="flex gap-2">
               <span className="font-bold text-black dark:text-white">3.</span>
-              You earn <span className="font-bold text-green-600 dark:text-green-400">50,000 Credits</span> instantly for each mint!
+              You earn <span className="font-bold text-green-600 dark:text-green-400">50,000 Credits</span> instantly + <span className="font-bold text-blue-600 dark:text-blue-400">0.25 USDC</span> per mint!
             </li>
             <li className="flex gap-2">
                <span className="font-bold text-black dark:text-white">4.</span>
-               Credits are automatically added to your account after mint confirmation.
+               Credits are added instantly. USDC rewards are paid manually after NFT sale ends.
             </li>
           </ul>
         </div>
@@ -132,7 +138,7 @@ export default function ReferralsPage() {
         ) : (
           <div className="space-y-6">
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Total Referrals</p>
                 <p className="text-3xl font-bold text-black dark:text-white">{stats.totalReferrals}</p>
@@ -141,10 +147,14 @@ export default function ReferralsPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Credits Earned</p>
                 <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.totalCreditsEarned.toLocaleString()}</p>
               </div>
+              <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center bg-blue-50 dark:bg-blue-900/10">
+                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">USDC Pending</p>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">${stats.usdcPending.toFixed(2)}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Paid after sale ends</p>
+              </div>
               <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Pending Credits</p>
-                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingCredits.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Awaiting mint</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">USDC Paid</p>
+                <p className="text-3xl font-bold text-gray-600 dark:text-gray-400">${stats.usdcPaid.toFixed(2)}</p>
               </div>
             </div>
 

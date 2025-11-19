@@ -25,15 +25,20 @@ export async function GET(request: NextRequest) {
       .select("*", { count: "exact", head: true })
       .eq("referrer_wallet", normalizedWallet);
 
-    // Get total credits earned (50,000 per referral)
+    // Get total earnings (credits + USDC)
     const { data: earnings } = await (client as any)
       .from("referrals")
-      .select("reward_credits, status")
+      .select("reward_credits, reward_usdc, status, usdc_paid_at")
       .eq("referrer_wallet", normalizedWallet);
       
-    const earningsData = earnings as Array<{ reward_credits: number; status: string }> | null;
+    const earningsData = earnings as Array<{ 
+      reward_credits: number; 
+      reward_usdc: number;
+      status: string;
+      usdc_paid_at: string | null;
+    }> | null;
     
-    // Only count completed referrals
+    // Credits: Only count completed referrals
     const totalCreditsEarned = earningsData?.reduce((sum, ref) => {
       return ref.status === 'completed' ? sum + (Number(ref.reward_credits) || 0) : sum;
     }, 0) || 0;
@@ -41,6 +46,22 @@ export async function GET(request: NextRequest) {
     const pendingCredits = earningsData?.reduce((sum, ref) => {
       return ref.status === 'pending' ? sum + (Number(ref.reward_credits) || 0) : sum;
     }, 0) || 0;
+
+    // USDC: All completed referrals (paid or pending payment)
+    const totalUsdcEarned = earningsData?.reduce((sum, ref) => {
+      // Only count if status is 'completed' or 'paid'
+      return (ref.status === 'completed' || ref.status === 'paid') 
+        ? sum + (Number(ref.reward_usdc) || 0) 
+        : sum;
+    }, 0) || 0;
+
+    // USDC already paid
+    const usdcPaid = earningsData?.reduce((sum, ref) => {
+      return ref.usdc_paid_at ? sum + (Number(ref.reward_usdc) || 0) : sum;
+    }, 0) || 0;
+
+    // USDC pending payment
+    const usdcPending = totalUsdcEarned - usdcPaid;
 
     // Get referral code
     const { data: codeData } = await (client as any)
@@ -55,7 +76,10 @@ export async function GET(request: NextRequest) {
       referralCode: code?.code || null,
       totalReferrals: count || 0,
       totalCreditsEarned,
-      pendingCredits
+      pendingCredits,
+      totalUsdcEarned,
+      usdcPaid,
+      usdcPending
     });
 
   } catch (error: any) {
