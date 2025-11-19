@@ -24,8 +24,19 @@ export default function ReferralsPage() {
     if (!address) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/referrals/stats?wallet=${address}`);
+      // Add timestamp to prevent caching
+      const timestamp = Date.now();
+      const res = await fetch(`/api/referrals/stats?wallet=${address}&t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       const data = await res.json();
+      
+      console.log("📊 Referral stats loaded:", data);
+      
       if (data.referralCode) {
         setReferralCode(data.referralCode);
       }
