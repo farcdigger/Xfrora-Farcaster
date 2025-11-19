@@ -19,17 +19,27 @@ export async function GET(request: NextRequest) {
 
     const normalizedWallet = wallet.toLowerCase();
 
-    // Get total referrals count
-    const { count } = await (client as any)
+    console.log("🔍 Fetching referral stats for wallet:", normalizedWallet);
+
+    // Get total referrals count (case-insensitive)
+    const { count, error: countError } = await (client as any)
       .from("referrals")
       .select("*", { count: "exact", head: true })
-      .eq("referrer_wallet", normalizedWallet);
+      .ilike("referrer_wallet", normalizedWallet);
 
-    // Get total earnings (credits + USDC)
-    const { data: earnings } = await (client as any)
+    console.log("📊 Referrals count result:", { count, error: countError });
+
+    // Get total earnings (credits + USDC) - case-insensitive
+    const { data: earnings, error: earningsError } = await (client as any)
       .from("referrals")
       .select("reward_credits, reward_usdc, status, usdc_paid_at")
-      .eq("referrer_wallet", normalizedWallet);
+      .ilike("referrer_wallet", normalizedWallet);
+
+    console.log("💰 Earnings data:", { 
+      earnings, 
+      error: earningsError,
+      count: earnings?.length 
+    });
       
     const earningsData = earnings as Array<{ 
       reward_credits: number; 
@@ -63,11 +73,11 @@ export async function GET(request: NextRequest) {
     // USDC pending payment
     const usdcPending = totalUsdcEarned - usdcPaid;
 
-    // Get referral code
+    // Get referral code (case-insensitive)
     const { data: codeData } = await (client as any)
       .from("referral_codes")
       .select("code")
-      .eq("wallet_address", normalizedWallet)
+      .ilike("wallet_address", normalizedWallet)
       .single();
 
     const code = codeData as { code: string } | null;
