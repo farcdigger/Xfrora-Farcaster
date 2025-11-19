@@ -42,11 +42,11 @@ export async function POST(request: NextRequest) {
     const referralCode = pendingData.referral_code;
     console.log("✅ Found pending referral code:", referralCode);
 
-    // 2. Find referrer wallet from code (case-insensitive for code)
+    // 2. Find referrer wallet from code
     const { data: codeData } = await (client as any)
       .from("referral_codes")
       .select("wallet_address")
-      .ilike("code", referralCode)
+      .eq("code", referralCode)
       .single();
 
     const referrerData = codeData as { wallet_address: string } | null;
@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid referral code" }, { status: 404 });
     }
 
-    const referrerWallet = referrerData.wallet_address;
+    // IMPORTANT: Normalize referrer wallet to lowercase for consistency
+    const referrerWallet = referrerData.wallet_address.toLowerCase();
 
     // 3. Prevent self-referral
     if (referrerWallet === normalizedWallet) {
@@ -69,11 +70,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Self-referral not allowed" }, { status: 400 });
     }
 
-    // 4. Check if already referred (case-insensitive)
+    // 4. Check if already referred
     const { count: existingCount } = await (client as any)
       .from("referrals")
       .select("id", { count: "exact", head: true })
-      .ilike("referee_wallet", normalizedWallet);
+      .eq("referee_wallet", normalizedWallet);
 
     if (existingCount && existingCount > 0) {
       console.log("ℹ️ User already referred, cleaning up pending referral");
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
       const { data: referrerBalance } = await (client as any)
         .from("chat_tokens")
         .select("balance, wallet_address")
-        .ilike("wallet_address", referrerWallet)
+        .eq("wallet_address", referrerWallet)
         .single();
 
       const balanceData = referrerBalance as { balance: number; wallet_address: string } | null;
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
             balance: (balanceData.balance || 0) + 50000,
             updated_at: new Date().toISOString()
           })
-          .ilike("wallet_address", referrerWallet);
+          .eq("wallet_address", referrerWallet);
       } else {
         // Create new record
         await (client as any)
@@ -136,14 +137,14 @@ export async function POST(request: NextRequest) {
           });
       }
 
-      // Mark referral as completed (case-insensitive)
+      // Mark referral as completed
       await (client as any)
         .from("referrals")
         .update({
           status: "completed",
           rewarded_at: new Date().toISOString()
         })
-        .ilike("referee_wallet", normalizedWallet);
+        .eq("referee_wallet", normalizedWallet);
 
       console.log(`🎉 Referral reward awarded: ${referrerWallet} received 50,000 credits`);
     } catch (rewardError) {

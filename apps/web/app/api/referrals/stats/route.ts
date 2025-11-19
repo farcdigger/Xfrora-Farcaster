@@ -21,19 +21,19 @@ export async function GET(request: NextRequest) {
 
     console.log("🔍 Fetching referral stats for wallet:", normalizedWallet);
 
-    // Get total referrals count (case-insensitive)
+    // Get total referrals count (both sides are lowercase)
     const { count, error: countError } = await (client as any)
       .from("referrals")
       .select("*", { count: "exact", head: true })
-      .ilike("referrer_wallet", normalizedWallet);
+      .eq("referrer_wallet", normalizedWallet);
 
     console.log("📊 Referrals count result:", { count, error: countError });
 
-    // Get total earnings (credits + USDC) - case-insensitive
+    // Get total earnings (credits + USDC)
     const { data: earnings, error: earningsError } = await (client as any)
       .from("referrals")
       .select("reward_credits, reward_usdc, status, usdc_paid_at")
-      .ilike("referrer_wallet", normalizedWallet);
+      .eq("referrer_wallet", normalizedWallet);
 
     console.log("💰 Earnings data:", { 
       earnings, 
@@ -73,11 +73,11 @@ export async function GET(request: NextRequest) {
     // USDC pending payment
     const usdcPending = totalUsdcEarned - usdcPaid;
 
-    // Get referral code (case-insensitive)
+    // Get referral code (lowercase match)
     const { data: codeData } = await (client as any)
       .from("referral_codes")
       .select("code")
-      .ilike("wallet_address", normalizedWallet)
+      .eq("wallet_address", normalizedWallet)
       .single();
 
     const code = codeData as { code: string } | null;
