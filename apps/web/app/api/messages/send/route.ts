@@ -151,31 +151,32 @@ export async function POST(request: NextRequest) {
         console.log(`🎉 Awarding point to ${normalizedSender} for ${totalSent}th message`);
         
         // Get current points
-        const { data: userPoints } = await client
+        const { data: userPoints, error: pointsError } = await (client as any)
           .from("chat_tokens")
           .select("points, wallet_address")
           .eq("wallet_address", normalizedSender)
           .single();
 
-        if (userPoints) {
+        // Type assertion for the returned data
+        const pointsData = userPoints as { points: number; wallet_address: string } | null;
+
+        if (pointsData) {
           // Update existing record
-          // Type cast needed due to Supabase client type inference limitations
           await (client as any)
             .from("chat_tokens")
             .update({ 
-              points: (userPoints.points || 0) + 1,
+              points: (pointsData.points || 0) + 1,
               updated_at: new Date().toISOString()
             })
             .eq("wallet_address", normalizedSender);
         } else {
-          // Create new record
-          // Type cast needed due to Supabase client type inference limitations
+          // Create new record (first time user)
           await (client as any)
             .from("chat_tokens")
             .insert({
               wallet_address: normalizedSender,
               points: 1,
-              balance: 0, // No free tokens for chat, only points
+              balance: 0,
               total_tokens_spent: 0,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
