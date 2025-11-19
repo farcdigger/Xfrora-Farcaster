@@ -141,7 +141,10 @@ export async function POST(request: NextRequest) {
         .eq("wallet_address", normalizedSender)
         .single();
       
-      const totalSent = rateLimitData?.total_messages_sent || 0;
+      // TypeScript burada Supabase tiplerini tam çözemediği için 'never' hatası veriyordu.
+      // Supabase tarafında total_messages_sent kolonu mevcut; runtime'da sorun yok.
+      // Bu yüzden burada bilinçli olarak 'any' cast'i kullanıyoruz.
+      const totalSent = (rateLimitData as any)?.total_messages_sent || 0;
       
       // Check if multiple of 5
       if (totalSent > 0 && totalSent % 5 === 0) {
