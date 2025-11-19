@@ -74,18 +74,48 @@ function HomePageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
 
-  // Capture referral code from URL (?ref=...)
+  // Capture referral code from URL (?ref=...) - AGGRESSIVE APPROACH
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    // Check both searchParams and raw URL
     const refCode = searchParams?.get("ref");
-    if (refCode && typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refFromUrl = urlParams.get("ref");
+    
+    const finalRefCode = refCode || refFromUrl;
+    
+    if (finalRefCode) {
       try {
-        localStorage.setItem("referralCode", refCode);
-        console.log("💾 Referral code stored:", refCode);
+        const existingCode = localStorage.getItem("referralCode");
+        if (existingCode !== finalRefCode) {
+          localStorage.setItem("referralCode", finalRefCode);
+          console.log("💾 Referral code stored:", finalRefCode);
+        }
       } catch (e) {
         console.error("Failed to store referral code:", e);
       }
+    } else {
+      // Check if we already have a code stored (don't lose it)
+      const storedCode = localStorage.getItem("referralCode");
+      if (storedCode) {
+        console.log("ℹ️ Using previously stored referral code:", storedCode);
+      }
     }
   }, [searchParams]);
+  
+  // Also capture on initial mount (before any redirects)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get("ref");
+    
+    if (refCode) {
+      localStorage.setItem("referralCode", refCode);
+      console.log("💾 [MOUNT] Referral code captured:", refCode);
+    }
+  }, []); // Empty deps - only run once on mount
 
   // Close menu when clicking outside
   useEffect(() => {
