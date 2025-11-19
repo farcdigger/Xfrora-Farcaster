@@ -7,7 +7,7 @@ interface MessageInputProps {
   conversationId: string | null;
   senderWallet: string;
   receiverWallet: string;
-  onMessageSent: (newConversationId?: string) => void;
+  onMessageSent: (newConversationId?: string, timestamp?: string) => void;
 }
 
 export default function MessageInput({
@@ -59,7 +59,9 @@ export default function MessageInput({
       // Clear input and refresh messages
       setMessage("");
       const newConversationId = data.message?.conversationId;
-      onMessageSent(newConversationId);
+      const timestamp = data.message?.createdAt || new Date().toISOString();
+      
+      onMessageSent(newConversationId, timestamp);
     } catch (err: any) {
       setError(err.message || "Failed to send message");
     } finally {

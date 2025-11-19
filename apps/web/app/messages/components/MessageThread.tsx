@@ -71,9 +71,15 @@ export default function MessageThread({
   useEffect(() => {
     let channel: RealtimeChannel | null = null;
     const client = getSupabaseBrowserClient();
+    let intervalId: NodeJS.Timeout;
 
     if (conversationId && client) {
       loadMessages(true);
+
+      // Silent Polling (every 5 seconds) as backup for Receiver
+      intervalId = setInterval(() => {
+        loadMessages(false);
+      }, 5000);
 
       channel = client
         .channel(`message-thread-${conversationId}`)
@@ -98,6 +104,7 @@ export default function MessageThread({
 
       return () => {
         channel?.unsubscribe();
+        clearInterval(intervalId);
       };
     } else {
       setMessages([]);

@@ -20,6 +20,7 @@ export default function MessagesPage() {
   const [otherParticipant, setOtherParticipant] = useState<string>("");
   const [messageRefreshSignal, setMessageRefreshSignal] = useState(0);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [lastUpdatedConversation, setLastUpdatedConversation] = useState<{ id: string; timestamp: string } | null>(null);
 
   useEffect(() => {
     const checkAccess = () => {
@@ -196,6 +197,7 @@ export default function MessagesPage() {
                   setSelectedConversationId(conversationId);
                   setOtherParticipant(otherParticipantWallet);
                 }}
+                lastUpdatedConversation={lastUpdatedConversation}
               />
             )}
           </div>
@@ -240,10 +242,19 @@ export default function MessagesPage() {
               conversationId={selectedConversationId}
               senderWallet={address}
               receiverWallet={otherParticipant}
-              onMessageSent={(newConversationId) => {
+              onMessageSent={(newConversationId, timestamp) => {
                 setMessageRefreshSignal((prev) => prev + 1);
+                
                 if (newConversationId && newConversationId !== selectedConversationId) {
                   setSelectedConversationId(newConversationId);
+                }
+
+                // Update the conversation list timestamp immediately
+                if (newConversationId) {
+                  setLastUpdatedConversation({
+                    id: newConversationId,
+                    timestamp: timestamp || new Date().toISOString()
+                  });
                 }
               }}
             />

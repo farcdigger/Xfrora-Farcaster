@@ -15,12 +15,14 @@ interface ConversationListProps {
   currentWallet: string;
   selectedConversationId: string | null;
   onSelectConversation: (conversationId: string, otherParticipant: string) => void;
+  lastUpdatedConversation: { id: string; timestamp: string } | null;
 }
 
 export default function ConversationList({
   currentWallet,
   selectedConversationId,
   onSelectConversation,
+  lastUpdatedConversation,
 }: ConversationListProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,13 +67,52 @@ export default function ConversationList({
     }
   };
 
+  // Handle manual client-side updates (for sender instant feedback)
+  useEffect(() => {
+    if (lastUpdatedConversation) {
+      setConversations((prev) => {
+        const existingIndex = prev.findIndex((c) => c.id === lastUpdatedConversation.id);
+        
+        if (existingIndex === -1) {
+          // New conversation? Fetch list to be safe, or we could optimistically add it if we had more data
+          loadConversations();
+          return prev;
+        }
+
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          lastMessageAt: lastUpdatedConversation.timestamp,
+          // Reset unread count if we just sent a message (optional but logical)
+        };
+
+        // Sort immediately
+        updated.sort((a, b) => {
+          const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return bTime - aTime;
+        });
+
+        return updated;
+      });
+    }
+  }, [lastUpdatedConversation]);
+
   useEffect(() => {
     loadConversations(true);
 
     const client = getSupabaseBrowserClient();
+    let intervalId: NodeJS.Timeout;
+
     if (!client || !currentWallet) {
       return;
     }
+
+    // Silent Polling (every 5 seconds) as backup for Receiver
+    // This ensures the conversation list updates even if Realtime fails or is blocked by RLS
+    intervalId = setInterval(() => {
+      loadConversations(false);
+    }, 5000);
 
     const normalizedWallet = currentWallet.toLowerCase();
 
@@ -151,6 +192,7 @@ export default function ConversationList({
 
     return () => {
       channel.unsubscribe();
+      clearInterval(intervalId);
     };
   }, [currentWallet]);
 
