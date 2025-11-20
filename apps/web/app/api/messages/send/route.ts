@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const normalizedSender = senderWallet.toLowerCase();
     const normalizedReceiver = receiverWallet.toLowerCase();
 
-    // Check rate limiting
+    // Check rate limiting (this also updates total_messages_sent)
     const rateLimitCheck = await checkRateLimit(normalizedSender, client);
     if (!rateLimitCheck.allowed) {
       return NextResponse.json(
@@ -68,6 +68,9 @@ export async function POST(request: NextRequest) {
         { status: 429 }
       );
     }
+
+    // Get the updated total_messages_sent from rate limit check
+    const totalMessagesSent = rateLimitCheck.totalMessagesSent || 0;
 
     // 1. NFT Ownership Check via Blockchain (Access Control)
     // Users MUST have an NFT to use messaging
@@ -163,22 +166,17 @@ export async function POST(request: NextRequest) {
       .eq("id", conversationId);
 
     // 2. Points System Logic (1 point for every 5 messages)
+    // Use the total_messages_sent value from rate limit check (already updated)
     try {
-      // Get updated total message count from rate limits table
-      const { data: rateLimitData } = await client
-        .from("message_rate_limits")
-        .select("total_messages_sent")
-        .eq("wallet_address", normalizedSender)
-        .single();
-      
-      // TypeScript burada Supabase tiplerini tam çözemediği için 'never' hatası veriyordu.
-      // Supabase tarafında total_messages_sent kolonu mevcut; runtime'da sorun yok.
-      // Bu yüzden burada bilinçli olarak 'any' cast'i kullanıyoruz.
-      const totalSent = (rateLimitData as any)?.total_messages_sent || 0;
+      console.log(`📊 Message count check for ${normalizedSender}:`, {
+        totalMessagesSent,
+        isMultipleOf5: totalMessagesSent % 5 === 0,
+        shouldAwardPoint: totalMessagesSent > 0 && totalMessagesSent % 5 === 0,
+      });
       
       // Check if multiple of 5
-      if (totalSent > 0 && totalSent % 5 === 0) {
-        console.log(`🎉 Awarding point to ${normalizedSender} for ${totalSent}th message`);
+      if (totalMessagesSent > 0 && totalMessagesSent % 5 === 0) {
+        console.log(`🎉 Awarding point to ${normalizedSender} for ${totalMessagesSent}th message`);
         
         // Get current points
         const { data: userPoints, error: pointsError } = await (client as any)
@@ -192,15 +190,20 @@ export async function POST(request: NextRequest) {
 
         if (pointsData) {
           // Update existing record
+          const newPoints = (pointsData.points || 0) + 1;
+          console.log(`✅ Updating points from ${pointsData.points} to ${newPoints}`);
+          
           await (client as any)
             .from("chat_tokens")
             .update({ 
-              points: (pointsData.points || 0) + 1,
+              points: newPoints,
               updated_at: new Date().toISOString()
             })
             .eq("wallet_address", normalizedSender);
         } else {
           // Create new record (first time user)
+          console.log(`✅ Creating new chat_tokens record with 1 point`);
+          
           await (client as any)
             .from("chat_tokens")
             .insert({
@@ -246,6 +249,7 @@ async function checkRateLimit(walletAddress: string, client: SupabaseClient<any>
   allowed: boolean;
   message?: string;
   retryAfter?: number;
+  totalMessagesSent?: number;
 }> {
   const now = new Date();
   const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
@@ -276,7 +280,7 @@ async function checkRateLimit(walletAddress: string, client: SupabaseClient<any>
         last_minute_reset: now.toISOString(),
         last_hour_reset: now.toISOString(),
       });
-    return { allowed: true };
+    return { allowed: true, totalMessagesSent: 1 };
   }
 
   // Check minute limit
@@ -319,10 +323,8 @@ async function checkRateLimit(walletAddress: string, client: SupabaseClient<any>
     };
   }
 
-  // Update rate limit counters
-  const updateData: any = {
-    updated_at: now.toISOString(),
-  };
+  // Update rate limit counters (without total_messages_sent first)
+  const updateData: any = {};
 
   if (lastMinuteReset < oneMinuteAgo) {
     updateData.messages_sent_minute = 1;
@@ -338,16 +340,40 @@ async function checkRateLimit(walletAddress: string, client: SupabaseClient<any>
     updateData.messages_sent_hour = messagesSentHour + 1;
   }
 
-  // IMPORTANT: Update total_messages_sent counter for points system
-  const currentTotal = (rateLimit as any)?.total_messages_sent || 0;
-  updateData.total_messages_sent = currentTotal + 1;
-
-  await (client as any)
+  // Update basic rate limit counters first
+  const { error: updateError } = await (client as any)
     .from("message_rate_limits")
     .update(updateData)
     .eq("wallet_address", walletAddress);
 
-  return { allowed: true };
+  if (updateError) {
+    console.error("❌ Error updating message_rate_limits:", updateError);
+  }
+
+  // IMPORTANT: Update total_messages_sent counter for points system (separate update)
+  const currentTotal = (rateLimit as any)?.total_messages_sent || 0;
+  const newTotal = currentTotal + 1;
+
+  console.log(`📈 Updating total_messages_sent for ${walletAddress}:`, {
+    currentTotal,
+    newTotal,
+  });
+
+  // Try to update total_messages_sent separately
+  // If column doesn't exist, this will fail but won't break the message sending
+  const { error: totalUpdateError } = await (client as any)
+    .from("message_rate_limits")
+    .update({ total_messages_sent: newTotal })
+    .eq("wallet_address", walletAddress);
+
+  if (totalUpdateError) {
+    console.error("❌ Error updating total_messages_sent:", totalUpdateError);
+    console.error("⚠️  Make sure to run the SQL migration to add total_messages_sent column!");
+    // Return the current total (not incremented) if update fails
+    return { allowed: true, totalMessagesSent: currentTotal };
+  }
+
+  return { allowed: true, totalMessagesSent: newTotal };
 }
 
 /**
