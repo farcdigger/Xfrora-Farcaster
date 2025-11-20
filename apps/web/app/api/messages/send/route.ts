@@ -272,6 +272,7 @@ async function checkRateLimit(walletAddress: string, client: SupabaseClient<any>
         wallet_address: walletAddress,
         messages_sent_minute: 1,
         messages_sent_hour: 1,
+        total_messages_sent: 1,
         last_minute_reset: now.toISOString(),
         last_hour_reset: now.toISOString(),
       });
@@ -336,6 +337,10 @@ async function checkRateLimit(walletAddress: string, client: SupabaseClient<any>
   } else {
     updateData.messages_sent_hour = messagesSentHour + 1;
   }
+
+  // IMPORTANT: Update total_messages_sent counter for points system
+  const currentTotal = (rateLimit as any)?.total_messages_sent || 0;
+  updateData.total_messages_sent = currentTotal + 1;
 
   await (client as any)
     .from("message_rate_limits")

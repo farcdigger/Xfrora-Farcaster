@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
+import { checkNFTOwnershipClientSide } from "@/lib/check-nft-ownership";
 import ConversationList from "../../messages/components/ConversationList";
 import MessageThread from "../../messages/components/MessageThread";
 import MessageInput from "../../messages/components/MessageInput";
@@ -20,6 +21,28 @@ export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [lastUpdatedConversation, setLastUpdatedConversation] = useState<{ id: string; timestamp: string } | null>(null);
   const [messageRefreshSignal, setMessageRefreshSignal] = useState(0);
+  const [hasNFT, setHasNFT] = useState(false);
+  const [checkingNFT, setCheckingNFT] = useState(true);
+
+  // Check NFT ownership using client-side blockchain check (same as credit purchase system)
+  useEffect(() => {
+    const checkNFTOwnership = async () => {
+      if (!address) {
+        setHasNFT(false);
+        setCheckingNFT(false);
+        return;
+      }
+
+      setCheckingNFT(true);
+      const hasNFTResult = await checkNFTOwnershipClientSide(address);
+      setHasNFT(hasNFTResult);
+      setCheckingNFT(false);
+    };
+    
+    if (isOpen) {
+      checkNFTOwnership();
+    }
+  }, [address, isOpen]);
 
   // Reset view when widget is closed
   useEffect(() => {
@@ -63,7 +86,7 @@ export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-black">
         <div className="flex items-center gap-3">
-          {view === "THREAD" && (
+          {view === "THREAD" && hasNFT && (
             <button 
               onClick={handleBackToList}
               className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
@@ -78,7 +101,7 @@ export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
           </h2>
         </div>
         <div className="flex items-center gap-2">
-            {view === "LIST" && (
+            {view === "LIST" && hasNFT && (
                 <button
                     onClick={() => setShowSearch(!showSearch)}
                     className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
@@ -101,7 +124,32 @@ export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        {view === "LIST" ? (
+        {checkingNFT ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent mb-2"></div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Checking NFT...</p>
+            </div>
+          </div>
+        ) : !hasNFT ? (
+          <div className="flex items-center justify-center h-full p-6">
+            <div className="text-center max-w-sm">
+              <div className="text-5xl mb-4">🎨</div>
+              <h3 className="text-xl font-bold text-black dark:text-white mb-2">
+                xFrora NFT Required
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                You need to own an xFrora NFT to use Direct Messages.
+              </p>
+              <a
+                href="/"
+                className="inline-block px-4 py-2 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
+              >
+                Mint Your NFT
+              </a>
+            </div>
+          </div>
+        ) : view === "LIST" ? (
           <div className="h-full overflow-y-auto">
             {showSearch && (
                 <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">

@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
-import { isMessagingEnabled, checkMessagingPermissions } from "@/lib/feature-flags";
+import { checkNFTOwnershipClientSide } from "@/lib/check-nft-ownership";
 import UserSearch from "./components/UserSearch";
 import ConversationList from "./components/ConversationList";
 import MessageThread from "./components/MessageThread";
@@ -13,31 +13,31 @@ import MessageInput from "./components/MessageInput";
 
 export default function MessagesPage() {
   const { address, isConnected } = useAccount();
-  const [hasAccess, setHasAccess] = useState(false);
+  const [hasNFT, setHasNFT] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [accessReason, setAccessReason] = useState<string>("");
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [otherParticipant, setOtherParticipant] = useState<string>("");
   const [messageRefreshSignal, setMessageRefreshSignal] = useState(0);
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [lastUpdatedConversation, setLastUpdatedConversation] = useState<{ id: string; timestamp: string } | null>(null);
 
+  // Check NFT ownership - page is visible to everyone but only NFT holders can use it
+  // Using client-side blockchain check (same as credit purchase system)
   useEffect(() => {
-    const checkAccess = () => {
-      const permissions = checkMessagingPermissions(address);
-      setHasAccess(permissions.hasAccess);
-      setAccessReason(permissions.reason || "");
-      setLoading(false);
-      
-      // Redirect to social page if no access (after 3 seconds)
-      if (!permissions.hasAccess && address) {
-        setTimeout(() => {
-          window.location.href = "/social";
-        }, 3000);
+    const checkNFTOwnership = async () => {
+      if (!address) {
+        setHasNFT(false);
+        setLoading(false);
+        return;
       }
+
+      setLoading(true);
+      const hasNFTResult = await checkNFTOwnershipClientSide(address);
+      setHasNFT(hasNFTResult);
+      setLoading(false);
     };
     
-    checkAccess();
+    checkNFTOwnership();
   }, [address]);
 
   if (loading) {
@@ -51,7 +51,8 @@ export default function MessagesPage() {
     );
   }
 
-  if (!hasAccess) {
+  // Show NFT requirement message if user doesn't have NFT
+  if (!loading && isConnected && !hasNFT) {
     return (
       <div className="min-h-screen bg-white dark:bg-black">
         {/* Navbar */}
@@ -74,33 +75,28 @@ export default function MessagesPage() {
           </div>
         </nav>
 
-        {/* Access Denied Content */}
+        {/* NFT Required Content */}
         <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
           <div className="text-center max-w-md mx-auto px-4">
-            <div className="text-6xl mb-6">🔒</div>
+            <div className="text-6xl mb-6">🎨</div>
             <h1 className="text-3xl font-bold text-black dark:text-white mb-4">
-              Access Denied
+              xFrora NFT Required
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {accessReason || "This feature is still in development."}
+              You need to own an xFrora NFT to use Direct Messages. Mint your unique NFT to unlock this feature!
             </p>
-            {!isConnected && (
-              <div className="mb-6">
-                <ConnectButton />
-              </div>
-            )}
             <div className="space-y-3">
               <Link
-                href="/social"
+                href="/"
                 className="block w-full px-6 py-3 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white font-semibold hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors"
               >
-                Back to Social
+                Mint Your NFT
               </Link>
               <Link
-                href="/"
+                href="/social"
                 className="block w-full px-6 py-3 border border-gray-300 dark:border-gray-700 text-black dark:text-white font-semibold hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
               >
-                Back to Home
+                Back to Social
               </Link>
             </div>
             {address && (
