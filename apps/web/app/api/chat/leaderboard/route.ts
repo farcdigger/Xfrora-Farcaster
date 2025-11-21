@@ -58,14 +58,45 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Query top users by points
-      const { data, error, count } = await (supabaseClient as any)
+      // ✅ DEĞİŞİKLİK: Sadece mint edenleri göster
+      // Önce mint eden wallet adreslerini tokens tablosundan al
+      const { data: mintedTokens, error: tokensError } = await (supabaseClient as any)
+        .from("tokens")
+        .select("wallet_address")
+        .or("status.eq.minted,token_id.gt.0");
+      
+      if (tokensError) {
+        console.error("Error fetching minted tokens:", tokensError);
+        return NextResponse.json(
+          { error: "Failed to fetch minted tokens", details: tokensError.message },
+          { status: 500 }
+        );
+      }
+      
+      // Mint eden wallet adreslerini Set'e çevir (normalize edilmiş)
+      const mintedWallets = new Set(
+        (mintedTokens || [])
+          .map((t: any) => t.wallet_address?.toLowerCase())
+          .filter(Boolean)
+      );
+      
+      if (mintedWallets.size === 0) {
+        // Hiç mint eden yok
+        return NextResponse.json({
+          leaderboard: [],
+          total: 0,
+          limit,
+          offset,
+        });
+      }
+      
+      // Tüm chat_tokens kayıtlarını al ve sadece mint edenleri filtrele
+      const { data: allChatTokens, error, count } = await (supabaseClient as any)
         .from("chat_tokens")
         .select("*", { count: "exact" })
         .order("points", { ascending: false })
-        .order("total_tokens_spent", { ascending: false }) // Secondary sort
-        .range(offset, offset + limit - 1);
-
+        .order("total_tokens_spent", { ascending: false });
+      
       if (error) {
         console.error("Supabase leaderboard query error:", error);
         return NextResponse.json(
@@ -73,9 +104,18 @@ export async function GET(request: NextRequest) {
           { status: 500 }
         );
       }
-
+      
+      // Sadece mint edenleri filtrele ve pagination uygula
+      const filteredData = (allChatTokens || [])
+        .filter((ct: any) => mintedWallets.has(ct.wallet_address?.toLowerCase()))
+        .slice(offset, offset + limit);
+      
+      const totalMinted = (allChatTokens || [])
+        .filter((ct: any) => mintedWallets.has(ct.wallet_address?.toLowerCase()))
+        .length;
+      
       // Format response with ranks
-      const leaderboard = (data || []).map((user: any, index: number) => ({
+      const leaderboard = filteredData.map((user: any, index: number) => ({
         rank: offset + index + 1,
         wallet_address: user.wallet_address,
         points: Number(user.points) || 0,
@@ -86,10 +126,19 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         leaderboard,
-        total: count || 0,
+        total: totalMinted,
         limit,
         offset,
       });
+
+      if (error) {
+        console.error("Supabase leaderboard query error:", error);
+        return NextResponse.json(
+          { error: "Failed to fetch leaderboard", details: error.message },
+          { status: 500 }
+        );
+      }
+
     } catch (dbError: any) {
       console.error("Database error fetching leaderboard:", dbError);
       return NextResponse.json(
@@ -164,6 +213,24 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // ✅ DEĞİŞİKLİK: Sadece mint edenleri kontrol et
+      // Önce bu wallet'ın mint edip etmediğini kontrol et
+      const { data: mintedToken } = await (supabaseClient as any)
+        .from("tokens")
+        .select("wallet_address")
+        .eq("wallet_address", normalizedAddress)
+        .or("status.eq.minted,token_id.gt.0")
+        .limit(1);
+      
+      if (!mintedToken || mintedToken.length === 0) {
+        // Bu wallet mint etmemiş, leaderboard'da yok
+        return NextResponse.json({
+          rank: null,
+          points: 0,
+          total_users: 0,
+        });
+      }
+      
       // Get user's points
       const { data: userData, error: userError } = await (supabaseClient as any)
         .from("chat_tokens")
@@ -172,36 +239,47 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (userError || !userData) {
-        // User not found
-        const { count } = await (supabaseClient as any)
-          .from("chat_tokens")
-          .select("*", { count: "exact", head: true });
-
+        // User not found in chat_tokens (mint etmiş ama chat_tokens'da kayıt yok)
         return NextResponse.json({
           rank: null,
           points: 0,
-          total_users: count || 0,
+          total_users: 0,
         });
       }
 
       const userPoints = Number(userData.points) || 0;
 
-      // Count users with more points (rank = count + 1)
-      const { count, error: countError } = await (supabaseClient as any)
+      // ✅ Sadece mint edenler arasında rank hesapla
+      // Önce mint eden wallet adreslerini al
+      const { data: mintedTokens } = await (supabaseClient as any)
+        .from("tokens")
+        .select("wallet_address")
+        .or("status.eq.minted,token_id.gt.0");
+      
+      const mintedWallets = new Set(
+        (mintedTokens || [])
+          .map((t: any) => t.wallet_address?.toLowerCase())
+          .filter(Boolean)
+      );
+      
+      // Tüm chat_tokens kayıtlarını al ve sadece mint edenleri filtrele
+      const { data: allChatTokens } = await (supabaseClient as any)
         .from("chat_tokens")
-        .select("*", { count: "exact", head: true })
-        .gt("points", userPoints);
-
-      if (countError) {
-        throw countError;
-      }
-
-      const rank = (count || 0) + 1;
-
-      // Get total users
-      const { count: totalUsers } = await (supabaseClient as any)
-        .from("chat_tokens")
-        .select("*", { count: "exact", head: true });
+        .select("wallet_address, points");
+      
+      const mintedUsers = (allChatTokens || [])
+        .filter((ct: any) => mintedWallets.has(ct.wallet_address?.toLowerCase()))
+        .map((ct: any) => ({
+          wallet: ct.wallet_address,
+          points: Number(ct.points) || 0,
+        }))
+        .sort((a: any, b: any) => b.points - a.points);
+      
+      // Rank hesapla
+      const rankIndex = mintedUsers.findIndex((u: any) => u.wallet?.toLowerCase() === normalizedAddress);
+      const rank = rankIndex >= 0 ? rankIndex + 1 : null;
+      
+      const totalUsers = mintedUsers.length;
 
       return NextResponse.json({
         rank,

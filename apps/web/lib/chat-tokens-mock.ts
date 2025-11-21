@@ -152,6 +152,29 @@ export async function updateTokenBalance(
         console.error("❌ Verification failed - record not found after update!");
       }
     } else {
+      // ✅ DEĞİŞİKLİK: Önce mint kontrolü yap - sadece mint edenler için kayıt oluştur
+      console.log("🔍 Checking if wallet has minted NFT before creating chat_tokens record...");
+      
+      try {
+        const { supabaseClient } = await import("@/lib/db-supabase");
+        if (supabaseClient) {
+          const { data: mintedToken } = await (supabaseClient as any)
+            .from("tokens")
+            .select("wallet_address, status, token_id")
+            .eq("wallet_address", normalizedAddress)
+            .or("status.eq.minted,token_id.gt.0")
+            .limit(1);
+          
+          if (!mintedToken || mintedToken.length === 0) {
+            console.log("⚠️ Wallet has not minted NFT, skipping chat_tokens record creation");
+            return; // Mint etmemiş, kayıt oluşturma
+          }
+        }
+      } catch (mintCheckError) {
+        console.error("⚠️ Error checking mint status, proceeding with insert:", mintCheckError);
+        // Hata durumunda devam et (backward compatibility)
+      }
+      
       console.log("➕ Inserting new record...");
       console.log("📝 Insert data:", {
         wallet_address: normalizedAddress,
@@ -265,6 +288,29 @@ export async function addTokens(
         .execute();
       console.log("✅ Update successful!");
     } else {
+      // ✅ DEĞİŞİKLİK: Önce mint kontrolü yap - sadece mint edenler için kayıt oluştur
+      console.log("🔍 Checking if wallet has minted NFT before creating chat_tokens record...");
+      
+      try {
+        const { supabaseClient } = await import("@/lib/db-supabase");
+        if (supabaseClient) {
+          const { data: mintedToken } = await (supabaseClient as any)
+            .from("tokens")
+            .select("wallet_address, status, token_id")
+            .eq("wallet_address", normalizedAddress)
+            .or("status.eq.minted,token_id.gt.0")
+            .limit(1);
+          
+          if (!mintedToken || mintedToken.length === 0) {
+            console.log("⚠️ Wallet has not minted NFT, skipping chat_tokens record creation");
+            return newBalance; // Mint etmemiş, kayıt oluşturma ama balance'ı döndür
+          }
+        }
+      } catch (mintCheckError) {
+        console.error("⚠️ Error checking mint status, proceeding with insert:", mintCheckError);
+        // Hata durumunda devam et (backward compatibility)
+      }
+      
       console.log("➕ Inserting new record...");
       await db.insert(chat_tokens).values({
         wallet_address: normalizedAddress,

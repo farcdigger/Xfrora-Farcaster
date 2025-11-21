@@ -68,6 +68,49 @@ export async function POST(request: NextRequest) {
 
         updateResult = data;
         console.log("✅ Token ID updated via db facade", { x_user_id, token_id });
+        
+        // ✅ YENİ: Mint eden cüzdan adresini chat_tokens tablosuna ekle
+        if (updateResult && updateResult.length > 0) {
+          const tokenData = updateResult[0];
+          const walletAddress = tokenData.wallet_address;
+          
+          if (walletAddress) {
+            try {
+              const normalizedWallet = walletAddress.toLowerCase();
+              
+              // Önce mevcut kaydı kontrol et
+              const { data: existingChatToken, error: checkError } = await supabase
+                .from("chat_tokens")
+                .select("wallet_address")
+                .eq("wallet_address", normalizedWallet)
+                .single();
+              
+              if (checkError && checkError.code === 'PGRST116') {
+                // Kayıt yok, yeni kayıt oluştur
+                const { error: insertError } = await supabase
+                  .from("chat_tokens")
+                  .insert({
+                    wallet_address: normalizedWallet,
+                    balance: 0,
+                    points: 0,
+                    total_tokens_spent: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  });
+                
+                if (insertError) {
+                  console.error("⚠️ chat_tokens ekleme hatası:", insertError);
+                } else {
+                  console.log("✅ Mint eden cüzdan adresi chat_tokens tablosuna eklendi:", normalizedWallet);
+                }
+              } else if (existingChatToken) {
+                console.log("ℹ️ Cüzdan adresi zaten chat_tokens tablosunda mevcut:", normalizedWallet);
+              }
+            } catch (chatTokenError) {
+              console.error("⚠️ chat_tokens ekleme hatası (kritik değil):", chatTokenError);
+            }
+          }
+        }
       } catch (dbError) {
         console.error("❌ Supabase update failed:", dbError);
         return NextResponse.json(

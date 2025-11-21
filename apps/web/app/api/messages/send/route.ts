@@ -201,19 +201,32 @@ export async function POST(request: NextRequest) {
             })
             .eq("wallet_address", normalizedSender);
         } else {
-          // Create new record (first time user)
-          console.log(`✅ Creating new chat_tokens record with 1 point`);
+          // ✅ DEĞİŞİKLİK: Önce mint kontrolü yap - sadece mint edenler için kayıt oluştur
+          // Check if this wallet has minted an NFT
+          const { data: mintedToken } = await (client as any)
+            .from("tokens")
+            .select("wallet_address, status, token_id")
+            .eq("wallet_address", normalizedSender)
+            .or("status.eq.minted,token_id.gt.0")
+            .limit(1);
           
-          await (client as any)
-            .from("chat_tokens")
-            .insert({
-              wallet_address: normalizedSender,
-              points: 1,
-              balance: 0,
-              total_tokens_spent: 0,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
+          if (mintedToken && mintedToken.length > 0) {
+            // Create new record (first time user who has minted)
+            console.log(`✅ Creating new chat_tokens record with 1 point for minted wallet`);
+            
+            await (client as any)
+              .from("chat_tokens")
+              .insert({
+                wallet_address: normalizedSender,
+                points: 1,
+                balance: 0,
+                total_tokens_spent: 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+          } else {
+            console.log(`⚠️ Wallet has not minted NFT, skipping chat_tokens record creation`);
+          }
         }
       }
     } catch (pointError) {

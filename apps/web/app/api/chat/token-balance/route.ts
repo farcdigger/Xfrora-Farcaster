@@ -62,13 +62,27 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // No record found - create one with 0 balance, 0 points, and 0 total_tokens_spent
-      await db.insert(chat_tokens).values({
-        wallet_address: normalizedAddress,
-        balance: 0,
-        points: 0,
-        total_tokens_spent: 0,
-      });
+      // ✅ DEĞİŞİKLİK: No record found - ÖNCE MINT KONTROLÜ YAP
+      // Sadece mint edenler için chat_tokens kaydı oluştur
+      const { supabaseClient } = await import("@/lib/db-supabase");
+      if (supabaseClient) {
+        const { data: tokenData } = await (supabaseClient as any)
+          .from("tokens")
+          .select("status, token_id, wallet_address")
+          .eq("wallet_address", normalizedAddress)
+          .or("status.eq.minted,token_id.gt.0")
+          .limit(1);
+        
+        // ✅ Sadece mint edenler için kayıt oluştur
+        if (tokenData && tokenData.length > 0) {
+          await db.insert(chat_tokens).values({
+            wallet_address: normalizedAddress,
+            balance: 0,
+            points: 0,
+            total_tokens_spent: 0,
+          });
+        }
+      }
 
       return NextResponse.json({ balance: 0, points: 0 }, {
         headers: {
