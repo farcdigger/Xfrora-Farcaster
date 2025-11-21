@@ -21,6 +21,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   UPDATE_TOKEN_SECRET: z.string().optional(),
+  ADMIN_API_KEY: z.string().optional(), // Admin endpoint'leri için API key
   // Legacy: DATABASE_URL is optional now (Supabase REST API is preferred)
   DATABASE_URL: z.string().url().optional().or(z.literal("mock://localhost")),
   // Vercel KV (Redis) - Preferred for rate limiting (faster, more reliable)
@@ -51,6 +52,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: data.NEXT_PUBLIC_SUPABASE_ANON_KEY === "" ? undefined : data.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY === "" ? undefined : data.SUPABASE_SERVICE_ROLE_KEY,
   UPDATE_TOKEN_SECRET: data.UPDATE_TOKEN_SECRET === "" ? undefined : data.UPDATE_TOKEN_SECRET,
+  ADMIN_API_KEY: data.ADMIN_API_KEY === "" ? undefined : data.ADMIN_API_KEY,
   // Ensure RPC_URL and CONTRACT_ADDRESS have defaults for Base Mainnet
   RPC_URL: data.RPC_URL || "https://mainnet.base.org",
   CONTRACT_ADDRESS: data.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396",

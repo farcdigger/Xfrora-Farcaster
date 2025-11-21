@@ -1,10 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { env } from "@/env.mjs";
+
+// ✅ Güvenlik: Admin API key kontrolü
+function requireAdminAuth(request: NextRequest): NextResponse | null {
+  const apiKey = request.headers.get("x-admin-api-key");
+  
+  if (!env.ADMIN_API_KEY) {
+    return NextResponse.json(
+      { error: "Admin API key not configured" },
+      { status: 500 }
+    );
+  }
+  
+  if (!apiKey || apiKey !== env.ADMIN_API_KEY) {
+    return NextResponse.json(
+      { error: "Unauthorized. Admin API key required in header: x-admin-api-key" },
+      { status: 401 }
+    );
+  }
+  
+  return null; // Authorized
+}
 
 // Admin endpoint to delete a user's NFT (for testing/debugging)
-// In production, add authentication/authorization
 export async function POST(request: NextRequest) {
+  // ✅ Güvenlik: Admin API key kontrolü
+  const authError = requireAdminAuth(request);
+  if (authError) return authError;
+  
   try {
     const body = await request.json();
     const { x_user_id } = body;

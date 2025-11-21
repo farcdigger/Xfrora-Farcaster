@@ -6,14 +6,83 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, tokens, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { env } from "@/env.mjs";
+import { ethers } from "ethers";
 
 // Next.js 14 için dynamic route olarak işaretle
 export const dynamic = 'force-dynamic';
 
+// ✅ Güvenlik: Admin API key kontrolü
+function requireAdminAuth(request: NextRequest): NextResponse | null {
+  const apiKey = request.headers.get("x-admin-api-key");
+  
+  if (!env.ADMIN_API_KEY) {
+    return NextResponse.json(
+      { error: "Admin API key not configured" },
+      { status: 500 }
+    );
+  }
+  
+  if (!apiKey || apiKey !== env.ADMIN_API_KEY) {
+    return NextResponse.json(
+      { error: "Unauthorized. Admin API key required in header: x-admin-api-key" },
+      { status: 401 }
+    );
+  }
+  
+  return null; // Authorized
+}
+
+// ✅ XSS koruması: HTML escape function
+function escapeHtml(text: string | null | undefined): string {
+  if (!text) return "";
+  const map: { [key: string]: string } = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
+}
+
 export async function GET(request: NextRequest) {
+  // ✅ Güvenlik: Admin API key kontrolü
+  const authError = requireAdminAuth(request);
+  if (authError) return authError;
+  
   try {
     const searchParams = request.nextUrl.searchParams;
     const walletAddress = searchParams.get("wallet");
+    
+    // ✅ Güvenlik: Wallet address validation
+    if (walletAddress && !ethers.isAddress(walletAddress)) {
+      return new Response(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Update Wallet Address</title>
+            <style>
+              body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+              .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+              .error { color: #e53e3e; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1 class="error">❌ Invalid Wallet Address</h1>
+              <p>Invalid wallet address format: ${escapeHtml(walletAddress)}</p>
+            </div>
+          </body>
+        </html>
+        `,
+        {
+          status: 400,
+          headers: { "Content-Type": "text/html" },
+        }
+      );
+    }
 
     console.log("🔧 [UPDATE-WALLET] Request received:", { wallet: walletAddress?.substring(0, 10) + "..." });
 
@@ -77,7 +146,7 @@ export async function GET(request: NextRequest) {
           <body>
             <div class="container">
               <h1 class="error">❌ User Not Found</h1>
-              <p>No user found with wallet address: <strong>${walletAddress}</strong></p>
+              <p>No user found with wallet address: <strong>${escapeHtml(walletAddress)}</strong></p>
               <p>Make sure this wallet is registered in the users table.</p>
             </div>
           </body>
@@ -120,8 +189,8 @@ export async function GET(request: NextRequest) {
             <div class="container">
               <h1 class="warning">⚠️ No Tokens Found</h1>
               <p>User found but no NFT tokens in database.</p>
-              <p><strong>Username:</strong> ${user.username}</p>
-              <p><strong>X User ID:</strong> ${xUserId}</p>
+              <p><strong>Username:</strong> ${escapeHtml(user.username)}</p>
+              <p><strong>X User ID:</strong> ${escapeHtml(String(xUserId))}</p>
               <p>Please generate an NFT first.</p>
             </div>
           </body>
@@ -186,19 +255,19 @@ export async function GET(request: NextRequest) {
             <h1 class="success">✅ Update Successful!</h1>
             
             <div class="info">
-              <p><strong>User:</strong> ${user.username}</p>
-              <p><strong>X User ID:</strong> ${xUserId}</p>
-              <p><strong>Wallet Address:</strong> ${walletAddress}</p>
+              <p><strong>User:</strong> ${escapeHtml(user.username)}</p>
+              <p><strong>X User ID:</strong> ${escapeHtml(String(xUserId))}</p>
+              <p><strong>Wallet Address:</strong> ${escapeHtml(walletAddress)}</p>
               <p><strong>Updated Tokens:</strong> ${updatedCount} of ${tokenResult.length}</p>
             </div>
 
             <h3>Updated Tokens:</h3>
             ${updates.map(u => `
               <div class="token">
-                <strong>Token ID:</strong> ${u.id}<br>
-                <strong>Old Wallet:</strong> ${u.old_wallet}<br>
-                <strong>New Wallet:</strong> ${u.new_wallet}<br>
-                <strong>Image URI:</strong> ${u.image_uri}
+                <strong>Token ID:</strong> ${escapeHtml(String(u.id))}<br>
+                <strong>Old Wallet:</strong> ${escapeHtml(u.old_wallet)}<br>
+                <strong>New Wallet:</strong> ${escapeHtml(u.new_wallet)}<br>
+                <strong>Image URI:</strong> ${escapeHtml(u.image_uri)}
               </div>
             `).join('')}
 
@@ -235,8 +304,8 @@ export async function GET(request: NextRequest) {
         <body>
           <div class="container">
             <h1 class="error">❌ Error</h1>
-            <p>${error.message}</p>
-            <div class="code">${error.stack}</div>
+            <p>${escapeHtml(error.message)}</p>
+            <div class="code">${escapeHtml(error.stack || "")}</div>
           </div>
         </body>
       </html>

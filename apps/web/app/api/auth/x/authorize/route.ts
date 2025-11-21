@@ -258,12 +258,21 @@ export async function GET(request: NextRequest) {
   // This works in serverless environments but is less ideal than KV
   // IMPORTANT: Cookie fallback is required when KV fails or cache is cleared
   if (!verifierStored) {
+    // ✅ Güvenlik: X_CLIENT_SECRET kontrolü - fallback secret kaldırıldı
+    if (!env.X_CLIENT_SECRET) {
+      return NextResponse.json(
+        { error: "X_CLIENT_SECRET not configured - cannot encrypt verifier" },
+        { status: 500 }
+      );
+    }
+
     console.log("📦 Using cookie fallback for PKCE verifier storage");
     // Encrypt verifier with state as additional security
     const crypto = require("crypto");
-    const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678"; // Use first 32 chars as encryption key
+    const secretKey = env.X_CLIENT_SECRET.substring(0, 32); // Use first 32 chars as encryption key
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(secretKey.padEnd(32, "0")), iv);
+    const secretKeyBuffer = Buffer.from(secretKey.padEnd(32, "0"));
+    const cipher = crypto.createCipheriv("aes-256-cbc", secretKeyBuffer, iv);
     let encrypted = cipher.update(verifier, "utf8", "hex");
     encrypted += cipher.final("hex");
     const encryptedVerifier = iv.toString("hex") + ":" + encrypted;

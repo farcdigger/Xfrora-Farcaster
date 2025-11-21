@@ -19,9 +19,18 @@ export async function GET(request: NextRequest) {
     }
     
     try {
+      // ✅ Güvenlik: X_CLIENT_SECRET kontrolü - fallback secret kaldırıldı
+      if (!env.X_CLIENT_SECRET) {
+        console.error("❌ X_CLIENT_SECRET not configured - cannot decrypt session");
+        return NextResponse.json({ 
+          authenticated: false,
+          user: null 
+        });
+      }
+
       // Decrypt session data
       const crypto = require("crypto");
-      const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678";
+      const secretKey = env.X_CLIENT_SECRET.substring(0, 32);
       const [ivHex, encrypted] = sessionCookie.value.split(":");
       
       if (!ivHex || !encrypted) {
@@ -32,7 +41,8 @@ export async function GET(request: NextRequest) {
       }
       
       const iv = Buffer.from(ivHex, "hex");
-      const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(secretKey.padEnd(32, "0")), iv);
+      const secretKeyBuffer = Buffer.from(secretKey.padEnd(32, "0"));
+      const decipher = crypto.createDecipheriv("aes-256-cbc", secretKeyBuffer, iv);
       let decrypted = decipher.update(encrypted, "hex", "utf8");
       decrypted += decipher.final("utf8");
       

@@ -3,6 +3,14 @@ import { env } from "@/env.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 export async function GET(request: NextRequest) {
+  // ✅ Güvenlik: Production'da debug endpoint'lerini kapat
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Debug endpoint not available in production" },
+      { status: 404 }
+    );
+  }
+
   let status = "UNKNOWN";
   let error: any = null;
   let testResult: any = null;

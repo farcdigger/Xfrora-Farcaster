@@ -7,6 +7,14 @@ import { env } from "@/env.mjs";
  * Shows connection string format (without password) for debugging
  */
 export async function GET(request: NextRequest) {
+  // ✅ Güvenlik: Production'da debug endpoint'lerini kapat
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Debug endpoint not available in production" },
+      { status: 404 }
+    );
+  }
+
   const hasDatabaseUrl = !!env.DATABASE_URL;
   
   // Parse DATABASE_URL to show format (hide password)

@@ -3,6 +3,7 @@ import { exchangeCodeForToken, verifyXToken } from "@/lib/x";
 import { env } from "@/env.mjs";
 import { db, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { ethers } from "ethers";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -38,6 +39,15 @@ export async function GET(request: NextRequest) {
     
     // Get wallet_address from query params (passed from frontend)
     const walletAddress = searchParams.get("wallet_address");
+    
+    // ✅ Güvenlik: Wallet address validation
+    if (walletAddress && !ethers.isAddress(walletAddress)) {
+      return NextResponse.json(
+        { error: "Invalid wallet address format" },
+        { status: 400 }
+      );
+    }
+    
     const normalizedWallet = walletAddress ? walletAddress.toLowerCase() : null;
     
     console.log("💾 Saving/updating user in database:", {

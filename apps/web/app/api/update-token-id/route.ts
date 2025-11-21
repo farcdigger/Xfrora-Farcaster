@@ -10,6 +10,7 @@ import { createClient } from "@supabase/supabase-js";
 import { db, tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { env, isMockMode } from "@/env.mjs";
+import { timingSafeEqual } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,8 +20,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
     }
 
-    if (!authHeader || authHeader !== env.UPDATE_TOKEN_SECRET) {
-      console.warn("⚠️ Invalid update token secret", { provided: authHeader ? "***" : "missing" });
+    // ✅ Güvenlik: Timing-safe comparison (timing attack koruması)
+    if (!authHeader) {
+      console.warn("⚠️ Invalid update token secret", { provided: "missing" });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Timing-safe comparison için Buffer kullan
+    const providedBuffer = Buffer.from(authHeader, "utf8");
+    const expectedBuffer = Buffer.from(env.UPDATE_TOKEN_SECRET, "utf8");
+    
+    // Buffer uzunlukları farklıysa timing-safe comparison yapılamaz
+    if (providedBuffer.length !== expectedBuffer.length) {
+      console.warn("⚠️ Invalid update token secret", { provided: "***" });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Timing-safe comparison
+    if (!timingSafeEqual(providedBuffer, expectedBuffer)) {
+      console.warn("⚠️ Invalid update token secret", { provided: "***" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

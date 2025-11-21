@@ -7,6 +7,14 @@ import { NextResponse } from "next/server";
 import { env } from "@/env.mjs";
 
 export async function GET() {
+  // ✅ Güvenlik: Production'da debug endpoint'lerini kapat
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Debug endpoint not available in production" },
+      { status: 404 }
+    );
+  }
+
   const config = {
     hasClientId: !!env.X_CLIENT_ID,
     hasClientSecret: !!env.X_CLIENT_SECRET,

@@ -141,13 +141,20 @@ export async function GET(request: NextRequest) {
               
               if (cookieState === state && ivHex && encrypted) {
                 try {
+                  // ✅ Güvenlik: X_CLIENT_SECRET kontrolü - fallback secret kaldırıldı
+                  if (!env.X_CLIENT_SECRET) {
+                    console.error("❌ X_CLIENT_SECRET not configured - cannot decrypt verifier");
+                    throw new Error("X_CLIENT_SECRET not configured");
+                  }
+
                   // Decrypt verifier
                   const crypto = require("crypto");
-                  const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678";
+                  const secretKey = env.X_CLIENT_SECRET.substring(0, 32);
                   
                   if (ivHex && encrypted) {
                     const iv = Buffer.from(ivHex, "hex");
-                    const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(secretKey.padEnd(32, "0")), iv);
+                    const secretKeyBuffer = Buffer.from(secretKey.padEnd(32, "0"));
+                    const decipher = crypto.createDecipheriv("aes-256-cbc", secretKeyBuffer, iv);
                     let decrypted = decipher.update(encrypted, "hex", "utf8");
                     decrypted += decipher.final("utf8");
                     codeVerifier = decrypted;
@@ -477,8 +484,14 @@ export async function GET(request: NextRequest) {
       // Don't fail auth if referral storage fails
     }
 
+    // ✅ Güvenlik: X_CLIENT_SECRET kontrolü - fallback secret kaldırıldı
+    if (!env.X_CLIENT_SECRET) {
+      console.error("❌ X_CLIENT_SECRET not configured - cannot encrypt session");
+      return NextResponse.redirect(new URL("/?error=Server configuration error", request.url));
+    }
+
     const crypto = require("crypto");
-    const secretKey = env.X_CLIENT_SECRET?.substring(0, 32) || "fallback_secret_key_12345678";
+    const secretKey = env.X_CLIENT_SECRET.substring(0, 32);
     const iv = crypto.randomBytes(16);
     const sessionData = JSON.stringify({
       x_user_id: xUser.x_user_id,
@@ -487,7 +500,8 @@ export async function GET(request: NextRequest) {
       bio: xUser.bio,
       timestamp: Date.now(),
     });
-    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(secretKey.padEnd(32, "0")), iv);
+    const secretKeyBuffer = Buffer.from(secretKey.padEnd(32, "0"));
+    const cipher = crypto.createCipheriv("aes-256-cbc", secretKeyBuffer, iv);
     let encrypted = cipher.update(sessionData, "utf8", "hex");
     encrypted += cipher.final("hex");
     const encryptedSession = iv.toString("hex") + ":" + encrypted;

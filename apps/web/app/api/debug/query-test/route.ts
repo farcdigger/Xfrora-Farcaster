@@ -7,6 +7,14 @@ import { eq } from "drizzle-orm";
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  // ✅ Güvenlik: Production'da debug endpoint'lerini kapat
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Debug endpoint not available in production" },
+      { status: 404 }
+    );
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const x_user_id = searchParams.get("x_user_id") || "1885792025502765056";
