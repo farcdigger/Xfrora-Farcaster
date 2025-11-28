@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "echo 'Build complete'",
+    "build": "cp -r src api/ || xcopy /E /I src api\\src",
+    "vercel-build": "npm run build",
     "type-check": "tsc --noEmit",
     "get-wallet": "bun run scripts/get-wallet.ts",
     "sync-env": "bun run scripts/sync-env.ts"
