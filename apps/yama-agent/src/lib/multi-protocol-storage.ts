@@ -1,0 +1,131 @@
+import { getSupabaseClient } from './supabase';
+import type { FetchAllProtocolsResult } from './multi-protocol-fetcher';
+
+type DexData = Record<string, any[]>;
+type LendingData = Record<string, any[]>;
+
+const DEX_TABLE = process.env.SUPABASE_DEX_TABLE || 'graph_dex_swaps';
+const LENDING_EVENT_TABLE = process.env.SUPABASE_LENDING_EVENT_TABLE || 'graph_lending_events';
+const LENDING_MARKET_TABLE = process.env.SUPABASE_LENDING_MARKET_TABLE || 'graph_lending_markets';
+
+async function saveDexSwaps(allDexData: DexData): Promise<void> {
+  const supabase = getSupabaseClient();
+  const rows: any[] = [];
+
+  for (const [protocol, swaps] of Object.entries(allDexData)) {
+    for (const swap of swaps) {
+      rows.push({
+        swap_id: swap.id,
+        protocol: swap._protocol || protocol,
+        network: swap._network || null,
+        pool_id: swap.pool?.id || null,
+        token0_symbol: swap.token0?.symbol || swap.pool?.token0?.symbol || null,
+        token1_symbol: swap.token1?.symbol || swap.pool?.token1?.symbol || null,
+        fee_tier: swap.pool?.feeTier || null,
+        amount_usd: swap.amountUSD ? Number(swap.amountUSD) : null,
+        amount0: swap.amount0 ? Number(swap.amount0) : null,
+        amount1: swap.amount1 ? Number(swap.amount1) : null,
+        timestamp: swap.timestamp ? Number(swap.timestamp) : null,
+        fetched_at: new Date().toISOString(),
+        raw_data: swap,
+      });
+    }
+  }
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from(DEX_TABLE).upsert(rows, { onConflict: 'swap_id' });
+  if (error) {
+    console.error('[Supabase] ❌ Failed to save DEX swaps:', error.message);
+  } else {
+    console.log(`[Supabase] ✅ Saved ${rows.length} DEX swaps`);
+  }
+}
+
+async function saveLendingMarkets(data: LendingData): Promise<void> {
+  const supabase = getSupabaseClient();
+  const records: any[] = [];
+
+  for (const [protocol, entries] of Object.entries(data)) {
+    for (const entry of entries) {
+      for (const market of entry.markets || []) {
+        records.push({
+          market_id: market.id,
+          protocol: protocol,
+          network: market._network || entry._network || null,
+          name: market.name,
+          input_token_symbol: market.inputToken?.symbol || null,
+          total_value_locked_usd: market.totalValueLockedUSD ? Number(market.totalValueLockedUSD) : null,
+          total_deposit_balance_usd: market.totalDepositBalanceUSD ? Number(market.totalDepositBalanceUSD) : null,
+          total_borrow_balance_usd: market.totalBorrowBalanceUSD ? Number(market.totalBorrowBalanceUSD) : null,
+          cumulative_borrow_usd: market.cumulativeBorrowUSD ? Number(market.cumulativeBorrowUSD) : null,
+          cumulative_liquidate_usd: market.cumulativeLiquidateUSD ? Number(market.cumulativeLiquidateUSD) : null,
+          rates: market.rates || [],
+          fetched_at: new Date().toISOString(),
+          raw_data: market,
+        });
+      }
+    }
+  }
+
+  if (records.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from(LENDING_MARKET_TABLE).upsert(records, { onConflict: 'market_id' });
+  if (error) {
+    console.error('[Supabase] ❌ Failed to save lending markets:', error.message);
+  } else {
+    console.log(`[Supabase] ✅ Saved ${records.length} lending markets`);
+  }
+}
+
+async function saveLendingEvents(data: LendingData): Promise<void> {
+  const supabase = getSupabaseClient();
+  const rows: any[] = [];
+
+  for (const [protocol, entries] of Object.entries(data)) {
+    for (const entry of entries) {
+      for (const event of [...(entry.borrows || []), ...(entry.deposits || [])]) {
+        rows.push({
+          event_id: event.id,
+          protocol,
+          network: event._network || entry._network || null,
+          event_type: event._eventType,
+          market_id: event.market?.id || null,
+          market_name: event.market?.name || null,
+          asset_symbol: event.asset?.symbol || null,
+          amount: event.amount ? Number(event.amount) : null,
+          amount_usd: event.amountUSD ? Number(event.amountUSD) : null,
+          account_id: event.account?.id || null,
+          timestamp: event.timestamp ? Number(event.timestamp) : null,
+          fetched_at: new Date().toISOString(),
+          raw_data: event,
+        });
+      }
+    }
+  }
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from(LENDING_EVENT_TABLE).upsert(rows, { onConflict: 'event_id' });
+  if (error) {
+    console.error('[Supabase] ❌ Failed to save lending events:', error.message);
+  } else {
+    console.log(`[Supabase] ✅ Saved ${rows.length} lending events`);
+  }
+}
+
+export async function saveAllProtocolsData(allData: FetchAllProtocolsResult): Promise<void> {
+  try {
+    await saveDexSwaps(allData.dex);
+    await saveLendingMarkets(allData.lending);
+    await saveLendingEvents(allData.lending);
+  } catch (error: any) {
+    console.error('[Supabase] ❌ Failed to save protocol data:', error.message);
+  }
+}

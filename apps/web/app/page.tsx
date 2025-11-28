@@ -1219,6 +1219,12 @@ function HomePageContent() {
             {/* Right: User Info & Buttons */}
             <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end">
               <ThemeToggle />
+              <Link
+                href="/yama-agent"
+                className="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-black/40 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors font-semibold"
+              >
+                Yama Agent
+              </Link>
               
               {/* Credits & Points Display (only when wallet connected) */}
               {isConnected && address && (

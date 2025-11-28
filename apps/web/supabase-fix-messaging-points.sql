@@ -9,4 +9,3 @@ ADD COLUMN IF NOT EXISTS total_messages_sent INTEGER DEFAULT 0;
 UPDATE message_rate_limits 
 SET total_messages_sent = 0 
 WHERE total_messages_sent IS NULL;
-

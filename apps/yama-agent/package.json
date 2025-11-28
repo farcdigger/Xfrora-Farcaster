@@ -1,0 +1,30 @@
+{
+  "name": "yama-agent",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir=dist --target=bun",
+    "type-check": "tsc --noEmit",
+    "get-wallet": "bun run scripts/get-wallet.ts",
+    "sync-env": "bun run scripts/sync-env.ts"
+  },
+  "dependencies": {
+    "@lucid-agents/core": "latest",
+    "@lucid-agents/hono": "latest",
+    "@lucid-agents/http": "latest",
+    "@lucid-agents/payments": "latest",
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.9.0",
+    "graphql": "^16.12.0",
+    "graphql-request": "^7.3.4",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.0",
+    "typescript": "^5.9.2"
+  }
+}

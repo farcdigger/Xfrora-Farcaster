@@ -3,6 +3,14 @@ import { db, tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
+  // ✅ Güvenlik: Production'da debug endpoint'lerini kapat
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Debug endpoint not available in production" },
+      { status: 404 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const x_user_id = searchParams.get("x_user_id");
   

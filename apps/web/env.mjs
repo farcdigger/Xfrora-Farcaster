@@ -40,6 +40,8 @@ const envSchema = z.object({
   // 🆕 Mesajlaşma geliştirme için
   NEXT_PUBLIC_DEVELOPER_WALLET_ADDRESS: z.string().optional(), // Geliştirici cüzdan adresi
   NEXT_PUBLIC_ENABLE_MESSAGING_FEATURE: z.string().optional().default("false"), // Feature flag
+  YAMA_AGENT_TRIGGER_URL: z.string().url().optional(),
+  YAMA_AGENT_TRIGGER_TOKEN: z.string().optional(),
 }).transform((data) => ({
   ...data,
   // Boş string'leri undefined yap
@@ -53,6 +55,8 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY === "" ? undefined : data.SUPABASE_SERVICE_ROLE_KEY,
   UPDATE_TOKEN_SECRET: data.UPDATE_TOKEN_SECRET === "" ? undefined : data.UPDATE_TOKEN_SECRET,
   ADMIN_API_KEY: data.ADMIN_API_KEY === "" ? undefined : data.ADMIN_API_KEY,
+  YAMA_AGENT_TRIGGER_URL: data.YAMA_AGENT_TRIGGER_URL === "" ? undefined : data.YAMA_AGENT_TRIGGER_URL,
+  YAMA_AGENT_TRIGGER_TOKEN: data.YAMA_AGENT_TRIGGER_TOKEN === "" ? undefined : data.YAMA_AGENT_TRIGGER_TOKEN,
   // Ensure RPC_URL and CONTRACT_ADDRESS have defaults for Base Mainnet
   RPC_URL: data.RPC_URL || "https://mainnet.base.org",
   CONTRACT_ADDRESS: data.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396",
