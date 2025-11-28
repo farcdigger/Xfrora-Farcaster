@@ -1,12 +1,39 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Import the agent app
-let app: any;
-try {
-  const agentModule = require('../src/lib/agent');
-  app = agentModule.app;
-} catch (error) {
-  console.error('[Vercel] Failed to load agent:', error);
+// Dynamically import the agent app
+let app: any = null;
+
+async function getApp() {
+  if (app) return app;
+  
+  try {
+    // Try different import paths for Vercel environment
+    const paths = [
+      '../src/lib/agent.js',
+      '../src/lib/agent',
+      './src/lib/agent.js',
+      './src/lib/agent',
+    ];
+    
+    for (const path of paths) {
+      try {
+        const agentModule = await import(path);
+        app = agentModule.app;
+        if (app) {
+          console.log(`[Vercel] Successfully loaded agent from: ${path}`);
+          return app;
+        }
+      } catch (err) {
+        // Try next path
+        continue;
+      }
+    }
+    
+    throw new Error('Could not load agent from any path');
+  } catch (error) {
+    console.error('[Vercel] Failed to load agent:', error);
+    throw error;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -15,10 +42,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   }
 
-  if (!app) {
+  // Load app dynamically
+  try {
+    app = await getApp();
+  } catch (error: any) {
     return res.status(500).json({ 
       error: 'Agent not initialized',
-      message: 'Failed to load agent module'
+      message: 'Failed to load agent module',
+      details: error.message
     });
   }
 
