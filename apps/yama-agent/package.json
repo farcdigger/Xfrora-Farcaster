@@ -17,6 +17,7 @@
     "@lucid-agents/http": "latest",
     "@lucid-agents/payments": "latest",
     "@supabase/supabase-js": "^2.39.0",
+    "@vercel/node": "^3.0.0",
     "dotenv": "^16.3.1",
     "ethers": "^6.9.0",
     "graphql": "^16.12.0",
