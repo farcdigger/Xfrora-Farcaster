@@ -3,6 +3,15 @@ import { supabaseClient } from "@/lib/db-supabase";
 
 export const runtime = "nodejs";
 
+// Type for graph_reports table row
+type GraphReport = {
+  report_date: string;
+  generated_at: string;
+  model_used: string;
+  tokens_used: number;
+  report_content: any;
+};
+
 export async function GET() {
   if (!supabaseClient) {
     return NextResponse.json(
@@ -19,7 +28,7 @@ export async function GET() {
       )
       .order("generated_at", { ascending: false })
       .limit(1)
-      .maybeSingle();
+      .maybeSingle() as { data: GraphReport | null; error: any };
 
     if (error) {
       console.error("[api/yama-agent/latest] Supabase error:", error);
