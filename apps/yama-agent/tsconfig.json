@@ -2,14 +2,19 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
+    "lib": ["ES2022"],
     "moduleResolution": "bundler",
+    "types": ["bun-types"],
+    "jsx": "react-jsx",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "types": ["bun-types"]
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "noEmit": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "api/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
-
