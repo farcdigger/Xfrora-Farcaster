@@ -82,24 +82,41 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if code already exists
+    // Try both column names for compatibility (referrer_wallet_address or wallet_address)
     console.log("🔍 Checking for existing referral code:", { wallet: normalizedWallet });
     
-    const { data: existing, error: checkError } = await (client as any)
+    let existingCode: { code: string } | null = null;
+    let checkError: any = null;
+    
+    // First try: referrer_wallet_address (new schema)
+    const { data: existingNew, error: checkErrorNew } = await (client as any)
       .from("referral_codes")
       .select("code")
-      .eq("wallet_address", normalizedWallet)
+      .eq("referrer_wallet_address", normalizedWallet)
       .single();
-
-    // If error is not "no rows found" (PGRST116), it's a real error
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error("❌ Error checking existing referral code:", checkError);
-      return NextResponse.json(
-        { error: "Failed to check existing referral code", details: checkError.message },
-        { status: 500 }
-      );
+    
+    if (checkErrorNew && checkErrorNew.code !== 'PGRST116') {
+      // Real error or not found, try old column name
+      const { data: existingOld, error: checkErrorOld } = await (client as any)
+        .from("referral_codes")
+        .select("code")
+        .eq("wallet_address", normalizedWallet)
+        .single();
+      
+      if (checkErrorOld && checkErrorOld.code !== 'PGRST116') {
+        console.error("❌ Error checking existing referral code:", checkErrorOld);
+        return NextResponse.json(
+          { error: "Failed to check existing referral code", details: checkErrorOld.message },
+          { status: 500 }
+        );
+      }
+      
+      existingCode = existingOld as { code: string } | null;
+      checkError = checkErrorOld;
+    } else {
+      existingCode = existingNew as { code: string } | null;
+      checkError = checkErrorNew;
     }
-
-    const existingCode = existing as { code: string } | null;
 
     if (existingCode && existingCode.code) {
       console.log("✅ Existing referral code found:", existingCode.code);
@@ -122,15 +139,39 @@ export async function POST(request: NextRequest) {
     const code = `ref_${normalizedWallet.slice(-6)}`;
     console.log("➕ Creating new referral code:", { wallet: normalizedWallet, code });
 
-    // Insert
-    const { data: insertData, error: insertError } = await (client as any)
+    // Insert - try with referrer_wallet_address first (new schema)
+    // If that fails, try wallet_address (old schema for compatibility)
+    let insertData: any = null;
+    let insertError: any = null;
+    
+    // Try new schema first
+    const { data: insertDataNew, error: insertErrorNew } = await (client as any)
       .from("referral_codes")
       .insert({
-        wallet_address: normalizedWallet,
+        referrer_wallet_address: normalizedWallet,
         code: code
       })
       .select("code")
       .single();
+    
+    if (insertErrorNew && insertErrorNew.code === '42703') {
+      // Column doesn't exist, try old schema
+      console.log("⚠️ New schema column not found, trying old schema...");
+      const { data: insertDataOld, error: insertErrorOld } = await (client as any)
+        .from("referral_codes")
+        .insert({
+          wallet_address: normalizedWallet,
+          code: code
+        })
+        .select("code")
+        .single();
+      
+      insertData = insertDataOld;
+      insertError = insertErrorOld;
+    } else {
+      insertData = insertDataNew;
+      insertError = insertErrorNew;
+    }
 
     const insertedCode = insertData as { code: string } | null;
 
@@ -148,14 +189,36 @@ export async function POST(request: NextRequest) {
          const randomSuffix = Math.floor(Math.random() * 1000);
          const newCode = `ref_${normalizedWallet.slice(-6)}${randomSuffix}`;
          
-         const { data: retryData, error: retryError } = await (client as any)
+         // Try new schema first, fallback to old
+         let retryData: any = null;
+         let retryError: any = null;
+         
+         const { data: retryDataNew, error: retryErrorNew } = await (client as any)
             .from("referral_codes")
             .insert({
-                wallet_address: normalizedWallet,
+                referrer_wallet_address: normalizedWallet,
                 code: newCode
             })
             .select("code")
             .single();
+         
+         if (retryErrorNew && retryErrorNew.code === '42703') {
+           // Column doesn't exist, try old schema
+           const { data: retryDataOld, error: retryErrorOld } = await (client as any)
+              .from("referral_codes")
+              .insert({
+                  wallet_address: normalizedWallet,
+                  code: newCode
+              })
+              .select("code")
+              .single();
+           
+           retryData = retryDataOld;
+           retryError = retryErrorOld;
+         } else {
+           retryData = retryDataNew;
+           retryError = retryErrorNew;
+         }
             
          const retryCode = retryData as { code: string } | null;
          if (retryError) {
