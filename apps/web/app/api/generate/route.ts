@@ -12,6 +12,10 @@ import type { GenerateRequest, GenerateResponse } from "@/lib/types";
 // DEĞİŞİKLİK: Yeni Vision AI (AI #1) fonksiyonumuzu import ediyoruz.
 import { analyzeProfileImage } from "@/lib/vision";
 
+// Force dynamic rendering to prevent build-time errors
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // GET endpoint: Retrieve existing NFT for user
 export async function GET(request: NextRequest) {
   try {
@@ -36,7 +40,7 @@ export async function GET(request: NextRequest) {
         const { data: existingTokenData, error: selectError } = await client
           .from("tokens")
           .select("*")
-          .eq("farcaster_user_id", userId) // Use farcaster_user_id column
+          .eq("x_user_id", userId) // Farcaster FID stored in x_user_id column
           .limit(1);
         
         if (!selectError && existingTokenData && existingTokenData.length > 0) {
@@ -171,7 +175,7 @@ export async function POST(request: NextRequest) {
           const { data: existingTokenData, error: selectError } = await client
             .from("tokens")
             .select("*")
-            .eq("farcaster_user_id", userId)
+            .eq("x_user_id", userId) // Farcaster FID stored in x_user_id column
             .limit(1);
           
           if (!selectError && existingTokenData && existingTokenData.length > 0) {
@@ -206,17 +210,17 @@ export async function POST(request: NextRequest) {
         const existing = existingToken[0];
         console.log(`⚠️ User ${userId} already has a generated NFT. Token details:`, {
           id: existing.id,
-          farcaster_user_id: existing.farcaster_user_id,
+          x_user_id: existing.x_user_id, // Farcaster FID stored in x_user_id column
           token_id: existing.token_id,
           created_at: existing.created_at,
           image_uri: existing.image_uri?.substring(0, 50) + "...",
         });
         
-        // Verify farcaster_user_id matches (safety check)
-        if (existing.farcaster_user_id !== userId) {
-          console.error(`❌ CRITICAL: farcaster_user_id mismatch! Expected: ${userId}, Got: ${existing.farcaster_user_id}`);
+        // Verify x_user_id matches (safety check)
+        if (existing.x_user_id !== userId) {
+          console.error(`❌ CRITICAL: x_user_id mismatch! Expected: ${userId}, Got: ${existing.x_user_id}`);
           // Continue with generation instead of returning wrong data
-          console.log("⚠️ Continuing with generation due to farcaster_user_id mismatch");
+          console.log("⚠️ Continuing with generation due to x_user_id mismatch");
         } else {
           // Convert IPFS URL to Pinata gateway URL for preview
           let previewUrl = existing.image_uri;
@@ -437,7 +441,7 @@ export async function POST(request: NextRequest) {
         } else {
           console.log("✅ Token verified in database:", {
             id: verifyToken[0].id,
-            farcaster_user_id: verifyToken[0].farcaster_user_id,
+            x_user_id: verifyToken[0].x_user_id, // Farcaster FID stored in x_user_id column
             image_uri: verifyToken[0].image_uri,
           });
         }
@@ -475,7 +479,7 @@ export async function POST(request: NextRequest) {
               const { data: existingTokenData, error: selectError } = await client
                 .from("tokens")
                 .select("*")
-                .eq("farcaster_user_id", userId)
+                .eq("x_user_id", userId) // Farcaster FID stored in x_user_id column
                 .limit(1)
                 .single();
               
