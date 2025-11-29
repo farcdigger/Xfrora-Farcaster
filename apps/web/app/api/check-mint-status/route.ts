@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         const existingToken = await db
           .select()
           .from(tokens)
-          .where(eq(tokens.farcaster_user_id, userId))
+          .where(eq(tokens.x_user_id, userId)) // Farcaster FID stored in x_user_id column
           .limit(1);
 
         const tokenData = existingToken?.[0];
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
           const paymentRows = await db
             .select()
             .from(payments)
-            .where(eq(payments.farcaster_user_id, userId))
+            .where(eq(payments.x_user_id, userId)) // Farcaster FID stored in x_user_id column
             .limit(1);
           paymentRecord = paymentRows?.[0] || null;
         } catch (paymentError) {

@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         existingToken = await db
           .select()
           .from(tokens)
-          .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id column
+          .where(eq(tokens.x_user_id, userId)) // Farcaster FID stored in x_user_id column
           .limit(1);
         console.log(`📊 GET: Drizzle query result: ${existingToken.length} token(s) found`);
       } catch (drizzleError: any) {
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
           existingToken = await db
             .select()
             .from(tokens)
-            .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id column
+            .where(eq(tokens.x_user_id, userId)) // Farcaster FID stored in x_user_id column
             .limit(1);
           console.log(`📊 Drizzle query result: ${existingToken.length} token(s) found`);
           console.log(`📊 Drizzle query result: ${existingToken.length} token(s) found`);
@@ -422,7 +422,7 @@ export async function POST(request: NextRequest) {
         const verifyToken = await db
           .select()
           .from(tokens)
-          .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id
+          .where(eq(tokens.x_user_id, userId)) // Farcaster FID stored in x_user_id column
           .limit(1);
         
         console.log(`✅ Verification query completed: ${verifyToken.length} token(s) found after insert`);
@@ -512,7 +512,7 @@ export async function POST(request: NextRequest) {
           const existingToken = await db
             .select()
             .from(tokens)
-            .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id
+            .where(eq(tokens.x_user_id, userId)) // Farcaster FID stored in x_user_id column
             .limit(1);
           
           if (existingToken.length > 0) {
