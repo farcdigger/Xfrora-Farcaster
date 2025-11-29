@@ -440,7 +440,7 @@ function HomePageContent() {
   // Check mint status when on pay step
   useEffect(() => {
     const checkMintStatus = async () => {
-      if (step === "pay" && farcasterUser && !alreadyMinted && wallet) {
+      if (step === "pay" && farcasterUser && !alreadyMinted && address) {
         try {
           const userId = farcasterUser.fid;
           console.log("🔍 Checking mint status on pay step for Farcaster user:", userId);
@@ -520,7 +520,7 @@ function HomePageContent() {
     };
     
     checkMintStatus();
-  }, [step, farcasterUser, alreadyMinted, wallet]);
+  }, [step, farcasterUser, alreadyMinted, address]);
 
   const disconnectFarcaster = () => {
     // Clear Farcaster account connection
@@ -686,12 +686,12 @@ function HomePageContent() {
   const requestMintPermit = async () => {
     console.log("🔵 ===========================================");
     console.log("🔵 requestMintPermit CALLED!");
-    console.log("🔵 Wallet:", wallet);
+    console.log("🔵 Wallet address:", address);
     console.log("🔵 Current User ID:", currentUserId);
     console.log("🔵 ===========================================");
     
-    if (!wallet) {
-      console.error("❌ No wallet - returning early");
+    if (!address) {
+      console.error("❌ No wallet address - returning early");
       return;
     }
     
@@ -723,7 +723,7 @@ function HomePageContent() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            wallet,
+            wallet: address,
             farcaster_user_id: userId,
           }),
         });
@@ -758,7 +758,7 @@ function HomePageContent() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            wallet,
+            wallet: address,
             farcaster_user_id: userId,
           }),
         });
@@ -1108,7 +1108,7 @@ function HomePageContent() {
               },
               body: JSON.stringify({
                 farcaster_user_id: userId,
-                wallet: wallet.toLowerCase(),
+                wallet: address.toLowerCase(),
               }),
             });
             
@@ -1395,9 +1395,9 @@ function HomePageContent() {
               icon="wallet"
               title="Connect Wallet"
               status={isConnected ? "connected" : "idle"}
-              statusText={isConnected && wallet ? `Wallet Connected: ${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)}` : undefined}
+              statusText={isConnected && address ? `Wallet Connected: ${address.substring(0, 6)}...${address.substring(address.length - 4)}` : undefined}
               actionButton={
-                isConnected && wallet ? (
+                isConnected && address ? (
                   <button className="btn-secondary w-full" disabled>
                     ✓ Wallet Connected
                   </button>
@@ -1419,7 +1419,7 @@ function HomePageContent() {
                 !generated ? (
                   <button
                     onClick={generateNFT}
-                    disabled={loading || !farcasterUser || !wallet}
+                    disabled={loading || !farcasterUser || !address}
                     className="btn-primary w-full"
                   >
                     {loading ? "Generating..." : "Generate xFrora NFT"}
@@ -1744,7 +1744,7 @@ function HomePageContent() {
       <Chatbot
         isOpen={chatbotOpen}
         onClose={() => setChatbotOpen(false)}
-        walletAddress={wallet}
+        walletAddress={address ?? null}
       />
 
       {/* Payment Modal */}
@@ -1868,7 +1868,7 @@ function HomePageContent() {
               )}
               
               {/* Show wallet connection status */}
-              {!wallet && (
+              {!address && (
                 <div className="mb-6 p-4 border border-gray-200 dark:border-gray-800 rounded-lg">
                   <p className="text-sm mb-3">Connecting your wallet...</p>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1877,9 +1877,9 @@ function HomePageContent() {
                 </div>
               )}
               
-              {wallet && (
+              {address && (
                 <div className="mb-6 border border-gray-200 dark:border-gray-800 rounded-lg p-3 text-sm">
-                  ✅ Wallet Connected: {wallet.substring(0, 6)}...{wallet.substring(wallet.length - 4)}
+                  ✅ Wallet Connected: {address.substring(0, 6)}...{address.substring(address.length - 4)}
                 </div>
               )}
               
@@ -1952,10 +1952,10 @@ function HomePageContent() {
               ) : (
               <button
                 onClick={requestMintPermit}
-                disabled={loading || !wallet}
+                disabled={loading || !address}
                 className="bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed font-bold py-3 px-6 rounded-lg w-full border border-black dark:border-white transition-colors"
               >
-                  {loading ? "Processing..." : !wallet ? "Connect Wallet to Mint" : "Mint NFT (5 USDC)"}
+                  {loading ? "Processing..." : !address ? "Connect Wallet to Mint" : "Mint NFT (5 USDC)"}
               </button>
               )}
             </div>
