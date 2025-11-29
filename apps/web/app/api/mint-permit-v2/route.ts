@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { signMintAuth } from "@/lib/eip712";
-import { db, tokens, payments } from "@/lib/db";
+import { db, tokens, payments, users } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { env, isMockMode } from "@/env.mjs";
 import { ethers } from "ethers";
