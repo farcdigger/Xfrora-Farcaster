@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { env } from "@/env.mjs";
 
 /**
  * Farcaster Mini App Manifest
@@ -36,31 +35,49 @@ export async function GET() {
     VERCEL_URL: process.env.VERCEL_URL,
   });
 
+  // Extract canonical domain (without protocol)
+  const canonicalDomain = baseUrl.replace(/^https?:\/\//, "");
+
   // Logo URLs - Use Frora logo from public folder
   const logoUrl = `${baseUrl}/frora-logo-manifest.png`; // Custom manifest logo
   const splashImageUrl = `${baseUrl}/frora-splash.png`; // Splash screen logo (Frora.jpeg)
+  // Use sharing-banner.png if available, fallback to og-xfrora.png
+  const sharingBannerUrl = `${baseUrl}/sharing-banner.png`; // Sharing banner for social cards
+  const heroImageUrl = sharingBannerUrl; // Hero image (same as sharing banner)
   
   // Splash screen and theme colors - matching site aesthetic
   // Black/white contrast with purple accents for premium, modern look
   const splashBackgroundColor = "#000000"; // Pure black background - matches dark theme
   const themeColor = "#8B5CF6"; // Vibrant purple (#8B5CF6) - matches cyberpunk/futuristic vibe
-  const accentColor = "#6366F1"; // Indigo accent for variety
 
   const manifest = {
-    version: "1.0.0",
-    name: "xFrora",
-    description: "AI-crafted identity collection on Base. Generate unique NFTs from your Farcaster profile, chat with your digital avatar, and join the xFrora community. Each NFT is a one-of-a-kind creation powered by AI.",
-    iconUrl: logoUrl, // Primary app icon (512x512+ PNG recommended)
-    homeUrl: `${baseUrl}`,
-    
-    // Splash Screen Configuration
-    // Defines the loading screen appearance in Farcaster clients
-    // Black background with Frora logo creates a premium, branded experience
-    splashImageUrl: splashImageUrl, // Frora logo/image displayed during app load
-    splashBackgroundColor: splashBackgroundColor, // Black background for premium look
-    
-    // Theme Configuration
-    themeColor: themeColor, // Purple accent color (#8B5CF6) - matches site's cyberpunk aesthetic
+    miniapp: {
+      version: "1",
+      name: "xFrora",
+      iconUrl: logoUrl,
+      homeUrl: baseUrl,
+      splashImageUrl: splashImageUrl,
+      splashBackgroundColor: splashBackgroundColor,
+      themeColor: themeColor,
+      subtitle: "AI-generated identity avatars",
+      description: "Generate unique NFTs from your Farcaster profile and chat with your AI-powered identity.",
+      tagline: "Your Farcaster AI twin",
+      primaryCategory: "art-creativity",
+      tags: ["nft", "base", "ai", "avatar", "identity"],
+      heroImageUrl: heroImageUrl,
+      ogTitle: "xFrora",
+      ogDescription: "AI-crafted identity NFTs. Chat with your digital twin.",
+      ogImageUrl: sharingBannerUrl,
+      screenshotUrls: [
+        sharingBannerUrl
+      ],
+      canonicalDomain: canonicalDomain,
+      requiredChains: ["eip155:8453"], // Base Mainnet (chain ID: 8453)
+      requiredCapabilities: [
+        "actions.signIn",
+        "wallet.getEthereumProvider"
+      ]
+    },
     
     // Account Association (Domain Verification)
     // Note: accountAssociation requires domain verification signature
@@ -70,15 +87,7 @@ export async function GET() {
       // This will be populated with actual signature during domain verification
       // Format: { "account": "your-account", "signature": "..." }
       // For now, left empty until domain verification is completed
-    },
-    
-    // Optional: Webhook URL for push notifications
-    // Uncomment when implementing notifications
-    // webhookUrl: `${baseUrl}/api/webhooks/farcaster`,
-    
-    // Optional: Requested permissions
-    // Uncomment when needing specific permissions
-    // permissions: ["notifications"],
+    }
   };
 
   return NextResponse.json(manifest, {
