@@ -7,16 +7,13 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@coinbase/x402'],
   },
   // Headers configuration - Allow iframe embedding for Farcaster Mini Apps
+  // Note: X-Frame-Options is removed in middleware.ts to allow iframe embedding
   async headers() {
     return [
       {
         // Apply headers to all routes
         source: '/:path*',
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN', // Allow iframe embedding from same origin and Farcaster domains
-          },
           {
             key: 'Content-Security-Policy',
             value: "frame-ancestors 'self' https://*.warpcast.com https://*.farcaster.xyz *;", // Allow Farcaster clients to embed
