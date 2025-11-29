@@ -147,10 +147,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const walletAddress = searchParams.get("wallet");
     const nftTokenId = searchParams.get("nft_token_id");
-    const xUserId = searchParams.get("x_user_id"); // ✅ NEW: x_user_id parameter
+    const xUserId = searchParams.get("x_user_id"); // Farcaster FID (using legacy param name for compatibility)
 
     console.log(`📝 [${requestId}] GET /api/nft-image - Request params:`, {
-      x_user_id: xUserId || "NONE",
+      farcaster_user_id: xUserId || "NONE",
       wallet: walletAddress?.substring(0, 10) + "..." || "NONE",
       nft_token_id: nftTokenId || "NONE",
     });
@@ -169,9 +169,9 @@ export async function GET(request: NextRequest) {
     let nftImage: string | null = null;
     let tokenId: number | null = null;
 
-    // Method 1: Get by X user ID (PRIORITY - most reliable for minted NFTs on our site)
+    // Method 1: Get by Farcaster user ID (PRIORITY - most reliable for minted NFTs on our site)
     if (!nftImage && xUserId) {
-      console.log(`🔍 [${requestId}] Method 1: Searching by x_user_id in tokens table...`);
+      console.log(`🔍 [${requestId}] Method 1: Searching by farcaster_user_id in tokens table...`);
       try {
         const tokenResult = await db
           .select()
@@ -328,7 +328,7 @@ export async function GET(request: NextRequest) {
             hasImageUri: !!token.image_uri,
             imageUri: token.image_uri?.substring(0, 50) + "..." || "NULL",
             tokenId: token.token_id,
-            xUserId: token.x_user_id,
+            farcasterUserId: token.x_user_id, // Farcaster FID
           });
           
           if (!nftImage) {

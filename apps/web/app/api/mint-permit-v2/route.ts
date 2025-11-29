@@ -45,7 +45,7 @@ const CONTRACT_ABI = [
   "function totalSupply() external view returns (uint256)",
   "function MAX_SUPPLY() external view returns (uint256)",
   "function remainingSupply() external view returns (uint256)",
-  "function usedXUserId(uint256) external view returns (bool)",
+  "function usedXUserId(uint256) external view returns (bool)", // xUserId = hashed Farcaster FID
   "function getTokenIdForXUser(uint256) external view returns (uint256)",
   "function owner() external view returns (address)",
 ];

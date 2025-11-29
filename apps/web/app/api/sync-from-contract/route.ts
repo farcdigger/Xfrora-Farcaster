@@ -14,7 +14,7 @@ const CONTRACT_ABI = [
   "function totalSupply() external view returns (uint256)",
   "function tokenURI(uint256 tokenId) external view returns (string)",
   "function ownerOf(uint256 tokenId) external view returns (address)",
-  "function usedXUserId(uint256 xUserId) external view returns (bool)",
+  "function usedXUserId(uint256 xUserId) external view returns (bool)", // xUserId = hashed Farcaster FID
   "event Minted(address indexed to, address indexed payer, uint256 indexed tokenId, uint256 xUserId, string tokenURI)",
 ];
 
@@ -85,15 +85,15 @@ export async function GET(request: NextRequest) {
     // For each record, check if it was minted on-chain
     for (const record of recordsToSync) {
       try {
-        console.log(`🔍 Checking x_user_id=${record.x_user_id}...`);
+        console.log(`🔍 Checking farcaster_user_id=${record.x_user_id}...`);
         
-        // Check contract's usedXUserId mapping
+        // Check contract's usedXUserId mapping (xUserId = hashed Farcaster FID)
         const hash = ethers.id(record.x_user_id);
         const xUserIdBigInt = BigInt(hash);
         const isMinted = await contract.usedXUserId(xUserIdBigInt);
         
         if (isMinted) {
-          console.log(`✅ Found minted NFT for x_user_id=${record.x_user_id}`);
+          console.log(`✅ Found minted NFT for farcaster_user_id=${record.x_user_id}`);
           
           // We know it's minted, but we need to find the token_id
           // Search through recent token IDs

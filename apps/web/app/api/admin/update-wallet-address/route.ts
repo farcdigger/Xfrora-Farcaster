@@ -160,10 +160,10 @@ export async function GET(request: NextRequest) {
     }
 
     const user = userResult[0];
-    const xUserId = user.x_user_id;
-    console.log("✅ [UPDATE-WALLET] User found:", { x_user_id: xUserId, username: user.username });
+    const xUserId = user.x_user_id; // Farcaster FID (stored in x_user_id column for legacy compatibility)
+    console.log("✅ [UPDATE-WALLET] User found:", { farcaster_user_id: xUserId, username: user.username });
 
-    // Step 2: Find token(s) for this x_user_id
+    // Step 2: Find token(s) for this farcaster_user_id
     console.log("🔍 [UPDATE-WALLET] Step 2: Looking up tokens...");
     const tokenResult = await db
       .select()
@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
               <h1 class="warning">⚠️ No Tokens Found</h1>
               <p>User found but no NFT tokens in database.</p>
               <p><strong>Username:</strong> ${escapeHtml(user.username)}</p>
-              <p><strong>X User ID:</strong> ${escapeHtml(String(xUserId))}</p>
+              <p><strong>Farcaster User ID:</strong> ${escapeHtml(String(xUserId))}</p>
               <p>Please generate an NFT first.</p>
             </div>
           </body>
@@ -256,7 +256,7 @@ export async function GET(request: NextRequest) {
             
             <div class="info">
               <p><strong>User:</strong> ${escapeHtml(user.username)}</p>
-              <p><strong>X User ID:</strong> ${escapeHtml(String(xUserId))}</p>
+              <p><strong>Farcaster User ID:</strong> ${escapeHtml(String(xUserId))}</p>
               <p><strong>Wallet Address:</strong> ${escapeHtml(walletAddress)}</p>
               <p><strong>Updated Tokens:</strong> ${updatedCount} of ${tokenResult.length}</p>
             </div>

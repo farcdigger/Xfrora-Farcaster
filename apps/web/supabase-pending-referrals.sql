@@ -1,5 +1,5 @@
 -- Pending Referrals Table
--- Stores referral codes when users connect their X account
+-- Stores referral codes when users connect their Farcaster account
 -- This ensures we don't lose referral tracking during the auth flow
 
 CREATE TABLE IF NOT EXISTS pending_referrals (

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ethers } from "ethers";
 import type { GenerateResponse, MintPermitResponse, FarcasterUser } from "@/lib/types";
 import { wrapFetchWithPayment } from "x402-fetch";
@@ -1319,58 +1318,15 @@ function HomePageContent() {
                 )}
 
                 <div className="flex">
-                  <ConnectButton.Custom>
-                    {({
-                      account,
-                      chain,
-                      openAccountModal,
-                      openChainModal,
-                      openConnectModal,
-                      mounted,
-                    }: {
-                      account?: any;
-                      chain?: any;
-                      openAccountModal: () => void;
-                      openChainModal: () => void;
-                      openConnectModal: () => void;
-                      mounted: boolean;
-                    }) => {
-                      const ready = mounted;
-                      const connected =
-                        ready && account && chain && !chain.unsupported;
-
-                      if (!connected) {
-                        return (
-                          <button
-                            onClick={openConnectModal}
-                            className="btn-primary px-4 py-2 text-sm"
-                          >
-                            Connect Wallet
-                          </button>
-                        );
-                      }
-
-                      if (chain.unsupported) {
-                        return (
-                          <button
-                            onClick={openChainModal}
-                            className="btn-primary px-4 py-2 text-sm"
-                          >
-                            Switch Network
-                          </button>
-                        );
-                      }
-
-                      return (
-                        <button
-                          onClick={openAccountModal}
-                          className="btn-secondary px-4 py-2 text-sm"
-                        >
-                          {account?.displayName ?? "Wallet"}
-                        </button>
-                      );
-                    }}
-                  </ConnectButton.Custom>
+                  {isConnected && address ? (
+                    <div className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      {address.substring(0, 6)}...{address.substring(address.length - 4)}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      Connecting wallet...
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1435,72 +1391,15 @@ function HomePageContent() {
               status={isConnected ? "connected" : "idle"}
               statusText={isConnected && wallet ? `Wallet Connected: ${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)}` : undefined}
               actionButton={
-                <ConnectButton.Custom>
-                  {({
-                    account,
-                    chain,
-                    openAccountModal,
-                    openChainModal,
-                    openConnectModal,
-                    authenticationStatus,
-                    mounted,
-                  }: {
-                    account?: any;
-                    chain?: any;
-                    openAccountModal: () => void;
-                    openChainModal: () => void;
-                    openConnectModal: () => void;
-                    authenticationStatus?: string;
-                    mounted: boolean;
-                  }) => {
-                    const ready = mounted && authenticationStatus !== "loading";
-                    const connected =
-                      ready &&
-                      account &&
-                      chain &&
-                      (!authenticationStatus || authenticationStatus === "authenticated");
-
-                    if (!ready) {
-                      return (
-                        <button className="btn-secondary w-full" disabled>
-                          Loading...
-                        </button>
-                      );
-                    }
-
-                    if (!connected) {
-                      return (
-                  <button
-                          onClick={openConnectModal}
-                    className="btn-primary w-full"
-                          disabled={loading}
-                  >
-                    {loading ? "Connecting..." : "Connect Wallet"}
+                isConnected && wallet ? (
+                  <button className="btn-secondary w-full" disabled>
+                    ✓ Wallet Connected
                   </button>
-                      );
-                    }
-
-                    if (chain.unsupported) {
-                      return (
-                        <button
-                          onClick={openChainModal}
-                          className="btn-primary w-full"
-                        >
-                          Switch Network
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <button
-                        onClick={openAccountModal}
-                        className="btn-secondary w-full"
-                      >
-                    ✓ {account?.displayName ?? "Connected"}
+                ) : (
+                  <button className="btn-secondary w-full" disabled>
+                    Connecting...
                   </button>
-                    );
-                  }}
-                </ConnectButton.Custom>
+                )
               }
             />
 
@@ -1962,12 +1861,12 @@ function HomePageContent() {
                 </div>
               )}
               
-              {/* Show wallet connection button if not connected */}
+              {/* Show wallet connection status */}
               {!wallet && (
                 <div className="mb-6 p-4 border border-gray-200 dark:border-gray-800 rounded-lg">
-                  <p className="text-sm mb-3">Connect your wallet to mint your NFT</p>
-                  <div className="w-full">
-                    <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />
+                  <p className="text-sm mb-3">Connecting your wallet...</p>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Farcaster Mini App will automatically connect your wallet
                   </div>
                 </div>
               )}
@@ -2034,9 +1933,9 @@ function HomePageContent() {
                 <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-6 text-center">
                   <p className="text-black dark:text-white text-lg font-bold mb-2">✅ Already Minted!</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    You have already minted your NFT with this X profile.
+                    You have already minted your NFT with this Farcaster profile.
                     <br />
-                    Each X profile can only mint one NFT.
+                    Each Farcaster profile can only mint one NFT.
                   </p>
                   {mintedTokenId && (
                     <p className="text-xs text-gray-500 dark:text-gray-500">

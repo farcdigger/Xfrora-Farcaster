@@ -4,7 +4,7 @@ import { supabaseClient } from "@/lib/db-supabase";
 export const dynamic = 'force-dynamic';
 
 /**
- * Track referral by X user ID (called after mint)
+ * Track referral by Farcaster user ID (called after mint)
  * This endpoint checks pending_referrals table and awards rewards
  */
 export async function POST(request: NextRequest) {
