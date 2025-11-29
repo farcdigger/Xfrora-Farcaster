@@ -1,124 +1,167 @@
-import { NextResponse } from "next/server";
+/**
+ * Debug endpoint to test Supabase write operations
+ * Tests if chat_tokens can be inserted/updated
+ */
+
+import { NextRequest, NextResponse } from "next/server";
 import { db, chat_tokens } from "@/lib/db";
+import { eq } from "drizzle-orm";
 import { isSupabaseConfigured } from "@/lib/db";
 import { env } from "@/env.mjs";
-import { eq } from "drizzle-orm";
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Test endpoint to verify Supabase write operations
- * GET /api/debug/test-supabase-write
- */
-export async function GET() {
+export async function POST(request: NextRequest) {
   try {
-    const testWallet = "0x" + "0".repeat(40); // Test wallet address
-    
-    const status = {
+    const body = await request.json();
+    const { walletAddress, action = "test" } = body;
+
+    if (!walletAddress) {
+      return NextResponse.json(
+        { error: "Missing walletAddress" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedAddress = walletAddress.toLowerCase();
+
+    const result: any = {
       timestamp: new Date().toISOString(),
       isSupabaseConfigured,
-      supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL ? `${env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30)}...` : "MISSING",
-      hasServiceRoleKey: !!env.SUPABASE_SERVICE_ROLE_KEY,
-      testResults: {
-        read: null as any,
-        write: null as any,
-        delete: null as any,
-      },
-      errors: [] as string[],
+      NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "NOT SET",
+      SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY ? "SET" : "NOT SET",
+      walletAddress: normalizedAddress,
+      action,
+      steps: [],
     };
 
     if (!isSupabaseConfigured) {
       return NextResponse.json({
-        ...status,
+        ...result,
         error: "Supabase not configured",
-        message: "Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY",
+        steps: [
+          { step: "config_check", status: "failed", message: "Supabase credentials missing" },
+        ],
       }, { status: 500 });
     }
 
-    // Test 1: Read
+    // Step 1: Check existing record
     try {
-      const readResult = await db
+      result.steps.push({ step: "check_existing", status: "in_progress" });
+      const existing = await db
         .select()
         .from(chat_tokens)
+        .where(eq(chat_tokens.wallet_address, normalizedAddress))
         .limit(1);
-      status.testResults.read = {
-        success: true,
-        recordCount: readResult?.length || 0,
-      };
-    } catch (readError: any) {
-      status.testResults.read = {
-        success: false,
-        error: readError.message,
-      };
-      status.errors.push(`Read error: ${readError.message}`);
+      
+      result.steps.push({
+        step: "check_existing",
+        status: "success",
+        found: existing && existing.length > 0,
+        record: existing && existing.length > 0 ? {
+          balance: existing[0].balance,
+          points: existing[0].points,
+        } : null,
+      });
+    } catch (error: any) {
+      result.steps.push({
+        step: "check_existing",
+        status: "error",
+        error: error.message,
+      });
+      return NextResponse.json(result, { status: 500 });
     }
 
-    // Test 2: Write (INSERT)
+    // Step 2: Insert or Update
     try {
-      const testData = {
-        wallet_address: testWallet,
-        balance: 999999,
-        points: 0,
-        total_tokens_spent: 0,
-      };
+      result.steps.push({ step: "write_operation", status: "in_progress" });
       
-      await db.insert(chat_tokens).values(testData);
-      
-      // Verify write
-      const verifyResult = await db
+      const existing = await db
         .select()
         .from(chat_tokens)
-        .where(eq(chat_tokens.wallet_address, testWallet))
+        .where(eq(chat_tokens.wallet_address, normalizedAddress))
         .limit(1);
-      
-      status.testResults.write = {
-        success: verifyResult && verifyResult.length > 0,
-        inserted: verifyResult?.length || 0,
-      };
 
-      // Test 3: Delete (cleanup)
-      try {
-        await db.delete(chat_tokens).where(eq(chat_tokens.wallet_address, testWallet));
-        status.testResults.delete = {
-          success: true,
-          message: "Test record deleted",
-        };
-      } catch (deleteError: any) {
-        status.testResults.delete = {
-          success: false,
-          error: deleteError.message,
-          warning: "Test record may still exist in database",
-        };
-        status.errors.push(`Delete error: ${deleteError.message}`);
+      if (existing && existing.length > 0) {
+        // Update existing
+        const updateResult = await db
+          .update(chat_tokens)
+          .set({
+            balance: (Number(existing[0].balance) || 0) + 100,
+            updated_at: new Date().toISOString(),
+          })
+          .where(eq(chat_tokens.wallet_address, normalizedAddress))
+          .execute();
+        
+        result.steps.push({
+          step: "write_operation",
+          status: "success",
+          operation: "update",
+          updateResult,
+        });
+      } else {
+        // Insert new
+        const insertResult = await db.insert(chat_tokens).values({
+          wallet_address: normalizedAddress,
+          balance: 100,
+          points: 0,
+          total_tokens_spent: 0,
+        }).execute();
+        
+        result.steps.push({
+          step: "write_operation",
+          status: "success",
+          operation: "insert",
+          insertResult,
+        });
       }
-    } catch (writeError: any) {
-      status.testResults.write = {
-        success: false,
-        error: writeError.message,
-      };
-      status.errors.push(`Write error: ${writeError.message}`);
+    } catch (error: any) {
+      result.steps.push({
+        step: "write_operation",
+        status: "error",
+        error: error.message,
+        stack: error.stack,
+        code: error.code,
+      });
+      return NextResponse.json(result, { status: 500 });
     }
 
-    const allTestsPassed = 
-      status.testResults.read?.success &&
-      status.testResults.write?.success &&
-      status.testResults.delete?.success;
+    // Step 3: Verify write
+    try {
+      result.steps.push({ step: "verify_write", status: "in_progress" });
+      const verify = await db
+        .select()
+        .from(chat_tokens)
+        .where(eq(chat_tokens.wallet_address, normalizedAddress))
+        .limit(1);
+      
+      result.steps.push({
+        step: "verify_write",
+        status: verify && verify.length > 0 ? "success" : "failed",
+        verified: verify && verify.length > 0,
+        record: verify && verify.length > 0 ? {
+          balance: verify[0].balance,
+          points: verify[0].points,
+        } : null,
+      });
+    } catch (error: any) {
+      result.steps.push({
+        step: "verify_write",
+        status: "error",
+        error: error.message,
+      });
+      return NextResponse.json(result, { status: 500 });
+    }
 
-    return NextResponse.json({
-      ...status,
-      summary: allTestsPassed ? "✅ All tests passed" : "❌ Some tests failed",
-      recommendation: allTestsPassed
-        ? "Supabase is working correctly!"
-        : "Check Supabase configuration and database schema",
-    }, {
-      status: allTestsPassed ? 200 : 500,
-    });
+    result.success = true;
+    return NextResponse.json(result, { status: 200 });
+
   } catch (error: any) {
+    console.error("Debug endpoint error:", error);
     return NextResponse.json({
-      error: "Test failed",
+      error: "Internal server error",
       message: error.message,
       stack: error.stack,
     }, { status: 500 });
   }
 }
-

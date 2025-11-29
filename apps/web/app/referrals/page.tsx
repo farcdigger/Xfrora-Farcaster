@@ -126,29 +126,43 @@ export default function ReferralsPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <nav className="border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="text-xl font-bold text-black dark:text-white">
+      <nav className="border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50 bg-white dark:bg-black">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              {/* Back Button - Mobile */}
+              <Link 
+                href="/" 
+                className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-lg transition-colors flex-shrink-0"
+                aria-label="Back to home"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              
+              <Link href="/" className="text-lg sm:text-xl font-bold text-black dark:text-white whitespace-nowrap">
                 XFRORA
               </Link>
-              <span className="text-sm text-gray-600 dark:text-gray-400">Referrals</span>
+              <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">Referrals</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <ThemeToggle />
-              <div className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg">Wallet</div>
+              {/* Wallet badge - hide on very small screens */}
+              <div className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-gray-100 dark:bg-gray-800 rounded-lg hidden xs:block">
+                Wallet
+              </div>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
-        <h1 className="text-3xl font-bold text-black dark:text-white mb-6">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12">
+        <h1 className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-4 sm:mb-6">
           Invite Friends & Earn Rewards
         </h1>
         
-        <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 p-6 rounded-lg mb-8">
+        <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 p-4 sm:p-6 rounded-lg mb-6 sm:mb-8">
           <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
             How it works
           </h2>
@@ -202,40 +216,40 @@ export default function ReferralsPage() {
         ) : (
           <div className="space-y-6">
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Total Referrals</p>
-                <p className="text-3xl font-bold text-black dark:text-white">{stats.totalReferrals}</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-3 sm:p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Total Referrals</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-black dark:text-white">{stats.totalReferrals}</p>
               </div>
-              <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Credits Earned</p>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.totalCreditsEarned.toLocaleString()}</p>
+              <div className="p-3 sm:p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">Credits Earned</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">{stats.totalCreditsEarned.toLocaleString()}</p>
               </div>
-              <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center bg-blue-50 dark:bg-blue-900/10">
-                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">USDC Pending</p>
-                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">${stats.usdcPending.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Paid after sale ends</p>
+              <div className="p-3 sm:p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center bg-blue-50 dark:bg-blue-900/10">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">USDC Pending</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">${stats.usdcPending.toFixed(2)}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">Paid after sale ends</p>
               </div>
-              <div className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">USDC Paid</p>
-                <p className="text-3xl font-bold text-gray-600 dark:text-gray-400">${stats.usdcPaid.toFixed(2)}</p>
+              <div className="p-3 sm:p-4 border border-gray-200 dark:border-gray-800 rounded-lg text-center">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">USDC Paid</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-600 dark:text-gray-400">${stats.usdcPaid.toFixed(2)}</p>
               </div>
             </div>
 
             {/* Link Generation */}
-            <div className="p-6 border border-gray-200 dark:border-gray-800 rounded-lg">
-              <h3 className="font-bold text-black dark:text-white mb-4">Your Referral Link</h3>
+            <div className="p-4 sm:p-6 border border-gray-200 dark:border-gray-800 rounded-lg">
+              <h3 className="font-bold text-black dark:text-white mb-3 sm:mb-4 text-sm sm:text-base">Your Referral Link</h3>
               
               {referralCode ? (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input 
                     readOnly 
                     value={referralLink}
-                    className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm text-black dark:text-white"
+                    className="flex-1 px-3 sm:px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs sm:text-sm text-black dark:text-white min-w-0"
                   />
                   <button
                     onClick={() => navigator.clipboard.writeText(referralLink)}
-                    className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-semibold rounded hover:opacity-90"
+                    className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-semibold rounded hover:opacity-90 text-sm sm:text-base whitespace-nowrap"
                   >
                     Copy
                   </button>

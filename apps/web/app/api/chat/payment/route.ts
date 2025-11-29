@@ -377,23 +377,56 @@ export async function POST(request: NextRequest) {
 
     // Ensure chat_tokens record exists for NFT owner (handles transferred NFTs)
     const { ensureChatTokensRecordForNFTOwner } = await import("@/lib/nft-ownership-helpers");
-    await ensureChatTokensRecordForNFTOwner(walletAddress);
+    try {
+      await ensureChatTokensRecordForNFTOwner(walletAddress);
+    } catch (ensureError: any) {
+      console.error("⚠️ Warning: Failed to ensure chat_tokens record:", ensureError);
+      // Continue anyway - addTokens might create it
+    }
 
     // Save payment and update token balance in database
+    const isSupabaseConfigured = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
     console.log("💾 Saving tokens to database:", {
       walletAddress,
       tokens,
-      isSupabaseConfigured: !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      isSupabaseConfigured,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "NOT SET",
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? "SET" : "NOT SET",
     });
+
+    if (!isSupabaseConfigured) {
+      console.error("❌ Supabase not configured! Cannot save tokens.");
+      return NextResponse.json(
+        { error: "Database not configured. Please check server configuration." },
+        { status: 500 }
+      );
+    }
 
     const { addTokens } = await import("@/lib/chat-tokens-mock");
-    const newBalance = await addTokens(walletAddress, tokens);
-
-    console.log("✅ Tokens saved successfully:", {
-      walletAddress,
-      tokensAdded: tokens,
-      newBalance,
-    });
+    let newBalance: number;
+    
+    try {
+      newBalance = await addTokens(walletAddress, tokens);
+      console.log("✅ Tokens saved successfully:", {
+        walletAddress,
+        tokensAdded: tokens,
+        newBalance,
+      });
+    } catch (addTokensError: any) {
+      console.error("❌ Failed to save tokens to Supabase:", {
+        error: addTokensError.message,
+        stack: addTokensError.stack,
+        walletAddress,
+        tokens,
+      });
+      return NextResponse.json(
+        { 
+          error: "Failed to save tokens to database",
+          details: addTokensError.message,
+        },
+        { status: 500 }
+      );
+    }
 
     // TODO: Save payment record to database
     // TODO: Calculate actual Daydreams tokens based on GPT-4o-mini pricing

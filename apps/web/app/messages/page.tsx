@@ -114,26 +114,30 @@ export default function MessagesPage() {
     <div className="min-h-screen bg-white dark:bg-black">
       {/* Navbar */}
       <nav className="border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50 bg-white dark:bg-black">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              {/* Back Button - Mobile */}
+              <div className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400 flex-shrink-0">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              
               <img 
                 src="/frora-logo.png" 
                 alt="XFRORA Logo" 
-                className="w-10 h-10 rounded-full object-cover"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
               />
-              <span className="text-xl font-bold text-gray-800 uppercase dark:text-slate-100">XFRORA</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">Messages</span>
+              <span className="text-lg sm:text-xl font-bold text-gray-800 uppercase dark:text-slate-100 whitespace-nowrap">XFRORA</span>
+              <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">Messages</span>
             </Link>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/social"
-                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-              >
-                Social
-              </Link>
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <ThemeToggle />
-              <div className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg">Wallet</div>
+              {/* Wallet badge - hide on very small screens */}
+              <div className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-gray-100 dark:bg-gray-800 rounded-lg hidden xs:block whitespace-nowrap">
+                Wallet
+              </div>
             </div>
           </div>
         </div>

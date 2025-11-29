@@ -256,7 +256,7 @@ export async function addTokens(
 
     if (existing && existing.length > 0) {
       console.log("🔄 Updating existing record...");
-      await db
+      const updateResult = await db
         .update(chat_tokens)
         .set({
           balance: newBalance,
@@ -265,42 +265,70 @@ export async function addTokens(
         })
         .where(eq(chat_tokens.wallet_address, normalizedAddress))
         .execute();
-      console.log("✅ Update successful!");
+      console.log("✅ Update successful!", { updateResult });
+      
+      // Verify the update
+      const verifyResult = await db
+        .select()
+        .from(chat_tokens)
+        .where(eq(chat_tokens.wallet_address, normalizedAddress))
+        .limit(1);
+      
+      if (verifyResult && verifyResult.length > 0) {
+        console.log("✅ Verification - Updated record:", {
+          balance: verifyResult[0].balance,
+          points: verifyResult[0].points,
+        });
+      } else {
+        console.error("❌ Verification failed - record not found after update!");
+      }
     } else {
       // ✅ Kredi satın alındığında direkt kayıt oluştur (mint kontrolü yok)
       // Çünkü kullanıcı para ödemiş, kredileri saklanmalı!
       console.log("➕ Inserting new chat_tokens record with purchased credits...");
-      await db.insert(chat_tokens).values({
+      const insertResult = await db.insert(chat_tokens).values({
         wallet_address: normalizedAddress,
         balance: newBalance,
         points: 0,
         total_tokens_spent: 0,
-      });
-      console.log("✅ Insert successful!");
+      }).execute();
+      console.log("✅ Insert successful!", { insertResult });
+      
+      // Verify the insert
+      const verifyResult = await db
+        .select()
+        .from(chat_tokens)
+        .where(eq(chat_tokens.wallet_address, normalizedAddress))
+        .limit(1);
+      
+      if (verifyResult && verifyResult.length > 0) {
+        console.log("✅ Verification - Inserted record:", {
+          balance: verifyResult[0].balance,
+          points: verifyResult[0].points,
+        });
+      } else {
+        console.error("❌ Verification failed - record not found after insert!");
+        throw new Error("Record not found after insert - Supabase write may have failed");
+      }
     }
 
     return newBalance;
   } catch (dbError: any) {
     console.error("❌ Database error adding tokens:", {
       error: dbError.message,
+      code: dbError.code,
       stack: dbError.stack,
       walletAddress: normalizedAddress,
       amount,
       isSupabaseConfigured,
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + "...",
       hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      errorDetails: dbError,
     });
-    // ⚠️ Hata durumunda bile balance'ı döndür ama kullanıcıya bilgi ver
-    // Fallback to mock storage (ama bu kayıt tutulmaz, sadece bu request için)
-    console.warn("⚠️ Falling back to mock storage (data will not persist!)");
-    const current = mockTokenBalances.get(normalizedAddress) || { balance: 0, points: 0 };
-    const newBalance = current.balance + amount;
-    mockTokenBalances.set(normalizedAddress, {
-      balance: newBalance,
-      points: current.points, // Preserve existing points
-    });
-    // ⚠️ Gerçek balance'ı döndür ama mock'a yazılmış (kalıcı değil)
-    return newBalance;
+    
+    // Throw error instead of silently falling back to mock
+    // This way the caller knows the operation failed
+    throw new Error(`Failed to save tokens to Supabase: ${dbError.message}`);
   }
 }
 
