@@ -24,9 +24,17 @@ import { env } from "@/env.mjs";
  */
 
 export async function GET() {
-  // Get base URL from environment or use default
+  // Get base URL from environment or use Vercel URL as fallback
+  // Priority: NEXT_PUBLIC_BASE_URL > VERCEL_URL > Default Vercel URL
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://xfroranft.xyz");
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://xfrora-farcaster-web.vercel.app");
+  
+  // Log for debugging (remove in production if needed)
+  console.log("🔗 Farcaster manifest base URL:", {
+    baseUrl,
+    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
+    VERCEL_URL: process.env.VERCEL_URL,
+  });
 
   // Logo URLs - Use Frora logo from public folder
   const logoUrl = `${baseUrl}/frora-logo-manifest.png`; // Custom manifest logo
