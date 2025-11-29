@@ -46,9 +46,6 @@ async function getLatestReport() {
   };
 }
 
-export const dynamic = "force-static";
-export const revalidate = 0;
-
 export default async function YamaAgentPage() {
   const latest = await getLatestReport();
 
