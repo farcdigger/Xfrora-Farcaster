@@ -80,13 +80,12 @@ export async function GET() {
     },
     
     // Account Association (Domain Verification)
-    // Note: accountAssociation requires domain verification signature
-    // This should be generated using Farcaster's domain verification tool
+    // Domain ownership verification signature for Farcaster
     // See: https://docs.farcaster.xyz/miniapps/sharing#domain-verification
     accountAssociation: {
-      // This will be populated with actual signature during domain verification
-      // Format: { "account": "your-account", "signature": "..." }
-      // For now, left empty until domain verification is completed
+      header: "eyJmaWQiOjI1MTYxOSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk3Njc1RjAzRDY1RkFCNzM3MWZhMkJlQjNkYkY5YzY4NDJjOGQ1MjUifQ",
+      payload: "eyJkb21haW4iOiJ4ZnJvcmEtZmFyY2FzdGVyLXdlYi52ZXJjZWwuYXBwIn0",
+      signature: "icCQq88CLuv68KkTwZySK/iCjXdwdgOVfejhii7cBx1xXvc0HbMvpj0R0hP0y2ghL8cYxLus9UzhbMC2MPYHihw="
     }
   };
 
