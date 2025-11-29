@@ -66,11 +66,11 @@ const supabaseKvClient = {
     } catch (error: any) {
       // Check if it's a connection error
       if (error?.code === "ENOTFOUND" || error?.code === "ECONNREFUSED") {
-        console.error("❌ Supabase KV connection error - DATABASE_URL may be wrong or Supabase is down:", {
+        console.error("❌ Supabase KV connection error - check Supabase configuration:", {
           code: error.code,
           hostname: error.hostname || "unknown",
           message: error.message,
-          note: "Check Vercel environment variables - DATABASE_URL should be set"
+          note: "Check Vercel environment variables - NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
         });
       } else {
         console.error("Supabase KV get error:", error);
@@ -149,8 +149,8 @@ const supabaseKvClient = {
           code: error?.code,
           hostname: error?.hostname || "unknown",
           message: error?.message,
-          note: "DATABASE_URL connection string may be incorrect. Check Vercel environment variables.",
-          suggestion: "Use connection pooling URL: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
+          note: "Supabase connection may be misconfigured. Check Vercel environment variables.",
+          suggestion: "Ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set correctly"
         });
       } else {
         console.error("Supabase KV incr error:", {
@@ -327,31 +327,15 @@ if (env.KV_REST_API_URL && env.KV_REST_API_TOKEN && !env.KV_REST_API_URL.include
   console.log("✅ Vercel KV (Redis) will be used for rate limiting");
 }
 
-// Fallback to Supabase KV if Vercel KV is not available
-if (kvClient === mockKvClient && !isMockMode && env.DATABASE_URL && !env.DATABASE_URL.includes("mock://")) {
-  // Validate DATABASE_URL format
-  try {
-    const dbUrl = new URL(env.DATABASE_URL);
-    if (dbUrl.protocol === "postgresql:" || dbUrl.protocol === "postgres:") {
-      kvClient = supabaseKvClient;
-      console.log("✅ Supabase KV (PostgreSQL) will be used for rate limiting");
-    } else {
-      console.warn("⚠️ Invalid DATABASE_URL protocol, using mock KV:", dbUrl.protocol);
-      kvClient = mockKvClient;
-    }
-  } catch (urlError) {
-    console.error("❌ Invalid DATABASE_URL format, using mock KV:", urlError);
-    kvClient = mockKvClient;
-  }
+// Fallback to Supabase KV (uses REST API connection, not DATABASE_URL)
+if (kvClient === mockKvClient && !isMockMode) {
+  kvClient = supabaseKvClient;
+  console.log("✅ Supabase KV (via REST API) will be used for rate limiting");
 }
 
 // Final fallback to mock KV
 if (kvClient === mockKvClient) {
-  if (isMockMode || !env.DATABASE_URL || env.DATABASE_URL.includes("mock://")) {
-    console.log("ℹ️ Using mock KV storage (development mode or no KV configured)");
-  } else {
-    console.warn("⚠️ No KV storage configured - using mock KV (rate limiting will be permissive)");
-  }
+  console.log("ℹ️ Using mock KV storage (development mode or no KV configured)");
 }
 
 export const kv = kvClient as any;

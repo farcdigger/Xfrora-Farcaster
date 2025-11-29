@@ -22,8 +22,8 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   UPDATE_TOKEN_SECRET: z.string().optional(),
   ADMIN_API_KEY: z.string().optional(), // Admin endpoint'leri için API key
-  // Legacy: DATABASE_URL is optional now (Supabase REST API is preferred)
-  DATABASE_URL: z.string().url().optional().or(z.literal("mock://localhost")),
+  // REMOVED: DATABASE_URL no longer needed - using Supabase REST API
+  // Rate limiting uses kv_store table via Supabase connection
   // Vercel KV (Redis) - Preferred for rate limiting (faster, more reliable)
   // If Vercel KV is not configured, falls back to Supabase KV (PostgreSQL)
   KV_REST_API_URL: z.string().url().optional().or(z.literal("http://localhost:6379")),
@@ -77,7 +77,7 @@ const envDefaults = isDevelopment ? {
   X_CLIENT_ID: "mock_client_id",
   X_CLIENT_SECRET: "mock_client_secret",
   X_CALLBACK_URL: "http://localhost:3000/api/auth/x/callback",
-  DATABASE_URL: "mock://localhost",
+  // REMOVED: DATABASE_URL
   KV_REST_API_URL: "http://localhost:6379",
   KV_REST_API_TOKEN: "mock_token",
 } : {};
@@ -91,5 +91,5 @@ const envRaw = {
 export const env = envSchema.parse(envRaw);
 
 // Mock mode kontrolü
-// Only use mock mode in development OR if DATABASE_URL is explicitly set to mock
-export const isMockMode = env.DATABASE_URL === "mock://localhost" || (isDevelopment && !env.DATABASE_URL);
+// Only use mock mode in development (no DATABASE_URL check needed)
+export const isMockMode = isDevelopment;

@@ -447,13 +447,13 @@ export async function POST(request: NextRequest) {
           console.error("❌ DATABASE AUTHENTICATION ERROR:", {
             code: dbError?.code,
             message: dbError?.message,
-            hint: "Check DATABASE_URL in Vercel environment variables",
+            hint: "Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel environment variables",
             suggestion: "Verify password and username format in connection string",
             connectionPoolingFormat: "postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres",
             directFormat: "postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres",
           });
           return NextResponse.json({ 
-            error: "Database connection failed. Please check DATABASE_URL configuration.",
+            error: "Database connection failed. Please check Supabase configuration.",
             details: "Authentication error - verify username and password in connection string"
           }, { status: 500 });
         }
