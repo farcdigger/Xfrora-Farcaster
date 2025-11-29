@@ -1223,7 +1223,7 @@ function HomePageContent() {
               <Link
                 href="/yama-agent"
                 onClick={() => setYamaAgentLoading(true)}
-                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-black/40 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors font-semibold disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full border border-gray-900/15 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm backdrop-blur transition-all hover:bg-white dark:border-white/30 dark:bg-white/10 dark:text-white sm:px-4 sm:text-sm"
               >
                 {yamaAgentLoading ? (
                   <>
@@ -1238,32 +1238,11 @@ function HomePageContent() {
                 )}
               </Link>
               
-              {/* Credits & Points Display (only when wallet connected) */}
-              {isConnected && address && (
-                <div className="flex items-center gap-2">
-                  {/* Credits */}
-                  <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded-full bg-white dark:bg-black">
-                    <div className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full"></div>
-                    <span className="text-xs sm:text-sm font-semibold text-black dark:text-white whitespace-nowrap">
-                      {tokenBalance !== null ? tokenBalance.toLocaleString('en-US') : '0'} credits
-                    </span>
-                  </div>
-                  
-                  {/* Points */}
-                  <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-full">
-                    <div className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full"></div>
-                    <span className="text-xs sm:text-sm font-semibold text-black dark:text-white whitespace-nowrap">
-                      {points.toLocaleString('en-US')} points
-                    </span>
-                  </div>
-                </div>
-              )}
-              
               {/* Dropdown Menu */}
               <div className="relative">
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
-                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white hover:bg-gray-900 dark:hover:bg-gray-100 transition-colors font-semibold"
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-900/15 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm backdrop-blur transition-all hover:bg-white dark:border-white/30 dark:bg-white/10 dark:text-white sm:px-4 sm:text-sm"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -1272,7 +1251,20 @@ function HomePageContent() {
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-black border border-gray-200 dark:border-gray-800 shadow-lg z-50">
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200/60 bg-white/95 shadow-2xl backdrop-blur dark:border-gray-800/80 dark:bg-gray-900/90 z-50">
+                    {isConnected && address && (
+                      <div className="border-b border-gray-100/70 px-4 py-3 text-sm dark:border-gray-800/80">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Wallet stats
+                        </p>
+                        <div className="mt-1 flex flex-col gap-1 font-semibold text-gray-900 dark:text-gray-100">
+                          <span>
+                            {tokenBalance !== null ? tokenBalance.toLocaleString("en-US") : "0"} credits
+                          </span>
+                          <span>{points.toLocaleString("en-US")} points</span>
+                        </div>
+                      </div>
+                    )}
                     <a
                       href="https://opensea.io/collection/xfrora"
                       target="_blank"

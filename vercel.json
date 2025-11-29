@@ -1,9 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/yama-agent/run",
-      "schedule": "0 9,21 * * *"
-    }
-  ]
-}
-
