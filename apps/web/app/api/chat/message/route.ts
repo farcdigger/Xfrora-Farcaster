@@ -188,6 +188,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure chat_tokens record exists for NFT owner (handles transferred NFTs)
+    const { ensureChatTokensRecordForNFTOwner } = await import("@/lib/nft-ownership-helpers");
+    await ensureChatTokensRecordForNFTOwner(walletAddress);
+
     // Check token balance and points from database
     const { db, chat_tokens } = await import("@/lib/db");
     const { eq } = await import("drizzle-orm");

@@ -375,6 +375,10 @@ export async function POST(request: NextRequest) {
     const AVERAGE_COST_PER_1M_TOKENS = 0.285; // $0.285 per 1M tokens (GPT-4o-mini average)
     const tokens = Math.floor((tokenAmountUSD / AVERAGE_COST_PER_1M_TOKENS) * 1_000_000);
 
+    // Ensure chat_tokens record exists for NFT owner (handles transferred NFTs)
+    const { ensureChatTokensRecordForNFTOwner } = await import("@/lib/nft-ownership-helpers");
+    await ensureChatTokensRecordForNFTOwner(walletAddress);
+
     // Save payment and update token balance in database
     console.log("💾 Saving tokens to database:", {
       walletAddress,

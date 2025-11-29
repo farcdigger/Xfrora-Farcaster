@@ -76,6 +76,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ code: existingCode.code });
     }
 
+    // Ensure chat_tokens record exists for NFT owner (handles transferred NFTs)
+    // This allows NFT owners to use referral features even if they didn't mint
+    const { ensureChatTokensRecordForNFTOwner } = await import("@/lib/nft-ownership-helpers");
+    await ensureChatTokensRecordForNFTOwner(walletAddress);
+
     // Create new unique code (last 6 chars of wallet + random string if needed)
     // Simple version: 'ref_' + last 6 chars of wallet
     const code = `ref_${normalizedWallet.slice(-6)}`;

@@ -7,6 +7,7 @@ import { db, chat_tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { isMockMode } from "@/env.mjs";
 import { getMockTokenBalances } from "@/lib/chat-tokens-mock";
+import { ensureChatTokensRecordForNFTOwner } from "@/lib/nft-ownership-helpers";
 
 // Force dynamic rendering to avoid static generation errors
 export const dynamic = 'force-dynamic';
@@ -62,24 +63,28 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // ✅ DEĞİŞİKLİK: No record found - ÖNCE MINT KONTROLÜ YAP
-      // Sadece mint edenler için chat_tokens kaydı oluştur
-      const { supabaseClient } = await import("@/lib/db-supabase");
-      if (supabaseClient) {
-        const { data: tokenData } = await (supabaseClient as any)
-          .from("tokens")
-          .select("status, token_id, wallet_address")
-          .eq("wallet_address", normalizedAddress)
-          .or("status.eq.minted,token_id.gt.0")
+      // ✅ No record found - Check NFT ownership from blockchain (handles transferred NFTs)
+      // If wallet owns NFT (even if transferred), create chat_tokens record
+      const recordCreated = await ensureChatTokensRecordForNFTOwner(walletAddress);
+      
+      if (recordCreated) {
+        // Re-fetch the newly created record
+        const newResult = await db
+          .select()
+          .from(chat_tokens)
+          .where(eq(chat_tokens.wallet_address, normalizedAddress))
           .limit(1);
         
-        // ✅ Sadece mint edenler için kayıt oluştur
-        if (tokenData && tokenData.length > 0) {
-          await db.insert(chat_tokens).values({
-            wallet_address: normalizedAddress,
-            balance: 0,
-            points: 0,
-            total_tokens_spent: 0,
+        if (newResult && newResult.length > 0) {
+          return NextResponse.json({ 
+            balance: Number(newResult[0].balance) || 0,
+            points: Number(newResult[0].points) || 0,
+          }, {
+            headers: {
+              'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+              'Pragma': 'no-cache',
+              'Expires': '0',
+            },
           });
         }
       }
