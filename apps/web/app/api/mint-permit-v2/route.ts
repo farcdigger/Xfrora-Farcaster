@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { wallet, farcaster_user_id } = body;
+    const { wallet, farcaster_user_id, farcaster_username } = body;
     
     // Validate input
     if (!wallet || !farcaster_user_id) {
@@ -529,19 +529,27 @@ export async function POST(request: NextRequest) {
           const normalizedWallet = (settlement.payer || wallet).toLowerCase();
           
           if (existingUser && existingUser.length > 0) {
-            // User exists - update wallet_address if different
-            if (existingUser[0].wallet_address !== normalizedWallet) {
+            // User exists - update wallet_address and username if different
+            const needsUpdate = 
+              existingUser[0].wallet_address !== normalizedWallet ||
+              (farcaster_username && existingUser[0].username !== farcaster_username);
+            
+            if (needsUpdate) {
               await db
                 .update(users)
-                .set({ wallet_address: normalizedWallet })
+                .set({ 
+                  wallet_address: normalizedWallet,
+                  username: farcaster_username || existingUser[0].username,
+                  updated_at: new Date().toISOString()
+                })
                 .where(eq(users.x_user_id, userId));
-              console.log("✅ User wallet_address updated in users table");
+              console.log("✅ User wallet_address and username updated in users table");
             }
           } else {
             // User doesn't exist - create new user (Farcaster user)
             await db.insert(users).values({
               x_user_id: userId,
-              username: `farcaster_${userId}`, // Farcaster username (will be updated later if needed)
+              username: farcaster_username || `farcaster_${userId}`,
               wallet_address: normalizedWallet,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()

@@ -725,6 +725,7 @@ function HomePageContent() {
           body: JSON.stringify({
             wallet: address,
             farcaster_user_id: userId,
+            farcaster_username: farcasterUser?.username,
           }),
         });
       } else {
@@ -760,6 +761,7 @@ function HomePageContent() {
           body: JSON.stringify({
             wallet: address,
             farcaster_user_id: userId,
+            farcaster_username: farcasterUser?.username,
           }),
         });
       }
