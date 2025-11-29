@@ -32,7 +32,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient());
   
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={wagmiConfig} reconnectOnMount={true}>
       <QueryClientProvider client={client}>
         <ThemeProvider>{children}</ThemeProvider>
       </QueryClientProvider>

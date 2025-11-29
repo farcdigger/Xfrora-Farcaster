@@ -15,7 +15,7 @@ import GenerationProgress from "@/components/GenerationProgress";
 import ThemeToggle from "@/components/ThemeToggle";
 import Chatbot from "@/components/Chatbot";
 import PaymentModal from "@/components/PaymentModal";
-import { useAccount, useWalletClient, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useWalletClient, useConnect } from "wagmi";
 
 function HomePageContent() {
   const searchParams = useSearchParams();
@@ -41,7 +41,6 @@ function HomePageContent() {
   const { address, isConnected, connector } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Initialize Farcaster SDK and call ready()
@@ -92,52 +91,47 @@ function HomePageContent() {
     initFarcasterSDK();
   }, []);
 
-  // Auto-connect wallet if in Mini App and not already connected
-  // Farcaster Mini App connector automatically connects if user has a wallet
+  // Auto-connect Farcaster wallet on Mini App load (once, never disconnect)
   useEffect(() => {
-    let isCleanedUp = false;
+    let hasAttempted = false;
     
-    const autoConnect = async () => {
-      if (isCleanedUp) return;
+    const autoConnectFarcasterWallet = async () => {
+      if (hasAttempted) return;
+      hasAttempted = true;
       
       try {
         const inMiniApp = await sdk.isInMiniApp();
-        if (!inMiniApp || isCleanedUp) return;
-        
-        const miniAppConnector = connectors.find((c) => 
-          c.id === "farcasterMiniApp" || c.name?.toLowerCase().includes("farcaster")
-        );
-        
-        if (!miniAppConnector || isCleanedUp) return;
-        
-        // If already connected but NOT to Farcaster wallet, disconnect first (only once)
-        if (isConnected && connector?.id && connector.id !== "farcasterMiniApp") {
-          console.log("⚠️ Non-Farcaster wallet detected, disconnecting once...");
-          disconnect();
-          // Don't do anything else, let the next render handle reconnection
+        if (!inMiniApp) {
+          console.log("ℹ️ Not in Farcaster Mini App, skipping auto-connect");
           return;
         }
         
-        // If not connected, connect to Farcaster wallet
-        if (!isConnected && !isCleanedUp) {
-          try {
+        // Already connected to Farcaster wallet? Perfect, do nothing!
+        if (isConnected && connector?.id === "farcasterMiniApp") {
+          console.log("✅ Farcaster wallet already connected");
+          return;
+        }
+        
+        // Not connected yet? Connect to Farcaster wallet
+        if (!isConnected) {
+          const miniAppConnector = connectors.find((c) => 
+            c.id === "farcasterMiniApp" || c.name?.toLowerCase().includes("farcaster")
+          );
+          
+          if (miniAppConnector) {
             console.log("🔗 Auto-connecting to Farcaster wallet...");
             connect({ connector: miniAppConnector });
-          } catch (connectError) {
-            console.log("ℹ️ Auto-connect failed:", connectError);
+          } else {
+            console.warn("⚠️ Farcaster wallet connector not found");
           }
         }
       } catch (error) {
-        console.log("ℹ️ Could not check if in Mini App:", error);
+        console.error("❌ Auto-connect error:", error);
       }
     };
     
-    autoConnect();
-    
-    return () => {
-      isCleanedUp = true;
-    };
-  }, [isConnected, connector?.id]); // Only depend on isConnected and connector.id (not the functions!)
+    autoConnectFarcasterWallet();
+  }, []); // Run once on mount, never again
 
   // Fetch token balance and points
   const fetchTokenBalanceAndPoints = async (walletAddress: string) => {
