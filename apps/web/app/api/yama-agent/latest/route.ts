@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseClient } from "@/lib/db-supabase";
 
 export const runtime = "nodejs";
+// Force dynamic rendering (don't run during build)
+export const dynamic = 'force-dynamic';
 
 // Type for graph_reports table row
 type GraphReport = {

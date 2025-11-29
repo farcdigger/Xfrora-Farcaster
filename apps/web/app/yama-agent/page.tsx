@@ -3,6 +3,10 @@ import Link from "next/link";
 import remarkGfm from "remark-gfm";
 import { supabaseClient } from "@/lib/db-supabase";
 
+// Force dynamic rendering (don't run during build)
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Type for graph_reports table row
 type GraphReport = {
   report_date: string;

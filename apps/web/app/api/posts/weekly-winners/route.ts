@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, weekly_rewards } from "@/lib/db";
 import { supabaseClient } from "@/lib/db-supabase";
 
+// Force dynamic rendering (don't run during build)
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Get latest weekly rewards
