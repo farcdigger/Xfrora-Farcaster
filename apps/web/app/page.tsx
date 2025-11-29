@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ethers } from "ethers";
@@ -40,7 +40,6 @@ function HomePageContent() {
   const { address, isConnected, connector } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { connect, connectors } = useConnect();
-  const introVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Initialize Farcaster SDK and call ready()
   // Call ready() as soon as possible to hide splash screen, but after interface is ready
@@ -226,17 +225,6 @@ function HomePageContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (!introVideoRef.current) return;
-    const video = introVideoRef.current;
-    video.currentTime = 0;
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Autoplay might be blocked; keep poster frame
-      });
-    }
-  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -1673,37 +1661,6 @@ function HomePageContent() {
             </div>
           </div>
         )}
-        
-        {/* Intro Animation */}
-        <div className="max-w-4xl mx-auto mb-16 px-4">
-          <div className="relative rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <video
-              ref={introVideoRef}
-              src="/xfrora-intro.mp4"
-              className="w-full h-full object-cover"
-              autoPlay
-              muted
-              playsInline
-              controls={false}
-              loop={false}
-              onClick={(event) => {
-                const vid = event.currentTarget;
-                vid.currentTime = 0;
-                const promise = vid.play();
-                if (promise !== undefined) {
-                  promise.catch(() => {
-                    // Autoplay prevented; ignore
-                  });
-                }
-              }}
-              onEnded={(event) => event.currentTarget.pause()}
-              onError={(event) => {
-                console.error("Intro video failed to load", event);
-              }}
-            />
-            <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/40" />
-          </div>
-        </div>
         
         {/* Example Creations - xFrora Examples */}
         <PreviousCreations />
