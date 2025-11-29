@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     try {
       // Decrypt session data
       const crypto = require("crypto");
-      const secretKey = (env.FARCASTER_CLIENT_SECRET || env.X_CLIENT_SECRET || "").substring(0, 32);
+      const secretKey = ((env.FARCASTER_CLIENT_SECRET || env.X_CLIENT_SECRET) || "").substring(0, 32);
       
       if (!secretKey) {
         console.error("❌ FARCASTER_CLIENT_SECRET not configured - cannot decrypt session");
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const secretKey = (env.FARCASTER_CLIENT_SECRET || env.X_CLIENT_SECRET || "").substring(0, 32);
+    const secretKey = ((env.FARCASTER_CLIENT_SECRET || env.X_CLIENT_SECRET) || "").substring(0, 32);
     
     if (!secretKey) {
       console.error("❌ FARCASTER_CLIENT_SECRET not configured - cannot encrypt session");
