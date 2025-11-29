@@ -518,6 +518,41 @@ export async function POST(request: NextRequest) {
         });
         console.log("💾 Transaction recorded in payments table");
         
+        // ✅ UPSERT users table with wallet_address (same as X OAuth callback does)
+        try {
+          const existingUser = await db
+            .select()
+            .from(users)
+            .where(eq(users.x_user_id, userId))
+            .limit(1);
+          
+          const normalizedWallet = (settlement.payer || wallet).toLowerCase();
+          
+          if (existingUser && existingUser.length > 0) {
+            // User exists - update wallet_address if different
+            if (existingUser[0].wallet_address !== normalizedWallet) {
+              await db
+                .update(users)
+                .set({ wallet_address: normalizedWallet })
+                .where(eq(users.x_user_id, userId));
+              console.log("✅ User wallet_address updated in users table");
+            }
+          } else {
+            // User doesn't exist - create new user (Farcaster user)
+            await db.insert(users).values({
+              x_user_id: userId,
+              username: `farcaster_${userId}`, // Farcaster username (will be updated later if needed)
+              wallet_address: normalizedWallet,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            console.log("✅ User inserted into users table");
+          }
+        } catch (userError) {
+          console.error("⚠️ Failed to upsert user (non-critical):", userError);
+          // Don't fail the flow if user insert fails
+        }
+        
         // ✅ UPDATE tokens status to 'paid' (payment successful, ready to mint)
         try {
           await db
