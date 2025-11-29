@@ -46,8 +46,8 @@ export async function GET() {
 
   // Logo URLs - Use Frora logo from public folder
   // Farcaster requires iconUrl to be 512x512 or 1024x1024 PNG
-  // Using properly formatted 1024x1024 PNG logo for manifest
-  const logoUrl = `${baseUrl}/frora-logo-manifest-1024.png`; // Primary app icon (1024x1024 PNG - Farcaster compliant)
+  // Using optimized 512x512 PNG logo for manifest (smaller file size, faster loading)
+  const logoUrl = `${baseUrl}/frora-logo-512.png`; // Primary app icon (512x512 PNG - Farcaster compliant, optimized size)
   const splashImageUrl = `${baseUrl}/frora-splash.png`; // Splash screen logo (Frora.jpeg converted to PNG)
   // Use sharing-banner.png if available, fallback to og-xfrora.png
   const sharingBannerUrl = `${baseUrl}/sharing-banner.png`; // Sharing banner for social cards
