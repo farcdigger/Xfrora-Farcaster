@@ -278,7 +278,7 @@ function HomePageContent() {
       
       // First check if user already minted (check token_id in database)
       try {
-        const mintStatusResponse = await fetch("/api/check-mintStatus", {
+        const mintStatusResponse = await fetch("/api/check-mint-status", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
