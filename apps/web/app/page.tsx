@@ -5,9 +5,10 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ethers } from "ethers";
-import type { GenerateResponse, MintPermitResponse } from "@/lib/types";
+import type { GenerateResponse, MintPermitResponse, FarcasterUser } from "@/lib/types";
 import { wrapFetchWithPayment } from "x402-fetch";
 import { env } from "@/env.mjs";
+import { sdk } from "@farcaster/miniapp-sdk";
 import Hero from "@/components/Hero";
 import StepCard from "@/components/StepCard";
 import PreviousCreations from "@/components/PreviousCreations";
@@ -15,12 +16,12 @@ import GenerationProgress from "@/components/GenerationProgress";
 import ThemeToggle from "@/components/ThemeToggle";
 import Chatbot from "@/components/Chatbot";
 import PaymentModal from "@/components/PaymentModal";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useWalletClient, useConnect } from "wagmi";
 
 function HomePageContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState<"connect" | "generate" | "pay" | "mint">("connect");
-  const [xUser, setXUser] = useState<{ x_user_id: string; username: string; profile_image_url: string; bio?: string } | null>(null);
+  const [farcasterUser, setFarcasterUser] = useState<FarcasterUser | null>(null);
   const [generated, setGenerated] = useState<GenerateResponse | null>(null);
   const [wallet, setWallet] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,83 @@ function HomePageContent() {
   const [yamaAgentLoading, setYamaAgentLoading] = useState(false);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { connect, connectors } = useConnect();
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Initialize Farcaster SDK and call ready()
+  // Call ready() as soon as possible to hide splash screen, but after interface is ready
+  useEffect(() => {
+    const initFarcasterSDK = async () => {
+      try {
+        // Call ready() immediately to hide splash screen and display content
+        // This should be called as soon as possible while avoiding jitter and content reflows
+        await sdk.actions.ready();
+        console.log("✅ Farcaster SDK initialized and ready - splash screen hidden");
+        
+        // After ready(), load user context and check for existing NFT asynchronously
+        // This doesn't block the UI from displaying
+        (async () => {
+          try {
+            const context = await sdk.context;
+            console.log("📱 Farcaster context:", context);
+            
+            // If user is authenticated, get their profile
+            if (context?.user) {
+              const user: FarcasterUser = {
+                fid: context.user.fid.toString(),
+                username: context.user.username || "",
+                display_name: context.user.displayName,
+                pfp_url: context.user.pfpUrl || "",
+                bio: (context.user as any).bio,
+              };
+              setFarcasterUser(user);
+              console.log("✅ Farcaster user loaded:", user);
+              
+              // Check for existing NFT (non-blocking)
+              checkExistingNFT(user.fid).catch((err) => {
+                console.warn("⚠️ Error checking existing NFT:", err);
+              });
+            }
+          } catch (contextError) {
+            console.log("ℹ️ No Farcaster context available (may be running outside Farcaster client)");
+          }
+        })();
+        
+      } catch (error) {
+        console.error("❌ Error initializing Farcaster SDK:", error);
+        // Don't block the app if SDK fails - might be running outside Farcaster client
+      }
+    };
+    
+    initFarcasterSDK();
+  }, []);
+
+  // Auto-connect wallet if in Mini App and not already connected
+  // Farcaster Mini App connector automatically connects if user has a wallet
+  useEffect(() => {
+    const autoConnect = async () => {
+      try {
+        const inMiniApp = await sdk.isInMiniApp();
+        if (inMiniApp && !isConnected && connectors.length > 0) {
+          const miniAppConnector = connectors.find((c) => 
+            c.id === "farcasterMiniApp" || c.name?.toLowerCase().includes("farcaster")
+          );
+          if (miniAppConnector) {
+            try {
+              console.log("🔗 Auto-connecting to Farcaster wallet...");
+              connect({ connector: miniAppConnector });
+            } catch (connectError) {
+              console.log("ℹ️ Auto-connect failed (user may not have wallet):", connectError);
+            }
+          }
+        }
+      } catch (error) {
+        console.log("ℹ️ Could not check if in Mini App:", error);
+      }
+    };
+    
+    autoConnect();
+  }, [isConnected, connect, connectors]);
 
   // Fetch token balance and points
   const fetchTokenBalanceAndPoints = async (walletAddress: string) => {
@@ -193,75 +270,21 @@ function HomePageContent() {
     };
   }, []);
 
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const savedUser = localStorage.getItem("xUser");
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        console.log("🔄 Restoring user from localStorage:", user.username);
-        setXUser(user);
-        // Check their NFT status
-        checkExistingNFT(user.x_user_id);
-      } catch (e) {
-        console.error("Failed to parse saved user:", e);
-        localStorage.removeItem("xUser");
-      }
-    }
-  }, []);
 
-  // Handle OAuth callback
-  useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const xUserId = searchParams?.get("x_user_id");
-      const username = searchParams?.get("username");
-      const profileImageUrl = searchParams?.get("profile_image_url");
-      const bio = searchParams?.get("bio");
-      const errorParam = searchParams?.get("error");
-
-      if (errorParam) {
-        setError(decodeURIComponent(errorParam));
-      } else if (xUserId && username) {
-        const userData = {
-          x_user_id: xUserId,
-          username,
-          profile_image_url: profileImageUrl || "",
-          bio: bio || undefined,
-        };
-        
-        setXUser(userData);
-        
-        // 💾 Save to localStorage for persistence
-        localStorage.setItem("xUser", JSON.stringify(userData));
-        console.log("💾 User saved to localStorage:", username);
-        
-        // X connected - check for existing NFT FIRST, then set step accordingly
-        await checkExistingNFT(xUserId);
-        
-        // If no NFT was found, move to generate step
-        // If NFT was found, checkExistingNFT will set step to "pay"
-        // But we need to check generated state to see if NFT was found
-        // Since state updates are async, we'll set step after a small delay or check in checkExistingNFT
-      }
-    };
-    
-    handleOAuthCallback();
-  }, [searchParams]);
-
-  // Check for existing NFT
-  const checkExistingNFT = async (xUserId: string): Promise<boolean> => {
+  // Check for existing NFT for Farcaster user
+  const checkExistingNFT = async (userId: string): Promise<boolean> => {
     try {
-      console.log("🔍 Checking for existing NFT for user:", xUserId);
+      console.log("🔍 Checking for existing NFT for Farcaster user:", userId);
       let pendingPayment = false;
       
       // First check if user already minted (check token_id in database)
       try {
-        const mintStatusResponse = await fetch("/api/check-mint-status", {
+        const mintStatusResponse = await fetch("/api/check-mintStatus", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ x_user_id: xUserId }),
+          body: JSON.stringify({ farcaster_user_id: userId }),
         });
         
         if (mintStatusResponse.ok) {
@@ -286,7 +309,7 @@ function HomePageContent() {
                 accessory: "none"
               },
             });
-            setCurrentUserId(xUserId);
+            setCurrentUserId(userId);
             setStep("mint"); // Show success screen
             return true;
           }
@@ -306,7 +329,9 @@ function HomePageContent() {
                 provider
               );
               
-              const hash = ethers.id(xUserId);
+              // Convert user ID to contract format (same as backend)
+              const userIdString = userId.toString();
+              const hash = ethers.id(userIdString);
               const xUserIdBigInt = BigInt(hash);
               const isUsed = await contract.usedXUserId(xUserIdBigInt);
               
@@ -329,7 +354,7 @@ function HomePageContent() {
                     accessory: "none"
                   },
                 });
-                setCurrentUserId(xUserId);
+                setCurrentUserId(userId);
                 setStep("mint"); // Show success screen
                 return true;
               }
@@ -344,9 +369,12 @@ function HomePageContent() {
       }
       
       // Not minted yet - check for generated metadata
-      const response = await fetch(`/api/generate?x_user_id=${xUserId}`, {
-        cache: 'no-store',
-      });
+      const response = await fetch(
+        `/api/generate?farcaster_user_id=${userId}`,
+        {
+          cache: 'no-store',
+        }
+      );
       
       if (response.ok) {
         const data: GenerateResponse = await response.json();
@@ -360,7 +388,7 @@ function HomePageContent() {
         if (data.preview || data.imageUrl) {
           console.log("✅ Found existing NFT metadata, can proceed to mint");
           setGenerated(data);
-          setCurrentUserId(xUserId);
+          setCurrentUserId(userId);
           // Move to pay step if NFT metadata exists but not minted yet
           setStep("pay");
           if (pendingPayment) {
@@ -395,29 +423,29 @@ function HomePageContent() {
     }
   };
 
-  // Check for existing X session on mount
+  // Check for existing Farcaster session on mount
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // Check for existing X session
-        const sessionResponse = await fetch("/api/auth/x/session", {
+        // Check for existing Farcaster session
+        const sessionResponse = await fetch("/api/auth/farcaster/session", {
           cache: 'no-store',
         });
         const sessionData = await sessionResponse.json();
         
         if (sessionData.authenticated && sessionData.user) {
-          setXUser(sessionData.user);
-          console.log("✅ Restored X session:", sessionData.user.username);
+          setFarcasterUser(sessionData.user);
+          console.log("✅ Restored Farcaster session:", sessionData.user.username);
           // Check for existing NFT when session is restored
           // checkExistingNFT will set step to "pay" if NFT exists, "generate" if not
-          const hasNFT = await checkExistingNFT(sessionData.user.x_user_id);
+          const hasNFT = await checkExistingNFT(sessionData.user.fid);
           if (!hasNFT) {
             // Only set to generate if no NFT was found
             setStep("generate");
           }
         }
       } catch (error) {
-        console.log("No X session found");
+        console.log("No Farcaster session found");
       }
     };
 
@@ -427,9 +455,10 @@ function HomePageContent() {
   // Check mint status when on pay step
   useEffect(() => {
     const checkMintStatus = async () => {
-      if (step === "pay" && xUser && !alreadyMinted && wallet) {
+      if (step === "pay" && farcasterUser && !alreadyMinted && wallet) {
         try {
-          console.log("🔍 Checking mint status on pay step for user:", xUser.x_user_id);
+          const userId = farcasterUser.fid;
+          console.log("🔍 Checking mint status on pay step for Farcaster user:", userId);
           
           // Check database first
           const mintStatusResponse = await fetch("/api/check-mint-status", {
@@ -437,7 +466,7 @@ function HomePageContent() {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ x_user_id: xUser.x_user_id }),
+            body: JSON.stringify({ farcaster_user_id: userId }),
           });
           
           let mintStatus: any = null;
@@ -476,8 +505,14 @@ function HomePageContent() {
               provider
             );
             
-            // Convert x_user_id to uint256
-            const hash = ethers.id(xUser.x_user_id);
+            // Convert Farcaster fid to contract format (same as backend)
+            const userId = farcasterUser?.fid;
+            if (!userId) {
+              console.warn("⚠️ No Farcaster user ID available for contract check");
+              return;
+            }
+            const userIdString = userId.toString();
+            const hash = ethers.id(userIdString);
             const xUserIdBigInt = BigInt(hash);
             
             const isUsed = await contract.usedXUserId(xUserIdBigInt);
@@ -500,11 +535,11 @@ function HomePageContent() {
     };
     
     checkMintStatus();
-  }, [step, xUser, alreadyMinted, wallet]);
+  }, [step, farcasterUser, alreadyMinted, wallet]);
 
-  const disconnectX = () => {
-    // Clear X account connection
-    setXUser(null);
+  const disconnectFarcaster = () => {
+    // Clear Farcaster account connection
+    setFarcasterUser(null);
     setGenerated(null);
     setCurrentUserId(null);
     setMintedTokenId(null);
@@ -515,24 +550,20 @@ function HomePageContent() {
     setStep("connect");
     
     // 🗑️ Clear localStorage
-    localStorage.removeItem("xUser");
-    console.log("🗑️ User data cleared from localStorage");
+    localStorage.removeItem("farcasterUser");
+    console.log("🗑️ Farcaster user data cleared from localStorage");
     
-    // Clear URL parameters
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("x_user_id");
-      url.searchParams.delete("username");
-      url.searchParams.delete("profile_image_url");
-      url.searchParams.delete("bio");
-      url.searchParams.delete("error");
-      window.history.replaceState({}, "", url.toString());
-    }
+    // Clear session from backend
+    fetch("/api/auth/farcaster/session", {
+      method: "DELETE",
+    }).catch((err) => {
+      console.warn("⚠️ Failed to clear session from backend:", err);
+    });
   };
 
   const resetToHome = () => {
     // Reset all state to initial values
-    setXUser(null);
+    setFarcasterUser(null);
     setGenerated(null);
     setWallet(null);
     setCurrentUserId(null);
@@ -544,112 +575,82 @@ function HomePageContent() {
     setStep("connect");
     
     // 🗑️ Clear localStorage
-    localStorage.removeItem("xUser");
-    console.log("🗑️ User data cleared from localStorage");
-    
-    // Clear URL parameters
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("x_user_id");
-      url.searchParams.delete("username");
-      url.searchParams.delete("profile_image_url");
-      url.searchParams.delete("bio");
-      url.searchParams.delete("error");
-      window.history.replaceState({}, "", url.toString());
-    }
+    localStorage.removeItem("farcasterUser");
+    console.log("🗑️ Farcaster user data cleared from localStorage");
   };
 
-  const connectX = async () => {
+  const connectFarcaster = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Save wallet address to cookie for callback to use
-      if (address) {
-        document.cookie = `temp_wallet_address=${address}; path=/; max-age=3600; SameSite=Lax`;
-        console.log("💾 Saved wallet address to cookie:", address.substring(0, 10) + "...");
-      } else {
-        console.log("⚠️ No wallet connected yet - will save address later");
-      }
+      console.log("🔗 Connecting to Farcaster...");
       
-      // Get OAuth URL from backend (more secure - client ID not exposed)
-      const response = await fetch("/api/auth/x/authorize", {
-        cache: 'no-store',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to initiate X OAuth" }));
-        
-        // Show detailed error message
-        const errorMessage = errorData.error || "X OAuth not configured";
-        const errorDetails = errorData.details || {};
-        
-        let fullError = errorMessage;
-        if (errorData.details) {
-          fullError += "\n\nConfiguration status:\n";
-          if (errorData.details.hasClientId !== undefined) {
-            fullError += `- Client ID: ${errorData.details.hasClientId ? "✅" : "❌"}\n`;
-          }
-          if (errorData.details.hasClientSecret !== undefined) {
-            fullError += `- Client Secret: ${errorData.details.hasClientSecret ? "✅" : "❌"}\n`;
-          }
-          if (errorData.details.hasCallbackUrl !== undefined) {
-            fullError += `- Callback URL: ${errorData.details.hasCallbackUrl ? "✅" : "❌"}\n`;
-          }
-          if (errorData.details.callbackUrl) {
-            fullError += `- Callback URL value: ${errorData.details.callbackUrl}\n`;
-          }
-        }
-        
-        throw new Error(fullError);
-      }
-      
-      const data = await response.json();
-      const { authUrl, state } = data;
-      
-      if (!authUrl) {
-        throw new Error("Failed to obtain OAuth URL");
-      }
-      
-      // Validate OAuth URL before redirect
+      // Use Farcaster SDK to get user context
       try {
-        const url = new URL(authUrl);
-        if (url.hostname !== "twitter.com" && url.hostname !== "x.com") {
-          throw new Error(`Invalid OAuth URL hostname: ${url.hostname}`);
+        const context = await sdk.context;
+        console.log("📱 Farcaster context:", context);
+        
+        if (context?.user) {
+          const user: FarcasterUser = {
+            fid: context.user.fid.toString(),
+            username: context.user.username || "",
+            display_name: context.user.displayName,
+            pfp_url: context.user.pfpUrl || "",
+            bio: (context.user as any).bio,
+          };
+          
+          setFarcasterUser(user);
+          
+          // Save to localStorage for persistence
+          localStorage.setItem("farcasterUser", JSON.stringify(user));
+          console.log("💾 Farcaster user saved to localStorage:", user.username);
+          
+          // Save session to backend
+          try {
+            const sessionResponse = await fetch("/api/auth/farcaster/session", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(user),
+            });
+            
+            if (sessionResponse.ok) {
+              console.log("✅ Farcaster session saved to backend");
+            }
+          } catch (sessionError) {
+            console.warn("⚠️ Failed to save session to backend:", sessionError);
+          }
+          
+          // Check for existing NFT
+          await checkExistingNFT(user.fid);
+          
+          setStep("generate");
+        } else {
+          throw new Error("No Farcaster user found. Please make sure you're using the app within a Farcaster client.");
         }
-        console.log("🔗 Valid OAuth URL:", {
-          hostname: url.hostname,
-          pathname: url.pathname,
-          hasState: !!state,
-          paramsCount: url.searchParams.toString().split("&").length,
-        });
-      } catch (urlError) {
-        console.error("❌ Invalid OAuth URL:", urlError);
-        throw new Error(`Invalid OAuth URL: ${authUrl.substring(0, 50)}...`);
+      } catch (sdkError) {
+        console.error("❌ Farcaster SDK error:", sdkError);
+        throw new Error("Failed to connect to Farcaster. Please make sure you're using the app within a Farcaster client.");
       }
-      
-      // PKCE verifier is stored server-side (keyed by state)
-      // No need to store in client
-      console.log("🔗 Redirecting to X OAuth:", authUrl.substring(0, 100) + "...");
-      
-      // Use window.location.replace to prevent back button issues
-      window.location.replace(authUrl);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to connect X";
-      console.error("❌ X OAuth connection error:", errorMessage);
+      const errorMessage = err instanceof Error ? err.message : "Failed to connect Farcaster";
+      console.error("❌ Farcaster connection error:", errorMessage);
       setError(errorMessage);
+    } finally {
       setLoading(false);
     }
   };
 
   const generateNFT = async () => {
-    if (!xUser) {
-      setError("X account not connected");
+    if (!farcasterUser) {
+      setError("Farcaster account not connected");
       return;
     }
     
     // Save userId for mint step
-    setCurrentUserId(xUser.x_user_id);
+    setCurrentUserId(farcasterUser.fid);
     
     try {
       setLoading(true);
@@ -660,10 +661,10 @@ function HomePageContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          x_user_id: xUser.x_user_id,
-          profile_image_url: xUser.profile_image_url,
-          username: xUser.username,
-          bio: xUser.bio,
+          farcaster_user_id: farcasterUser.fid,
+          profile_image_url: farcasterUser.pfp_url,
+          username: farcasterUser.username,
+          bio: farcasterUser.bio,
         }),
       });
       
@@ -759,7 +760,7 @@ function HomePageContent() {
           },
           body: JSON.stringify({
             wallet,
-            x_user_id: userId,
+            farcaster_user_id: userId,
           }),
         });
       } else {
@@ -794,7 +795,7 @@ function HomePageContent() {
           },
           body: JSON.stringify({
             wallet,
-            x_user_id: userId,
+            farcaster_user_id: userId,
           }),
         });
       }
@@ -1078,20 +1079,22 @@ function HomePageContent() {
           }
           
           console.log("🔍 Final tokenId:", tokenId);
-          console.log("🔍 Debug - xUser:", xUser ? `${xUser.username} (${xUser.x_user_id})` : "NULL");
+          const userId = farcasterUser?.fid;
+          const username = farcasterUser?.username;
+          console.log("🔍 Debug - User:", userId ? `${username} (${userId})` : "NULL");
           setMintedTokenId(tokenId || null);
           
           // 💾 Update token_id in database
-          // Get x_user_id from localStorage (more reliable than state)
-          const savedUser = localStorage.getItem("xUser");
-          const userFromStorage = savedUser ? JSON.parse(savedUser) : null;
-          const x_user_id = xUser?.x_user_id || userFromStorage?.x_user_id;
+          // Get user_id from state or localStorage (more reliable than state)
+          const savedFarcasterUser = localStorage.getItem("farcasterUser");
+          const farcasterUserFromStorage = savedFarcasterUser ? JSON.parse(savedFarcasterUser) : null;
+          const finalUserId = farcasterUser?.fid || farcasterUserFromStorage?.fid;
           
-          if (tokenId && x_user_id) {
+          if (tokenId && finalUserId) {
             try {
               console.log("💾 Updating token_id in database...");
               console.log("📤 Request body:", {
-                x_user_id,
+                farcaster_user_id: finalUserId,
                 token_id: tokenId,
                 transaction_hash: receipt.hash
               });
@@ -1101,7 +1104,7 @@ function HomePageContent() {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                  x_user_id,
+                  farcaster_user_id: finalUserId,
                   token_id: tokenId,
                   transaction_hash: receipt.hash,
                 }),
@@ -1121,10 +1124,9 @@ function HomePageContent() {
           } else {
             console.error("❌ CRITICAL: Cannot update token_id in database!", {
               hasTokenId: !!tokenId,
-              hasXUserId: !!x_user_id,
-              xUserState: xUser ? `${xUser.username} (${xUser.x_user_id})` : "NULL",
-              localStorage: userFromStorage ? `${userFromStorage.username} (${userFromStorage.x_user_id})` : "NULL",
-              reason: !tokenId ? "tokenId is null/undefined" : "x_user_id is null/undefined"
+              hasUserId: !!userId,
+              farcasterUserState: farcasterUser ? `${farcasterUser.username} (${farcasterUser.fid})` : "NULL",
+              reason: !tokenId ? "tokenId is null/undefined" : "user_id is null/undefined"
             });
           }
         } else {
@@ -1134,10 +1136,11 @@ function HomePageContent() {
         setTransactionHash(receipt.hash);
         console.log("✅ NFT minted successfully!");
 
-        // 🔗 REFERRAL TRACKING: Check pending_referrals table for this user's x_user_id
+        // 🔗 REFERRAL TRACKING: Check pending_referrals table for this Farcaster user
         try {
-          if (xUser && xUser.x_user_id) {
-            console.log("🔍 Checking for pending referral for x_user_id:", xUser.x_user_id);
+          const userId = farcasterUser?.fid;
+          if (userId) {
+            console.log("🔍 Checking for pending referral for farcaster_user_id:", userId);
             
             const trackResponse = await fetch("/api/referrals/track-by-x-user", {
               method: "POST",
@@ -1145,7 +1148,7 @@ function HomePageContent() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                x_user_id: xUser.x_user_id,
+                farcaster_user_id: userId,
                 wallet: wallet.toLowerCase(),
               }),
             });
@@ -1162,16 +1165,16 @@ function HomePageContent() {
               console.log("ℹ️ No pending referral found or already processed");
             }
           } else {
-            console.log("ℹ️ No X user data available for referral tracking");
+            console.log("ℹ️ No Farcaster user data available for referral tracking");
           }
         } catch (refError) {
           console.error("❌ Referral tracking error:", refError);
         }
         
         // 💾 Update localStorage to persist mint success
-        if (xUser) {
-          localStorage.setItem("xUser", JSON.stringify(xUser));
-          console.log("💾 User data persisted to localStorage");
+        if (farcasterUser) {
+          localStorage.setItem("farcasterUser", JSON.stringify(farcasterUser));
+          console.log("💾 Farcaster user data persisted to localStorage");
         }
       } else {
         throw new Error("Transaction receipt is null");
@@ -1355,9 +1358,9 @@ function HomePageContent() {
               </div>
               
               <div className="flex items-center gap-2">
-                {xUser && (
+                {farcasterUser && (
                   <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-sm dark:bg-slate-800 dark:text-slate-100">
-                    <span className="text-gray-700 dark:text-slate-100">@{xUser.username}</span>
+                    <span className="text-gray-700 dark:text-slate-100">@{farcasterUser.username}</span>
                   </div>
                 )}
 
@@ -1423,7 +1426,7 @@ function HomePageContent() {
       
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
-        <Hero xUser={xUser} mintStats={mintStats} loadingStats={statsLoading} />
+        <Hero farcasterUser={farcasterUser} mintStats={mintStats} loadingStats={statsLoading} />
         
         {/* Error Message */}
           {error && (
@@ -1437,20 +1440,20 @@ function HomePageContent() {
         {/* 3-Card Layout - Always show all 3 steps */}
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {/* Card 1: Connect X Profile */}
+            {/* Card 1: Connect Farcaster Profile */}
             <StepCard
-              icon="x"
+              icon="farcaster"
               title="Connect Your Profile"
-              status={xUser ? "connected" : "idle"}
-              statusText={xUser ? `X Account: @${xUser.username}` : undefined}
+              status={farcasterUser ? "connected" : "idle"}
+              statusText={farcasterUser ? `Farcaster: @${farcasterUser.username}` : undefined}
               actionButton={
-                !xUser ? (
+                !farcasterUser ? (
                   <button
-                    onClick={connectX}
+                    onClick={connectFarcaster}
                     disabled={loading}
                     className="btn-primary w-full"
                   >
-                    {loading ? "Connecting..." : "Connect X Profile"}
+                    {loading ? "Connecting..." : "Connect Farcaster Profile"}
                   </button>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -1461,7 +1464,7 @@ function HomePageContent() {
                     ✓ Connected
                   </button>
                     <button
-                      onClick={disconnectX}
+                      onClick={disconnectFarcaster}
                       className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors w-full"
                     >
                       Disconnect
@@ -1557,7 +1560,7 @@ function HomePageContent() {
                 !generated ? (
                   <button
                     onClick={generateNFT}
-                    disabled={loading || !xUser || !wallet}
+                    disabled={loading || !farcasterUser || !wallet}
                     className="btn-primary w-full"
                   >
                     {loading ? "Generating..." : "Generate xFrora NFT"}
@@ -1689,25 +1692,27 @@ function HomePageContent() {
               )}
               
               {/* Before & After Comparison */}
-              {(generated?.preview || generated?.imageUrl) && xUser && (
+              {(generated?.preview || generated?.imageUrl) && farcasterUser && (
                 <div className="mb-8">
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8">
-                    {/* X Profile Photo */}
+                    {/* Profile Photo */}
                     <div className="flex flex-col items-center">
                       <div className="relative">
                         <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-full overflow-hidden border-4 border-gray-300 dark:border-gray-700 shadow-xl">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={xUser.profile_image_url.replace('_normal', '_400x400')}
-                            alt={`@${xUser.username}`}
+                            src={farcasterUser?.pfp_url || '/frora-logo.png'}
+                            alt={`@${farcasterUser?.username}`}
                             className="w-full h-full object-cover"
                           />
                         </div>
                         <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-lg border-2 border-black dark:border-white">
-                          <p className="text-sm font-bold text-black dark:text-white">@{xUser.username}</p>
+                          <p className="text-sm font-bold text-black dark:text-white">@{farcasterUser?.username}</p>
                         </div>
                       </div>
-                      <p className="mt-6 text-sm text-gray-600 dark:text-gray-400 font-semibold">Your X Profile</p>
+                      <p className="mt-6 text-sm text-gray-600 dark:text-gray-400 font-semibold">
+                        Your {farcasterUser ? "Farcaster" : "X"} Profile
+                      </p>
                     </div>
 
                     {/* Arrow */}
@@ -1737,8 +1742,8 @@ function HomePageContent() {
                 </div>
               )}
 
-              {/* Fallback: Only NFT if no X profile */}
-              {(generated?.preview || generated?.imageUrl) && !xUser && (
+              {/* Fallback: Only NFT if no Farcaster profile */}
+              {(generated?.preview || generated?.imageUrl) && !farcasterUser && (
                 <div className="max-w-sm mx-auto mb-6">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -1902,16 +1907,16 @@ function HomePageContent() {
         <div className="hidden">
           {step === "connect" && (
             <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8 text-center">
-              <h2 className="text-2xl font-bold mb-4">Step 1: Connect X</h2>
-              <p className="mb-6 text-gray-300">Connect your X account to generate your unique AI creature</p>
+              <h2 className="text-2xl font-bold mb-4">Step 1: Connect Farcaster</h2>
+              <p className="mb-6 text-gray-300">Connect your Farcaster account to generate your unique AI creature</p>
               
               {/* Status indicator */}
-              {xUser && (
+              {farcasterUser && (
                 <div className="mb-6 bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span>✅ X Account: @{xUser.username}</span>
+                    <span>✅ Farcaster Account: @{farcasterUser.username}</span>
                     <button
-                      onClick={disconnectX}
+                      onClick={disconnectFarcaster}
                       className="text-red-400 hover:text-red-300 text-xs underline ml-4"
                     >
                       Disconnect
@@ -1922,15 +1927,15 @@ function HomePageContent() {
               
               <div className="space-y-4">
                 <button
-                  onClick={connectX}
-                  disabled={loading || !!xUser}
+                  onClick={connectFarcaster}
+                  disabled={loading || !!farcasterUser}
                   className={`${
-                    xUser 
+                    farcasterUser 
                       ? "bg-gray-600 cursor-not-allowed" 
                       : "bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-100"
                   } font-bold py-3 px-6 rounded-lg w-full border border-black dark:border-white transition-colors`}
                 >
-                  {xUser ? "✅ X Account Connected" : "Connect X Account"}
+                  {farcasterUser ? "✅ Farcaster Account Connected" : "Connect Farcaster Account"}
                 </button>
               </div>
             </div>
@@ -1940,19 +1945,19 @@ function HomePageContent() {
             <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8">
               <h2 className="text-2xl font-bold mb-4 text-center">Step 2: Generate</h2>
               
-              {xUser && (
+              {farcasterUser && (
                 <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm">
-                        <strong>X Account:</strong> @{xUser.username}
+                        <strong>Farcaster Account:</strong> @{farcasterUser.username}
                       </p>
                       <p className="text-sm text-gray-300 mt-1">
-                        Profile Image: {xUser.profile_image_url}
+                        Profile Image: {farcasterUser.pfp_url}
                       </p>
                     </div>
                     <button
-                      onClick={disconnectX}
+                      onClick={disconnectFarcaster}
                       className="text-red-400 hover:text-red-300 text-xs underline ml-4"
                     >
                       Disconnect
@@ -1963,7 +1968,7 @@ function HomePageContent() {
               
               <button
                 onClick={generateNFT}
-                disabled={loading || !xUser}
+                disabled={loading || !farcasterUser}
                 className="bg-green-500 hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg w-full"
               >
                 {loading ? "Generating..." : "Generate NFT"}
@@ -1986,15 +1991,15 @@ function HomePageContent() {
             <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8">
               <h2 className="text-2xl font-bold mb-4 text-center">Step 3: Connect Wallet & Mint</h2>
               
-              {/* Show X account info with disconnect option */}
-              {xUser && (
+              {/* Show Farcaster account info with disconnect option */}
+              {farcasterUser && (
                 <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <p className="text-sm">
-                      <strong>X Account:</strong> @{xUser.username}
+                      <strong>Farcaster Account:</strong> @{farcasterUser.username}
                     </p>
                     <button
-                      onClick={disconnectX}
+                      onClick={disconnectFarcaster}
                       className="text-red-400 hover:text-red-300 text-xs underline ml-4"
                     >
                       Disconnect
@@ -2173,10 +2178,10 @@ function HomePageContent() {
                   </a>
                 )}
                 
-                {/* Create Another NFT Button (disconnects X to allow new account) */}
+                {/* Create Another NFT Button (disconnects Farcaster to allow new account) */}
                 <button
                   onClick={() => {
-                    disconnectX();
+                    disconnectFarcaster();
                     setWallet(null);
                   }}
                   className="block w-full bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-100 font-bold py-3 px-6 rounded-lg text-center transition-colors border border-black dark:border-white"

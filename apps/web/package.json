@@ -13,6 +13,8 @@
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.0.0",
     "@coinbase/x402": "^0.7.1",
+    "@farcaster/miniapp-sdk": "^0.2.1",
+    "@farcaster/miniapp-wagmi-connector": "^1.1.0",
     "@google/generative-ai": "0.24.1",
     "@rainbow-me/rainbowkit": "^2.2.9",
     "@supabase/supabase-js": "^2.78.0",

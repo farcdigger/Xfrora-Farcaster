@@ -16,13 +16,15 @@ import { analyzeProfileImage } from "@/lib/vision";
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const x_user_id = searchParams.get("x_user_id");
+    const farcaster_user_id = searchParams.get("farcaster_user_id");
     
-    if (!x_user_id) {
-      return NextResponse.json({ error: "Missing x_user_id parameter" }, { status: 400 });
+    if (!farcaster_user_id) {
+      return NextResponse.json({ error: "Missing farcaster_user_id parameter" }, { status: 400 });
     }
     
-    console.log(`🔍 GET: Checking for existing NFT for user: ${x_user_id}`);
+    const userId = farcaster_user_id;
+    
+    console.log(`🔍 GET: Checking for existing NFT for Farcaster user: ${userId}`);
     
     // Use direct Supabase query (more reliable than Drizzle)
     let existingToken: any[] = [];
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
         const { data: existingTokenData, error: selectError } = await client
           .from("tokens")
           .select("*")
-          .eq("x_user_id", x_user_id)
+          .eq("farcaster_user_id", userId) // Use farcaster_user_id column
           .limit(1);
         
         if (!selectError && existingTokenData && existingTokenData.length > 0) {
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
         existingToken = await db
           .select()
           .from(tokens)
-          .where(eq(tokens.x_user_id, x_user_id))
+          .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id column
           .limit(1);
         console.log(`📊 GET: Drizzle query result: ${existingToken.length} token(s) found`);
       } catch (drizzleError: any) {
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (existingToken.length === 0) {
-      console.log(`❌ GET: No NFT found for user ${x_user_id}`);
+      console.log(`❌ GET: No NFT found for user ${userId}`);
       return NextResponse.json({ 
         error: "No NFT found for this user",
         exists: false 
@@ -115,15 +117,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body: GenerateRequest = await request.json();
-    const { x_user_id, profile_image_url } = body;
+    const { farcaster_user_id, profile_image_url } = body;
     
-    if (!x_user_id || !profile_image_url) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!farcaster_user_id || !profile_image_url) {
+      return NextResponse.json({ error: "Missing required fields (farcaster_user_id and profile_image_url)" }, { status: 400 });
     }
+    
+    const userId = farcaster_user_id;
     
     // Rate limiting (OPTIONAL - fail-open if KV unavailable)
     try {
-      const allowed = await checkGenerateRateLimit(x_user_id);
+      const allowed = await checkGenerateRateLimit(userId);
       if (!allowed) {
         return NextResponse.json({ 
           error: "Rate limit exceeded",
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
     
     // Acquire lock to prevent duplicate generation (fail-open if KV unavailable)
     // ... (Bu kısım aynı kaldı) ...
-    const lockKey = `generate:${x_user_id}`;
+    const lockKey = `generate:${userId}`;
     let lockAcquired = false;
     try {
       lockAcquired = await acquireLock(lockKey);
@@ -155,7 +159,7 @@ export async function POST(request: NextRequest) {
     try {
       // Check if user already has a generated NFT (prevent duplicate generation and cost)
       // IMPORTANT: Use direct Supabase query to bypass Drizzle condition parsing issues
-      console.log(`🔍 Checking for existing NFT for user: ${x_user_id}`);
+      console.log(`🔍 Checking for existing NFT for Farcaster user: ${userId}`);
       
       let existingToken: any[] = [];
       
@@ -167,7 +171,7 @@ export async function POST(request: NextRequest) {
           const { data: existingTokenData, error: selectError } = await client
             .from("tokens")
             .select("*")
-            .eq("x_user_id", x_user_id)
+            .eq("farcaster_user_id", userId)
             .limit(1);
           
           if (!selectError && existingTokenData && existingTokenData.length > 0) {
@@ -187,8 +191,9 @@ export async function POST(request: NextRequest) {
           existingToken = await db
             .select()
             .from(tokens)
-            .where(eq(tokens.x_user_id, x_user_id))
+            .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id column
             .limit(1);
+          console.log(`📊 Drizzle query result: ${existingToken.length} token(s) found`);
           console.log(`📊 Drizzle query result: ${existingToken.length} token(s) found`);
         } catch (drizzleError: any) {
           console.warn("⚠️ Drizzle query failed, assuming no existing NFT:", drizzleError);
@@ -199,19 +204,19 @@ export async function POST(request: NextRequest) {
       // If we found an existing token, return it immediately
       if (existingToken.length > 0) {
         const existing = existingToken[0];
-        console.log(`⚠️ User ${x_user_id} already has a generated NFT. Token details:`, {
+        console.log(`⚠️ User ${userId} already has a generated NFT. Token details:`, {
           id: existing.id,
-          x_user_id: existing.x_user_id,
+          farcaster_user_id: existing.farcaster_user_id,
           token_id: existing.token_id,
           created_at: existing.created_at,
           image_uri: existing.image_uri?.substring(0, 50) + "...",
         });
         
-        // Verify x_user_id matches (safety check)
-        if (existing.x_user_id !== x_user_id) {
-          console.error(`❌ CRITICAL: x_user_id mismatch! Expected: ${x_user_id}, Got: ${existing.x_user_id}`);
+        // Verify farcaster_user_id matches (safety check)
+        if (existing.farcaster_user_id !== userId) {
+          console.error(`❌ CRITICAL: farcaster_user_id mismatch! Expected: ${userId}, Got: ${existing.farcaster_user_id}`);
           // Continue with generation instead of returning wrong data
-          console.log("⚠️ Continuing with generation due to x_user_id mismatch");
+          console.log("⚠️ Continuing with generation due to farcaster_user_id mismatch");
         } else {
           // Convert IPFS URL to Pinata gateway URL for preview
           let previewUrl = existing.image_uri;
@@ -233,24 +238,24 @@ export async function POST(request: NextRequest) {
           });
         }
       } else {
-        console.log(`✅ No existing NFT found for user ${x_user_id}. Proceeding with generation.`);
+        console.log(`✅ No existing NFT found for user ${userId}. Proceeding with generation.`);
       }
       
       // --- DEĞİŞİKLİK BAŞLANGICI ---
       
       // ESKİ KOD (SİLİNDİ):
       // // Use deterministic traits (vision analysis disabled due to SDK issues)
-      // const seed = generateSeed(x_user_id, profile_image_url);
+      // const seed = generateSeed(userId, profile_image_url);
       // const traits = seedToTraits(seed);
       
       // YENİ KOD:
       // Adım 1: AI #1'i (Vision AI) çağır ve profil resmini analiz et
-      console.log(`[AI-1] Analyzing image for ${x_user_id}: ${profile_image_url}`);
+      console.log(`[AI-1] Analyzing image for ${userId}: ${profile_image_url}`);
       const traits = await analyzeProfileImage(profile_image_url);
       console.log(`[AI-1] Traits generated:`, traits);
       
       // Adım 2: Seed'i veritabanı/kilitleme için hala üretiyoruz
-      const seed = generateSeed(x_user_id, profile_image_url);
+      const seed = generateSeed(userId, profile_image_url);
       
       // --- DEĞİŞİKLİK BİTİŞİ ---
 
@@ -293,10 +298,10 @@ export async function POST(request: NextRequest) {
       }
       
       // Pin image to Pinata (IPFS) FIRST - we'll use Pinata gateway URL for preview
-      console.log(`📤 Pinning generated image to Pinata for user ${x_user_id}...`);
+      console.log(`📤 Pinning generated image to Pinata for user ${userId}...`);
       let imageUrl: string;
       try {
-        imageUrl = await pinToIPFS(imageBuffer, `${x_user_id}.png`);
+        imageUrl = await pinToIPFS(imageBuffer, `${userId}.png`);
         console.log(`✅ Image successfully pinned to Pinata: ${imageUrl}`);
       } catch (ipfsError: any) {
         console.error("❌ Failed to pin image to Pinata:", ipfsError);
@@ -327,8 +332,8 @@ export async function POST(request: NextRequest) {
       // Create metadata with Pinata gateway URL for image (better NFT viewer compatibility)
       // NFT viewers (OpenSea, Base NFT Explorer, etc.) work better with HTTP URLs
       const metadata = {
-        name: `xFrora #${x_user_id}`,
-        description: `Your personalized xFrora NFT forged from the vibes of X user ${x_user_id}.`,
+        name: `xFrora #${userId}`,
+        description: `Your personalized xFrora NFT forged from the vibes of Farcaster user ${userId}.`,
         image: imageUrlForMetadata, // Pinata gateway URL for better NFT viewer compatibility
         
         // DEĞİŞİKLİK: NFT metadata'sının 'main_colors' gibi array'leri
@@ -346,7 +351,7 @@ export async function POST(request: NextRequest) {
       };
       
       // Pin metadata to Pinata (IPFS)
-      console.log(`📤 Pinning metadata to Pinata for user ${x_user_id}...`);
+      console.log(`📤 Pinning metadata to Pinata for user ${userId}...`);
       let metadataUrl: string;
       try {
         metadataUrl = await pinJSONToIPFS(metadata);
@@ -371,14 +376,14 @@ export async function POST(request: NextRequest) {
         const userResult = await db
           .select()
           .from(users)
-          .where(eq(users.x_user_id, x_user_id))
+          .where(eq(users.farcaster_user_id, userId))
           .limit(1);
         
         if (userResult && userResult.length > 0) {
           walletAddress = userResult[0].wallet_address;
-          console.log(`✅ Found wallet_address for x_user_id ${x_user_id}:`, walletAddress?.substring(0, 10) + "...");
+          console.log(`✅ Found wallet_address for farcaster_user_id ${userId}:`, walletAddress?.substring(0, 10) + "...");
         } else {
-          console.log(`⚠️ No user found for x_user_id ${x_user_id}, wallet_address will be NULL`);
+          console.log(`⚠️ No user found for farcaster_user_id ${userId}, wallet_address will be NULL`);
         }
       } catch (userError) {
         console.warn(`⚠️ Error fetching user wallet_address:`, userError);
@@ -386,13 +391,14 @@ export async function POST(request: NextRequest) {
 
       // This must succeed to prevent duplicate generation and cost
       try {
-        console.log(`💾 Saving generated NFT to database for x_user_id: ${x_user_id}`);
+        console.log(`💾 Saving generated NFT to database for Farcaster user: ${userId}`);
         console.log(`   Image URL: ${imageUrl}`);
         console.log(`   Metadata URL: ${metadataUrl}`);
         console.log(`   Wallet Address: ${walletAddress || 'NULL'}`);
         
+        // Use farcaster_user_id column
         const insertResult = await db.insert(tokens).values({
-          x_user_id,
+          farcaster_user_id: userId, // Store Farcaster fid
           token_id: null, // NULL until minted (not 0!)
           seed,
           token_uri: metadataUrl,
@@ -416,7 +422,7 @@ export async function POST(request: NextRequest) {
         const verifyToken = await db
           .select()
           .from(tokens)
-          .where(eq(tokens.x_user_id, x_user_id))
+          .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id
           .limit(1);
         
         console.log(`✅ Verification query completed: ${verifyToken.length} token(s) found after insert`);
@@ -431,7 +437,7 @@ export async function POST(request: NextRequest) {
         } else {
           console.log("✅ Token verified in database:", {
             id: verifyToken[0].id,
-            x_user_id: verifyToken[0].x_user_id,
+            farcaster_user_id: verifyToken[0].farcaster_user_id,
             image_uri: verifyToken[0].image_uri,
           });
         }
@@ -469,7 +475,7 @@ export async function POST(request: NextRequest) {
               const { data: existingTokenData, error: selectError } = await client
                 .from("tokens")
                 .select("*")
-                .eq("x_user_id", x_user_id)
+                .eq("farcaster_user_id", userId)
                 .limit(1)
                 .single();
               
@@ -506,7 +512,7 @@ export async function POST(request: NextRequest) {
           const existingToken = await db
             .select()
             .from(tokens)
-            .where(eq(tokens.x_user_id, x_user_id))
+            .where(eq(tokens.farcaster_user_id, userId)) // Use farcaster_user_id
             .limit(1);
           
           if (existingToken.length > 0) {

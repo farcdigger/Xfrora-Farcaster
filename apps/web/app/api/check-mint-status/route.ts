@@ -12,16 +12,18 @@ import { isMockMode } from "@/env.mjs";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { x_user_id } = body;
+    const { farcaster_user_id } = body;
 
-    if (!x_user_id) {
+    if (!farcaster_user_id) {
       return NextResponse.json(
-        { error: "Missing x_user_id" },
+        { error: "Missing farcaster_user_id" },
         { status: 400 }
       );
     }
 
-    console.log("🔍 Checking mint status for x_user_id:", x_user_id);
+    const userId = farcaster_user_id;
+
+    console.log(`🔍 Checking mint status for farcaster_user_id: ${userId}`);
 
     // Check in database
     if (!isMockMode && db) {
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
         const existingToken = await db
           .select()
           .from(tokens)
-          .where(eq(tokens.x_user_id, x_user_id))
+          .where(eq(tokens.farcaster_user_id, userId))
           .limit(1);
 
         const tokenData = existingToken?.[0];
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest) {
           const paymentRows = await db
             .select()
             .from(payments)
-            .where(eq(payments.x_user_id, x_user_id))
+            .where(eq(payments.farcaster_user_id, userId))
             .limit(1);
           paymentRecord = paymentRows?.[0] || null;
         } catch (paymentError) {
@@ -59,8 +61,8 @@ export async function POST(request: NextRequest) {
         // hasPaid = true if status='paid' (payment done, waiting for mint)
         const hasPaid = status === "paid" || hasCompletedPayment;
 
-        console.log("✅ Mint status checked:", {
-          x_user_id,
+        console.log("✅ Mint status checked for Farcaster user:", {
+          farcaster_user_id: userId,
           status,
           hasMinted,
           hasPaid,

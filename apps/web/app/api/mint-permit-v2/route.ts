@@ -264,15 +264,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { wallet, x_user_id } = body;
+    const { wallet, farcaster_user_id } = body;
     
     // Validate input
-    if (!wallet || !x_user_id) {
+    if (!wallet || !farcaster_user_id) {
       return NextResponse.json(
-        { error: "Missing required fields: wallet and x_user_id" },
+        { error: "Missing required fields: wallet and farcaster_user_id" },
         { status: 400 }
       );
     }
+    
+    const userId = farcaster_user_id;
     
     if (!ethers.isAddress(wallet)) {
       return NextResponse.json(
@@ -290,12 +292,12 @@ export async function POST(request: NextRequest) {
           db
             .select()
             .from(tokens)
-            .where(eq(tokens.x_user_id, x_user_id))
+            .where(eq(tokens.farcaster_user_id, userId))
             .limit(1),
           db
             .select()
             .from(payments)
-            .where(eq(payments.x_user_id, x_user_id))
+            .where(eq(payments.farcaster_user_id, userId))
             .limit(1),
         ]);
         existingTokenRecord = tokenRows?.[0] || null;
@@ -314,11 +316,14 @@ export async function POST(request: NextRequest) {
     const recordedStatus = existingTokenRecord?.status || null;
     const hasCompletedPayment = existingPaymentRecord?.status === "completed";
 
-    const hash = ethers.id(x_user_id);
+    // Convert Farcaster fid to contract format (uint256)
+    // Hash the fid string to get xUserId for contract
+    const userIdString = userId.toString();
+    const hash = ethers.id(userIdString);
     const xUserIdBigInt = BigInt(hash);
 
     const issueMintPermit = async () => {
-      console.log(`📝 Generating mint permit for wallet: ${wallet}, X user: ${x_user_id}`);
+      console.log(`📝 Generating mint permit for wallet: ${wallet}, Farcaster user: ${userId}`);
 
       const provider = new ethers.JsonRpcProvider(env.RPC_URL);
       const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
@@ -328,18 +333,18 @@ export async function POST(request: NextRequest) {
 
       if (!tokenURI && !isMockMode && db) {
         try {
-          console.log(`🔍 Looking for token metadata for x_user_id: ${x_user_id}`);
+          console.log(`🔍 Looking for token metadata for farcaster_user_id: ${userId}`);
           const userToken = await db
             .select()
             .from(tokens)
-            .where(eq(tokens.x_user_id, x_user_id))
+            .where(eq(tokens.farcaster_user_id, userId))
             .limit(1);
 
           if (userToken && userToken.length > 0) {
             tokenURI = userToken[0].metadata_uri;
             console.log(`✅ Found token metadata: ${tokenURI}`);
           } else {
-            console.log(`⚠️ No token metadata found for x_user_id: ${x_user_id}`);
+            console.log(`⚠️ No token metadata found for user: ${userId}`);
           }
         } catch (dbError) {
           console.error("❌ Database error fetching metadata:", dbError);
@@ -370,24 +375,24 @@ export async function POST(request: NextRequest) {
       });
     };
 
-    // 🔒 SECURITY: Check if X user already minted BEFORE accepting payment
-    console.log(`🔍 Checking if X user ${x_user_id} already minted...`);
+    // 🔒 SECURITY: Check if Farcaster user already minted BEFORE accepting payment
+    console.log(`🔍 Checking if Farcaster user ${userId} already minted...`);
     try {
       const provider = new ethers.JsonRpcProvider(env.RPC_URL);
       const contract = new ethers.Contract(env.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       
       const xUserIdAlreadyMinted = await contract.usedXUserId(xUserIdBigInt);
       if (xUserIdAlreadyMinted) {
-        console.error("❌ X User already minted! Rejecting payment.");
+        console.error("❌ Farcaster User already minted! Rejecting payment.");
         return NextResponse.json(
           {
-            error: "X User ID already minted",
-            message: "This X account has already minted an NFT. Each X account can only mint once."
+            error: "Farcaster User ID already minted",
+            message: "This Farcaster account has already minted an NFT. Each account can only mint once."
           },
           { status: 400 }
         );
       }
-      console.log("✅ X User has not minted yet, proceeding with payment settlement...");
+      console.log("✅ Farcaster User has not minted yet, proceeding with payment settlement...");
     } catch (contractError) {
       console.error("⚠️ Contract check failed:", contractError);
       // Continue anyway - contract will validate during mint

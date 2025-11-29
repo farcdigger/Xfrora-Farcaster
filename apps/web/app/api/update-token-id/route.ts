@@ -43,18 +43,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { x_user_id, token_id, transaction_hash } = body;
+    const { farcaster_user_id, token_id, transaction_hash } = body;
 
-    console.log("🔄 Update token_id request:", {
-      x_user_id,
+    const userId = farcaster_user_id;
+
+    console.log("🔄 Update token_id request for Farcaster user:", {
+      farcaster_user_id: userId,
       token_id,
       transaction_hash: transaction_hash?.substring(0, 20) + "...",
     });
 
     // Validation
-    if (!x_user_id || token_id === undefined || token_id === null) {
+    if (!userId || token_id === undefined || token_id === null) {
       return NextResponse.json(
-        { error: "Missing required fields: x_user_id, token_id" },
+        { error: "Missing required fields: farcaster_user_id, token_id" },
         { status: 400 }
       );
     }
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
             tx_hash: transaction_hash || null,
             status: "minted",
           })
-          .eq("x_user_id", x_user_id)
+          .eq("farcaster_user_id", userId)
           .select();
 
         if (error) {
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
         }
 
         updateResult = data;
-        console.log("✅ Token ID updated via db facade", { x_user_id, token_id });
+        console.log("✅ Token ID updated via db facade for Farcaster user", { farcaster_user_id: userId, token_id });
         
         // ✅ YENİ: Mint eden cüzdan adresini chat_tokens tablosuna ekle
         if (updateResult && updateResult.length > 0) {
@@ -142,7 +144,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        x_user_id,
+        farcaster_user_id: userId,
         token_id: Number(token_id),
         tx_hash: transaction_hash,
         status: "minted",
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest) {
     console.log("⚠️ Mock mode: Database update skipped");
     return NextResponse.json({
       success: true,
-      x_user_id,
+      farcaster_user_id: userId,
       token_id: Number(token_id),
       mock: true,
     });

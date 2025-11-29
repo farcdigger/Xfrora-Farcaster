@@ -1,7 +1,7 @@
 "use client";
 
 interface StepCardProps {
-  icon: "x" | "wallet" | "nft";
+  icon: "x" | "wallet" | "nft" | "farcaster";
   title: string;
   subtitle?: string;
   status?: "idle" | "connected" | "completed";
@@ -57,6 +57,14 @@ export default function StepCard({
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
               <path d="M21 15l-5-5L5 21" />
+            </svg>
+          </div>
+        );
+      case "farcaster":
+        return (
+          <div className="w-16 h-16 rounded-full bg-purple-600 flex items-center justify-center mx-auto mb-4 dark:bg-purple-500">
+            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
             </svg>
           </div>
         );

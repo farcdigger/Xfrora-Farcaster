@@ -3,7 +3,7 @@
 export interface MintAuth {
   to: string;
   payer: string;
-  xUserId: string;
+  xUserId: string; // Contract uses xUserId (hash of farcaster fid)
   tokenURI: string;
   nonce: number;
   deadline: number;
@@ -16,15 +16,16 @@ export type Traits = {
   accessory: string; // Belirgin bir aksesuar (örn: 'glasses', 'hat', 'none')
 };
 
-export interface XUser {
-  x_user_id: string;
+export interface FarcasterUser {
+  fid: string; // Farcaster ID
   username: string;
-  profile_image_url: string;
+  display_name?: string;
+  pfp_url: string; // Profile picture URL
   bio?: string; // Profile bio/description
 }
 
 export interface GenerateRequest {
-  x_user_id: string;
+  farcaster_user_id: string; // Farcaster user ID (fid)
   profile_image_url: string;
   username?: string; // Optional: username for better AI analysis
   bio?: string; // Optional: profile bio for better AI analysis
@@ -42,7 +43,7 @@ export interface GenerateResponse {
 
 export interface MintPermitRequest {
   wallet: string;
-  x_user_id: string;
+  farcaster_user_id: string; // Farcaster user ID (fid)
 }
 
 export interface MintPermitResponse {

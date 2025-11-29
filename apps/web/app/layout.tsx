@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://xfroranft.xyz";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://xfroranft.xyz"),
-  title: "xFrora - X Profile NFTs",
+  metadataBase: new URL(baseUrl),
+  title: "xFrora - Farcaster Profile NFTs",
   description: "AI-crafted identity collection on Base",
   icons: {
     icon: "/favicon.png",
   },
   openGraph: {
-    title: "xFrora - X Profile NFTs",
+    title: "xFrora - Farcaster Profile NFTs",
     description: "AI-crafted identity collection on Base",
-    url: "https://xfroranft.xyz",
+    url: baseUrl,
     siteName: "xFrora",
     images: [
       {
@@ -27,9 +29,17 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "xFrora - X Profile NFTs",
+    title: "xFrora - Farcaster Profile NFTs",
     description: "AI-crafted identity collection on Base",
     images: ["/og-xfrora.png"],
+  },
+  other: {
+    // Farcaster Mini App Embed - Makes this page shareable as a rich card
+    "fc:miniapp": baseUrl,
+    "fc:miniapp:version": "1.0.0",
+    "fc:miniapp:image": `${baseUrl}/og-xfrora.png`,
+    "fc:miniapp:button": "Generate NFT",
+    "fc:miniapp:action": baseUrl,
   },
 };
 

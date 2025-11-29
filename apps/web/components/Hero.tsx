@@ -1,12 +1,9 @@
 "use client";
 
+import type { FarcasterUser } from "@/lib/types";
+
 interface HeroProps {
-  xUser?: {
-    x_user_id: string;
-    username: string;
-    profile_image_url: string;
-    bio?: string;
-  } | null;
+  farcasterUser?: FarcasterUser | null;
   mintStats?: {
     minted: number;
     remaining: number;
@@ -15,7 +12,7 @@ interface HeroProps {
   loadingStats?: boolean;
 }
 
-export default function Hero({ xUser, mintStats, loadingStats }: HeroProps) {
+export default function Hero({ farcasterUser, mintStats, loadingStats }: HeroProps) {
   const mintedCount = mintStats?.minted ?? 0;
   const remainingCount = mintStats?.remaining ?? 5555;
   const maxSupply = mintStats?.maxSupply ?? 5555;
@@ -34,7 +31,7 @@ export default function Hero({ xUser, mintStats, loadingStats }: HeroProps) {
           </h2>
           
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-md">
-            Link your X profile, spin up a unique AI creature, and mint your xFrora on Base with the
+            Link your Farcaster profile, spin up a unique AI creature, and mint your xFrora on Base with the
             help of secure x402 payments. Each mint costs 5&nbsp;USDC and happens in two quick wallet confirmations.
           </p>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-3">
@@ -83,23 +80,23 @@ export default function Hero({ xUser, mintStats, loadingStats }: HeroProps) {
           </div>
         </div>
         
-        {/* Right: Creature Image / X Profile Picture */}
+        {/* Right: Creature Image / Farcaster Profile Picture */}
         <div className="flex-1 flex justify-center">
           <div className="relative w-64 h-64 md:w-80 md:h-80">
-            {xUser ? (
-              // X Profile Picture
+            {farcasterUser ? (
+              // Farcaster Profile Picture
               <>
                 <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800 border-4 border-black dark:border-white flex items-center justify-center overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={xUser.profile_image_url.replace('_normal', '_400x400')}
-                    alt={`@${xUser.username}`}
+                    src={farcasterUser.pfp_url || "/frora-logo.png"}
+                    alt={`@${farcasterUser.username}`}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 {/* Decorative badge */}
                 <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-black px-4 py-2 rounded-full shadow-lg border-2 border-black dark:border-white">
-                  <p className="text-sm font-bold text-black dark:text-white">@{xUser.username}</p>
+                  <p className="text-sm font-bold text-black dark:text-white">@{farcasterUser.username}</p>
                 </div>
               </>
             ) : (
