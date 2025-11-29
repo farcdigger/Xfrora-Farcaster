@@ -376,8 +376,20 @@ export async function POST(request: NextRequest) {
     const tokens = Math.floor((tokenAmountUSD / AVERAGE_COST_PER_1M_TOKENS) * 1_000_000);
 
     // Save payment and update token balance in database
+    console.log("💾 Saving tokens to database:", {
+      walletAddress,
+      tokens,
+      isSupabaseConfigured: !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    });
+
     const { addTokens } = await import("@/lib/chat-tokens-mock");
     const newBalance = await addTokens(walletAddress, tokens);
+
+    console.log("✅ Tokens saved successfully:", {
+      walletAddress,
+      tokensAdded: tokens,
+      newBalance,
+    });
 
     // TODO: Save payment record to database
     // TODO: Calculate actual Daydreams tokens based on GPT-4o-mini pricing

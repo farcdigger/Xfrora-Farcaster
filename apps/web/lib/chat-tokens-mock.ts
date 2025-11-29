@@ -152,30 +152,9 @@ export async function updateTokenBalance(
         console.error("❌ Verification failed - record not found after update!");
       }
     } else {
-      // ✅ DEĞİŞİKLİK: Önce mint kontrolü yap - sadece mint edenler için kayıt oluştur
-      console.log("🔍 Checking if wallet has minted NFT before creating chat_tokens record...");
-      
-      try {
-        const { supabaseClient } = await import("@/lib/db-supabase");
-        if (supabaseClient) {
-          const { data: mintedToken } = await (supabaseClient as any)
-            .from("tokens")
-            .select("wallet_address, status, token_id")
-            .eq("wallet_address", normalizedAddress)
-            .or("status.eq.minted,token_id.gt.0")
-            .limit(1);
-          
-          if (!mintedToken || mintedToken.length === 0) {
-            console.log("⚠️ Wallet has not minted NFT, skipping chat_tokens record creation");
-            return; // Mint etmemiş, kayıt oluşturma
-          }
-        }
-      } catch (mintCheckError) {
-        console.error("⚠️ Error checking mint status, proceeding with insert:", mintCheckError);
-        // Hata durumunda devam et (backward compatibility)
-      }
-      
-      console.log("➕ Inserting new record...");
+      // ✅ Kayıt yoksa direkt oluştur (balance güncellemesi yapılıyorsa, bu aktivite var demektir)
+      // Mint kontrolü yapmıyoruz çünkü kredi satın alma, chat mesajı gibi aktiviteler kayıt gerektirir
+      console.log("➕ Inserting new chat_tokens record...");
       console.log("📝 Insert data:", {
         wallet_address: normalizedAddress,
         balance: newBalance,
@@ -288,30 +267,9 @@ export async function addTokens(
         .execute();
       console.log("✅ Update successful!");
     } else {
-      // ✅ DEĞİŞİKLİK: Önce mint kontrolü yap - sadece mint edenler için kayıt oluştur
-      console.log("🔍 Checking if wallet has minted NFT before creating chat_tokens record...");
-      
-      try {
-        const { supabaseClient } = await import("@/lib/db-supabase");
-        if (supabaseClient) {
-          const { data: mintedToken } = await (supabaseClient as any)
-            .from("tokens")
-            .select("wallet_address, status, token_id")
-            .eq("wallet_address", normalizedAddress)
-            .or("status.eq.minted,token_id.gt.0")
-            .limit(1);
-          
-          if (!mintedToken || mintedToken.length === 0) {
-            console.log("⚠️ Wallet has not minted NFT, skipping chat_tokens record creation");
-            return newBalance; // Mint etmemiş, kayıt oluşturma ama balance'ı döndür
-          }
-        }
-      } catch (mintCheckError) {
-        console.error("⚠️ Error checking mint status, proceeding with insert:", mintCheckError);
-        // Hata durumunda devam et (backward compatibility)
-      }
-      
-      console.log("➕ Inserting new record...");
+      // ✅ Kredi satın alındığında direkt kayıt oluştur (mint kontrolü yok)
+      // Çünkü kullanıcı para ödemiş, kredileri saklanmalı!
+      console.log("➕ Inserting new chat_tokens record with purchased credits...");
       await db.insert(chat_tokens).values({
         wallet_address: normalizedAddress,
         balance: newBalance,
@@ -328,15 +286,20 @@ export async function addTokens(
       stack: dbError.stack,
       walletAddress: normalizedAddress,
       amount,
+      isSupabaseConfigured,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + "...",
+      hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     });
-    // Fallback to mock storage
-    console.warn("⚠️ Falling back to mock storage");
+    // ⚠️ Hata durumunda bile balance'ı döndür ama kullanıcıya bilgi ver
+    // Fallback to mock storage (ama bu kayıt tutulmaz, sadece bu request için)
+    console.warn("⚠️ Falling back to mock storage (data will not persist!)");
     const current = mockTokenBalances.get(normalizedAddress) || { balance: 0, points: 0 };
     const newBalance = current.balance + amount;
     mockTokenBalances.set(normalizedAddress, {
       balance: newBalance,
       points: current.points, // Preserve existing points
     });
+    // ⚠️ Gerçek balance'ı döndür ama mock'a yazılmış (kalıcı değil)
     return newBalance;
   }
 }
