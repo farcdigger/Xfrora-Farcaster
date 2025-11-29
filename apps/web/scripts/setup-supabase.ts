@@ -15,6 +15,7 @@ function question(query: string): Promise<string> {
 
 async function setupSupabase() {
   console.log("🚀 Supabase Setup Wizard\n");
+  console.log("This will configure Supabase REST API connection (no DATABASE_URL needed)\n");
 
   // Check if .env.local exists
   const envPath = join(process.cwd(), ".env.local");
@@ -27,17 +28,14 @@ async function setupSupabase() {
     console.log("ℹ️  Creating new .env.local file\n");
   }
 
-  // Check if DATABASE_URL already exists
+  // Remove old DATABASE_URL if exists (no longer needed)
   if (envContent.includes("DATABASE_URL=")) {
-    console.log("⚠️  DATABASE_URL already exists in .env.local");
-    const overwrite = await question("Do you want to update it? (y/n): ");
-    if (overwrite.toLowerCase() !== "y") {
-      console.log("❌ Setup cancelled");
-      rl.close();
-      return;
+    console.log("⚠️  Found DATABASE_URL in .env.local (no longer needed)");
+    const remove = await question("Remove it? (y/n, default: y): ") || "y";
+    if (remove.toLowerCase() === "y") {
+      envContent = envContent.replace(/DATABASE_URL=.*\n/g, "");
+      console.log("✅ Removed DATABASE_URL\n");
     }
-    // Remove existing DATABASE_URL
-    envContent = envContent.replace(/DATABASE_URL=.*\n/g, "");
   }
 
   console.log("\n📋 Please provide Supabase connection details:\n");
@@ -50,66 +48,64 @@ async function setupSupabase() {
     return;
   }
 
-  // Extract PROJECT-REF from URL
-  const projectRefMatch = projectUrl.match(/https?:\/\/([^.]+)\.supabase\.co/);
-  if (!projectRefMatch) {
-    console.error("❌ Could not extract project reference from URL");
+  // Check if URL already exists
+  const urlPattern = /NEXT_PUBLIC_SUPABASE_URL=.*\n/;
+  if (urlPattern.test(envContent)) {
+    const overwrite = await question("   NEXT_PUBLIC_SUPABASE_URL already exists. Update? (y/n): ");
+    if (overwrite.toLowerCase() === "y") {
+      envContent = envContent.replace(urlPattern, "");
+    } else {
+      console.log("   Skipping URL update\n");
+    }
+  }
+
+  // Get Service Role Key
+  console.log("\n2. Service Role Key (from Supabase Dashboard → Settings → API → service_role key)");
+  console.log("   ⚠️  Keep this secret! Only use in server-side code");
+  const serviceRoleKey = await question("   Service Role Key: ");
+  if (!serviceRoleKey) {
+    console.error("❌ Service Role Key is required");
     rl.close();
     return;
   }
-  const projectRef = projectRefMatch[1];
-  console.log(`   ✓ Project Reference: ${projectRef}\n`);
 
-  // Get Database Password
-  const dbPassword = await question("2. Database Password (from Supabase Settings → Database): ");
-  if (!dbPassword) {
-    console.error("❌ Database password is required");
-    rl.close();
-    return;
+  // Check if key already exists
+  const keyPattern = /SUPABASE_SERVICE_ROLE_KEY=.*\n/;
+  if (keyPattern.test(envContent)) {
+    const overwrite = await question("   SUPABASE_SERVICE_ROLE_KEY already exists. Update? (y/n): ");
+    if (overwrite.toLowerCase() === "y") {
+      envContent = envContent.replace(keyPattern, "");
+    } else {
+      console.log("   Skipping key update\n");
+    }
   }
 
-  // Ask for connection type
-  console.log("\n3. Connection Type:");
-  console.log("   [1] Direct connection (port 5432) - Recommended");
-  console.log("   [2] Connection pooling (port 6543) - For production");
-  const connType = await question("   Choose (1 or 2, default: 1): ");
-
-  let connectionString = "";
-  if (connType === "2") {
-    // Pooling connection - need region
-    console.log("\n   For pooling, you need the region (e.g., eu-west-1, us-east-1)");
-    const region = await question("   Region (default: eu-west-1): ") || "eu-west-1";
-    connectionString = `postgresql://postgres.${projectRef}:${dbPassword}@aws-0-${region}.pooler.supabase.com:6543/postgres`;
-  } else {
-    // Direct connection
-    connectionString = `postgresql://postgres:${dbPassword}@db.${projectRef}.supabase.co:5432/postgres`;
+  // Add environment variables
+  let newEnvLines = "";
+  
+  // Add Supabase URL if not already present
+  if (!envContent.includes("NEXT_PUBLIC_SUPABASE_URL=")) {
+    newEnvLines += `NEXT_PUBLIC_SUPABASE_URL=${projectUrl}\n`;
+  } else if (!urlPattern.test(envContent)) {
+    newEnvLines += `NEXT_PUBLIC_SUPABASE_URL=${projectUrl}\n`;
+  }
+  
+  // Add Service Role Key if not already present
+  if (!envContent.includes("SUPABASE_SERVICE_ROLE_KEY=")) {
+    newEnvLines += `SUPABASE_SERVICE_ROLE_KEY=${serviceRoleKey}\n`;
+  } else if (!keyPattern.test(envContent)) {
+    newEnvLines += `SUPABASE_SERVICE_ROLE_KEY=${serviceRoleKey}\n`;
   }
 
-  console.log("\n✅ Connection string generated!");
-  console.log(`   ${connectionString.replace(dbPassword, "****")}\n`);
-
-  // Add DATABASE_URL to .env.local
-  const newEnvLine = `DATABASE_URL=${connectionString}\n`;
-  const updatedEnv = envContent + (envContent && !envContent.endsWith("\n") ? "\n" : "") + newEnvLine;
+  const updatedEnv = envContent + (envContent && !envContent.endsWith("\n") ? "\n" : "") + newEnvLines;
 
   writeFileSync(envPath, updatedEnv);
-  console.log("✅ DATABASE_URL added to .env.local\n");
-
-  // Ask if user wants to run migration
-  const runMigration = await question("Run migration now to create tables? (y/n): ");
-  if (runMigration.toLowerCase() === "y") {
-    console.log("\n🔄 Running migrations...\n");
-    const { execSync } = require("child_process");
-    try {
-      execSync("npm run migrate", { stdio: "inherit", cwd: process.cwd() });
-      console.log("\n✅ Migration completed successfully!");
-    } catch (error) {
-      console.error("\n❌ Migration failed. Please run manually: npm run migrate");
-    }
-  } else {
-    console.log("\nℹ️  You can run migration manually later:");
-    console.log("   npm run migrate\n");
-  }
+  console.log("\n✅ Supabase configuration added to .env.local\n");
+  console.log("📝 Next steps:");
+  console.log("   1. Run the migration SQL in Supabase Dashboard → SQL Editor:");
+  console.log("      - Use: supabase-complete-migration.sql");
+  console.log("   2. Restart your development server");
+  console.log("   3. Your app is ready to use Supabase REST API!\n");
 
   rl.close();
 }
@@ -119,4 +115,3 @@ setupSupabase().catch((error) => {
   rl.close();
   process.exit(1);
 });
-
