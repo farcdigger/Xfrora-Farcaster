@@ -62,24 +62,54 @@ export default function ReferralsPage() {
     if (!address) return;
     setCreating(true);
     try {
+      console.log("🔄 Creating referral code for wallet:", address);
+      
       const res = await fetch("/api/referrals/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ walletAddress: address }),
       });
+      
       const data = await res.json();
       
-      if (res.status === 403) {
-        alert(data.error || "You must own an xFrora NFT to create a referral link.");
+      console.log("📥 Referral create response:", {
+        status: res.status,
+        data,
+      });
+      
+      if (!res.ok) {
+        const errorMessage = data.error || data.details || "Failed to create referral link";
+        console.error("❌ Referral create failed:", {
+          status: res.status,
+          error: errorMessage,
+          details: data.details,
+        });
+        
+        if (res.status === 403) {
+          alert(`❌ ${errorMessage}\n\nPlease ensure you own an xFrora NFT in your wallet.`);
+        } else if (res.status === 500) {
+          alert(`❌ Server Error: ${errorMessage}\n\nDetails: ${data.details || "Unknown error"}\n\nPlease try again or contact support.`);
+        } else {
+          alert(`❌ Error: ${errorMessage}`);
+        }
         return;
       }
       
       if (data.code) {
+        console.log("✅ Referral code created successfully:", data.code);
         setReferralCode(data.code);
+        // Reload stats after code creation
+        await loadStats();
+      } else {
+        console.error("❌ No code returned in response:", data);
+        alert("Failed to create referral link - no code returned. Please try again.");
       }
-    } catch (error) {
-      console.error("Failed to create code", error);
-      alert("Failed to create referral link. Please try again.");
+    } catch (error: any) {
+      console.error("❌ Failed to create referral code:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      alert(`Failed to create referral link: ${error.message || "Network error"}\n\nPlease check your connection and try again.`);
     } finally {
       setCreating(false);
     }

@@ -29,64 +29,101 @@ export async function POST(request: NextRequest) {
     const normalizedWallet = walletAddress.toLowerCase();
 
     // ✅ Check if user owns an NFT via blockchain (required to create referral link)
-    if (process.env.NODE_ENV !== "development") {
-      const DEVELOPER_WALLET = "0xEdf8e693b3ab4899a03aB22eDF90E36a6AC1Fd9d";
-      
-      if (normalizedWallet.toLowerCase() !== DEVELOPER_WALLET.toLowerCase()) {
-        try {
-          const provider = new ethers.JsonRpcProvider(RPC_URL);
-          const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
-          
-          const normalizedAddress = ethers.getAddress(walletAddress);
-          const balanceResult = await contract.balanceOf(normalizedAddress);
-          const hasNFT = balanceResult > 0n;
-          
-          console.log("🔍 NFT ownership check for referral link:", {
-            wallet: normalizedAddress,
-            balance: balanceResult.toString(),
-            hasNFT,
-          });
-          
-          if (!hasNFT) {
-            return NextResponse.json(
-              { error: "You must own an xFrora NFT to create a referral link." },
-              { status: 403 }
-            );
-          }
-        } catch (error: any) {
-          console.error("❌ Error checking NFT ownership:", error);
+    // Always check NFT ownership (except for developer wallet in development)
+    const DEVELOPER_WALLET = "0xEdf8e693b3ab4899a03aB22eDF90E36a6AC1Fd9d";
+    const isDeveloperWallet = normalizedWallet.toLowerCase() === DEVELOPER_WALLET.toLowerCase();
+    
+    if (!isDeveloperWallet || process.env.NODE_ENV === "production") {
+      try {
+        console.log("🔍 Checking NFT ownership for referral link creation:", {
+          wallet: normalizedWallet,
+          isDeveloper: isDeveloperWallet,
+          env: process.env.NODE_ENV,
+        });
+        
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
+        
+        const checksummedAddress = ethers.getAddress(walletAddress);
+        const balanceResult = await contract.balanceOf(checksummedAddress);
+        const hasNFT = balanceResult > 0n;
+        
+        console.log("✅ NFT ownership check result:", {
+          wallet: checksummedAddress,
+          balance: balanceResult.toString(),
+          hasNFT,
+        });
+        
+        if (!hasNFT) {
+          console.warn("❌ NFT ownership check failed - user does not own NFT");
           return NextResponse.json(
-            { error: "Failed to verify NFT ownership. Please try again." },
-            { status: 500 }
+            { error: "You must own an xFrora NFT to create a referral link." },
+            { status: 403 }
           );
         }
+      } catch (error: any) {
+        console.error("❌ Error checking NFT ownership for referral:", {
+          error: error.message,
+          stack: error.stack,
+          wallet: normalizedWallet,
+          contractAddress: CONTRACT_ADDRESS,
+          rpcUrl: RPC_URL,
+        });
+        return NextResponse.json(
+          { 
+            error: "Failed to verify NFT ownership. Please try again.",
+            details: error.message 
+          },
+          { status: 500 }
+        );
       }
+    } else {
+      console.log("⚠️ Skipping NFT check for developer wallet in development mode");
     }
 
     // Check if code already exists
-    const { data: existing } = await (client as any)
+    console.log("🔍 Checking for existing referral code:", { wallet: normalizedWallet });
+    
+    const { data: existing, error: checkError } = await (client as any)
       .from("referral_codes")
       .select("code")
       .eq("wallet_address", normalizedWallet)
       .single();
 
+    // If error is not "no rows found" (PGRST116), it's a real error
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error("❌ Error checking existing referral code:", checkError);
+      return NextResponse.json(
+        { error: "Failed to check existing referral code", details: checkError.message },
+        { status: 500 }
+      );
+    }
+
     const existingCode = existing as { code: string } | null;
 
-    if (existingCode) {
+    if (existingCode && existingCode.code) {
+      console.log("✅ Existing referral code found:", existingCode.code);
       return NextResponse.json({ code: existingCode.code });
     }
 
     // Ensure chat_tokens record exists for NFT owner (handles transferred NFTs)
     // This allows NFT owners to use referral features even if they didn't mint
-    const { ensureChatTokensRecordForNFTOwner } = await import("@/lib/nft-ownership-helpers");
-    await ensureChatTokensRecordForNFTOwner(walletAddress);
+    console.log("📝 Ensuring chat_tokens record exists for NFT owner...");
+    try {
+      const { ensureChatTokensRecordForNFTOwner } = await import("@/lib/nft-ownership-helpers");
+      await ensureChatTokensRecordForNFTOwner(walletAddress);
+    } catch (ensureError: any) {
+      console.error("⚠️ Warning: Failed to ensure chat_tokens record:", ensureError);
+      // Continue anyway - not critical for referral code creation
+    }
 
     // Create new unique code (last 6 chars of wallet + random string if needed)
     // Simple version: 'ref_' + last 6 chars of wallet
     const code = `ref_${normalizedWallet.slice(-6)}`;
+    console.log("➕ Creating new referral code:", { wallet: normalizedWallet, code });
 
     // Insert
-    const { data, error } = await (client as any)
+    const { data: insertData, error: insertError } = await (client as any)
       .from("referral_codes")
       .insert({
         wallet_address: normalizedWallet,
@@ -95,13 +132,22 @@ export async function POST(request: NextRequest) {
       .select("code")
       .single();
 
-    const insertedCode = data as { code: string } | null;
+    const insertedCode = insertData as { code: string } | null;
 
-    if (error) {
+    if (insertError) {
+      console.error("❌ Error inserting referral code:", {
+        error: insertError,
+        code: insertError.code,
+        message: insertError.message,
+        wallet: normalizedWallet,
+      });
+      
       // Handle duplicate code edge case by appending random char
-      if (error.code === '23505') { // Unique constraint violation
+      if (insertError.code === '23505') { // Unique constraint violation
+         console.log("🔄 Duplicate code detected, generating new code with suffix...");
          const randomSuffix = Math.floor(Math.random() * 1000);
          const newCode = `ref_${normalizedWallet.slice(-6)}${randomSuffix}`;
+         
          const { data: retryData, error: retryError } = await (client as any)
             .from("referral_codes")
             .insert({
@@ -112,17 +158,43 @@ export async function POST(request: NextRequest) {
             .single();
             
          const retryCode = retryData as { code: string } | null;
-         if (retryError) throw retryError;
+         if (retryError) {
+           console.error("❌ Error inserting retry referral code:", retryError);
+           throw retryError;
+         }
+         console.log("✅ Retry referral code created:", retryCode?.code);
          return NextResponse.json({ code: retryCode?.code });
       }
-      throw error;
+      
+      throw insertError;
     }
 
-    return NextResponse.json({ code: insertedCode?.code });
+    if (!insertedCode || !insertedCode.code) {
+      console.error("❌ Referral code insert succeeded but no code returned:", insertData);
+      return NextResponse.json(
+        { error: "Failed to create referral code - no code returned" },
+        { status: 500 }
+      );
+    }
+
+    console.log("✅ Referral code created successfully:", insertedCode.code);
+    return NextResponse.json({ code: insertedCode.code });
 
   } catch (error: any) {
-    console.error("Referral create error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("❌ Referral create error:", {
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+      details: error,
+    });
+    return NextResponse.json(
+      { 
+        error: "Internal server error",
+        details: error.message,
+        type: error.constructor.name
+      },
+      { status: 500 }
+    );
   }
 }
 
