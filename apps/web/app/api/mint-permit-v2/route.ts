@@ -418,7 +418,7 @@ export async function POST(request: NextRequest) {
           );
         }
         if (!existingTokenRecord) {
-          console.error("❌ No generated NFT record found for paid user:", x_user_id);
+          console.error("❌ No generated NFT record found for paid user:", userId);
           return NextResponse.json(
             {
               error: "Generated NFT not found",
@@ -509,7 +509,7 @@ export async function POST(request: NextRequest) {
         console.log("✅ Transaction is new, recording to Supabase...");
         // Record the transaction to Supabase
         await db.insert(payments).values({
-          x_user_id: x_user_id,
+          x_user_id: userId,
           wallet_address: settlement.payer || wallet,
           amount: PAYMENT_AMOUNT,
           transaction_hash: settlement.transaction,
@@ -523,7 +523,7 @@ export async function POST(request: NextRequest) {
           await db
             .update(tokens)
             .set({ status: "paid", wallet_address: settlement.payer || wallet })
-            .where(eq(tokens.x_user_id, x_user_id));
+            .where(eq(tokens.x_user_id, userId));
           console.log("✅ Token status updated to 'paid' (ready to mint)");
           if (existingTokenRecord) {
             existingTokenRecord.status = "paid";
