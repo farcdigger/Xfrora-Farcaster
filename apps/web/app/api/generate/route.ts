@@ -396,9 +396,9 @@ export async function POST(request: NextRequest) {
         console.log(`   Metadata URL: ${metadataUrl}`);
         console.log(`   Wallet Address: ${walletAddress || 'NULL'}`);
         
-        // Use farcaster_user_id column
+        // Store Farcaster FID in x_user_id column (same table structure as X/Twitter version)
         const insertResult = await db.insert(tokens).values({
-          farcaster_user_id: userId, // Store Farcaster fid
+          x_user_id: userId, // Farcaster FID stored here
           token_id: null, // NULL until minted (not 0!)
           seed,
           token_uri: metadataUrl,
