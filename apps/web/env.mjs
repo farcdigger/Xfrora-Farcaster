@@ -6,6 +6,7 @@ const isDevelopment = process.env.NODE_ENV === "development";
 const envSchema = z.object({
   NEXT_PUBLIC_CHAIN_ID: z.string().default("8453"), // Base Mainnet
   RPC_URL: z.string().url().optional().or(z.literal("http://localhost:8545")).default("https://mainnet.base.org"),
+  NEXT_PUBLIC_RPC_URL: z.string().url().optional().default("https://mainnet.base.org"), // Client-side RPC URL
   CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0x7De68EB999A314A0f986D417adcbcE515E476396"),
   NEXT_PUBLIC_CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0x7De68EB999A314A0f986D417adcbcE515E476396"),
   SERVER_SIGNER_PRIVATE_KEY: z.string().startsWith("0x").optional(),

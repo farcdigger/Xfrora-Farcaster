@@ -995,7 +995,12 @@ function HomePageContent() {
       }
       console.log("⏳ Waiting for transaction confirmation...");
       
-      const receipt = await tx.wait();
+      // Use public RPC provider for getting receipt (walletClient doesn't support eth_getTransactionReceipt)
+      const publicProvider = new ethers.JsonRpcProvider(
+        process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org"
+      );
+      const receipt = await publicProvider.waitForTransaction(tx.hash, 1, 120000); // 2 min timeout
+      
       if (receipt) {
         console.log("✅ Transaction confirmed:", receipt.hash);
         console.log("✅ Receipt:", receipt);
