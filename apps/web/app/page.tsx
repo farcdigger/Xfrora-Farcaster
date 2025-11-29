@@ -951,21 +951,11 @@ function HomePageContent() {
           );
           console.log("✅ Gas estimate successful:", gasEstimate.toString());
         } catch (gasError: any) {
-          console.error("❌ Gas estimation failed:", gasError);
-          console.error("❌ Gas error message:", gasError.message);
-          console.error("❌ Gas error code:", gasError.code);
-          console.error("❌ Gas error data:", gasError.data);
-          
-          // Try to decode the revert reason
-          if (gasError.data) {
-            try {
-              const reason = contract.interface.parseError(gasError.data);
-              console.error("❌ Revert reason:", reason);
-            } catch (e) {
-              console.error("❌ Could not decode revert reason");
-            }
-          }
-          throw gasError;
+          console.error("⚠️ Gas estimation failed, using fallback gas limit");
+          console.error("Gas error:", gasError.message);
+          // Fallback: Use a fixed gas limit based on successful X mints (~245k)
+          gasEstimate = BigInt(300000); // 300k gas (safe buffer)
+          console.log("🔧 Using fallback gas limit:", gasEstimate.toString());
         }
         
         console.log("⏳ Sending transaction...");
