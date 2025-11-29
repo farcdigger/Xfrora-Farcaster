@@ -22,7 +22,6 @@ function HomePageContent() {
   const [step, setStep] = useState<"connect" | "generate" | "pay" | "mint">("connect");
   const [farcasterUser, setFarcasterUser] = useState<FarcasterUser | null>(null);
   const [generated, setGenerated] = useState<GenerateResponse | null>(null);
-  const [wallet, setWallet] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -154,8 +153,6 @@ function HomePageContent() {
   };
 
   useEffect(() => {
-    setWallet(address ?? null);
-    
     // Fetch token balance and points when wallet connects
     if (address && isConnected) {
       fetchTokenBalanceAndPoints(address);
@@ -548,7 +545,6 @@ function HomePageContent() {
     // Reset all state to initial values
     setFarcasterUser(null);
     setGenerated(null);
-    setWallet(null);
     setCurrentUserId(null);
     setMintedTokenId(null);
     setTransactionHash(null);
@@ -809,9 +805,10 @@ function HomePageContent() {
   };
 
   const mintNFT = async (permit: MintPermitResponse) => {
-    if (!wallet || typeof window.ethereum === "undefined") {
-      console.error("❌ Cannot mint: Wallet not connected");
-      setError("Wallet not connected. Please connect your wallet first.");
+    // Use Wagmi's address instead of legacy wallet state
+    if (!address || !walletClient) {
+      console.error("❌ Cannot mint: Wallet not connected via Wagmi");
+      setError("Wallet not connected. Please connect your Farcaster wallet first.");
       return;
     }
     
@@ -821,10 +818,14 @@ function HomePageContent() {
       
       console.log("🚀 Starting mint process...");
       console.log("📋 Permit data:", permit);
+      console.log("👛 Connected wallet:", address);
       
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // Use Wagmi's walletClient to get ethers signer
+      const provider = new ethers.BrowserProvider(walletClient);
       const signer = await provider.getSigner();
       const signerAddress = await signer.getAddress();
+      
+      console.log("👤 Signer address:", signerAddress);
       
       // Check network
       const network = await provider.getNetwork();
@@ -2040,7 +2041,6 @@ function HomePageContent() {
                 <button
                   onClick={() => {
                     disconnectFarcaster();
-                    setWallet(null);
                   }}
                   className="block w-full bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-100 font-bold py-3 px-6 rounded-lg text-center transition-colors border border-black dark:border-white"
                 >
