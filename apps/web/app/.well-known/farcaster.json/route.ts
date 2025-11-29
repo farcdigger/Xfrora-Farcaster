@@ -25,8 +25,14 @@ import { NextResponse } from "next/server";
 export async function GET() {
   // Get base URL from environment or use Vercel URL as fallback
   // Priority: NEXT_PUBLIC_BASE_URL > VERCEL_URL > Default Vercel URL
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+  let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://xfrora-farcaster-web.vercel.app");
+  
+  // Ensure baseUrl always has https:// protocol and remove trailing slash
+  if (!baseUrl.startsWith('http')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
   
   // Log for debugging (remove in production if needed)
   console.log("🔗 Farcaster manifest base URL:", {
@@ -53,6 +59,7 @@ export async function GET() {
     splashImageUrl,
     sharingBannerUrl,
     baseUrl,
+    canonicalDomain,
   });
   
   // Splash screen and theme colors - matching site aesthetic
