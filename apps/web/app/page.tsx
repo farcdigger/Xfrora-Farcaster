@@ -423,34 +423,8 @@ function HomePageContent() {
     }
   };
 
-  // Check for existing Farcaster session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        // Check for existing Farcaster session
-        const sessionResponse = await fetch("/api/auth/farcaster/session", {
-          cache: 'no-store',
-        });
-        const sessionData = await sessionResponse.json();
-        
-        if (sessionData.authenticated && sessionData.user) {
-          setFarcasterUser(sessionData.user);
-          console.log("✅ Restored Farcaster session:", sessionData.user.username);
-          // Check for existing NFT when session is restored
-          // checkExistingNFT will set step to "pay" if NFT exists, "generate" if not
-          const hasNFT = await checkExistingNFT(sessionData.user.fid);
-          if (!hasNFT) {
-            // Only set to generate if no NFT was found
-            setStep("generate");
-          }
-        }
-      } catch (error) {
-        console.log("No Farcaster session found");
-      }
-    };
-
-    checkSession();
-  }, []);
+  // Note: Session cookie check removed - SDK provides user context directly
+  // Farcaster Mini App SDK automatically provides user context via sdk.context.user
 
   // Check mint status when on pay step
   useEffect(() => {
@@ -553,12 +527,7 @@ function HomePageContent() {
     localStorage.removeItem("farcasterUser");
     console.log("🗑️ Farcaster user data cleared from localStorage");
     
-    // Clear session from backend
-    fetch("/api/auth/farcaster/session", {
-      method: "DELETE",
-    }).catch((err) => {
-      console.warn("⚠️ Failed to clear session from backend:", err);
-    });
+    // Note: No need to clear session cookie - SDK manages user context
   };
 
   const resetToHome = () => {
@@ -602,26 +571,11 @@ function HomePageContent() {
           
           setFarcasterUser(user);
           
-          // Save to localStorage for persistence
+          // Save to localStorage for persistence (optional - SDK provides context)
           localStorage.setItem("farcasterUser", JSON.stringify(user));
           console.log("💾 Farcaster user saved to localStorage:", user.username);
           
-          // Save session to backend
-          try {
-            const sessionResponse = await fetch("/api/auth/farcaster/session", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(user),
-            });
-            
-            if (sessionResponse.ok) {
-              console.log("✅ Farcaster session saved to backend");
-            }
-          } catch (sessionError) {
-            console.warn("⚠️ Failed to save session to backend:", sessionError);
-          }
+          // Note: No need to save session cookie - SDK manages user context automatically
           
           // Check for existing NFT
           await checkExistingNFT(user.fid);

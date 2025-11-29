@@ -13,8 +13,6 @@ const envSchema = z.object({
   X_CLIENT_ID: z.string().optional(),
   X_CLIENT_SECRET: z.string().optional(),
   X_CALLBACK_URL: z.string().url().optional().or(z.literal("http://localhost:3000/api/auth/x/callback")),
-  // Farcaster session encryption (can use X_CLIENT_SECRET as fallback)
-  FARCASTER_CLIENT_SECRET: z.string().optional(),
   PINATA_JWT: z.string().optional(),
   WEB3_STORAGE_TOKEN: z.string().optional(),
   INFERENCE_API_KEY: z.string().optional(),
