@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAccount, useWalletClient } from "wagmi";
 import PaymentModal from "@/components/PaymentModal";
+import { checkNFTOwnershipClientSide } from "@/lib/check-nft-ownership";
 
 interface Message {
   role: "user" | "assistant";
@@ -102,31 +103,43 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     scrollToBottom();
   }, [messages, loading]);
 
+  // Check NFT ownership from blockchain when chatbot opens
   useEffect(() => {
+    const checkNFT = async () => {
+      if (!walletAddress) {
+        setHasNFT(false);
+        setCheckingNFT(false);
+        return;
+      }
+
+      setCheckingNFT(true);
+      try {
+        const hasNFTResult = await checkNFTOwnershipClientSide(walletAddress);
+        setHasNFT(hasNFTResult);
+        
+        if (hasNFTResult) {
+          // User has NFT - fetch token balance and NFT image
+          fetchTokenBalance();
+          if (!nftImage) {
+            fetchNftImage();
+          }
+        }
+      } catch (error) {
+        console.error("Error checking NFT ownership:", error);
+        setHasNFT(false);
+      } finally {
+        setCheckingNFT(false);
+      }
+    };
+
     if (isOpen && walletAddress) {
-      // Only fetch token balance - NFT check happens during token purchase
-      // Always fetch fresh data when opening chat
-      fetchTokenBalance();
+      checkNFT();
+    } else {
+      setHasNFT(null);
+      setCheckingNFT(true);
     }
-    // Don't reset token balance when closing - keep it for next time
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, walletAddress]);
-
-  // Update hasNFT based on token balance
-  useEffect(() => {
-    if (tokenBalance !== null && tokenBalance > 0) {
-      setHasNFT(true);
-      setCheckingNFT(false);
-      // Load NFT image when we confirm user has NFT
-      if (walletAddress && !nftImage) {
-        fetchNftImage();
-      }
-    } else if (tokenBalance === 0) {
-      setHasNFT(false);
-      setCheckingNFT(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokenBalance]);
 
   const fetchTokenBalance = async () => {
     if (!walletAddress) return;

@@ -5,9 +5,12 @@ import { useAccount } from "wagmi";
 
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
+import { checkNFTOwnershipClientSide } from "@/lib/check-nft-ownership";
 
 export default function ReferralsPage() {
   const { address, isConnected } = useAccount();
+  const [hasNFT, setHasNFT] = useState<boolean | null>(null);
+  const [checkingNFT, setCheckingNFT] = useState(true);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalReferrals: 0,
@@ -82,10 +85,39 @@ export default function ReferralsPage() {
     }
   };
 
+  // Check NFT ownership from blockchain
   useEffect(() => {
+    const checkNFT = async () => {
+      if (!address) {
+        setHasNFT(false);
+        setCheckingNFT(false);
+        return;
+      }
+
+      setCheckingNFT(true);
+      try {
+        const hasNFTResult = await checkNFTOwnershipClientSide(address);
+        setHasNFT(hasNFTResult);
+        
+        // Only load stats if user has NFT
+        if (hasNFTResult) {
+          loadStats();
+        }
+      } catch (error) {
+        console.error("Error checking NFT ownership:", error);
+        setHasNFT(false);
+      } finally {
+        setCheckingNFT(false);
+      }
+    };
+
     if (isConnected && address) {
-      loadStats();
+      checkNFT();
+    } else {
+      setHasNFT(null);
+      setCheckingNFT(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
 
   const referralLink = referralCode 
@@ -143,6 +175,27 @@ export default function ReferralsPage() {
         {!isConnected ? (
           <div className="text-center py-12">
             <p className="mb-4 text-gray-600 dark:text-gray-400">Connect wallet to view your referral dashboard</p>
+          </div>
+        ) : checkingNFT ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 dark:text-gray-400">Checking NFT ownership...</p>
+          </div>
+        ) : !hasNFT ? (
+          <div className="text-center py-12">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 rounded-lg max-w-md mx-auto">
+              <h3 className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">
+                NFT Required
+              </h3>
+              <p className="text-red-700 dark:text-red-300 mb-4">
+                You must own an xFrora NFT to access the referral program.
+              </p>
+              <Link
+                href="/"
+                className="inline-block px-4 py-2 bg-red-600 text-white rounded hover:opacity-90"
+              >
+                Mint Your NFT
+              </Link>
+            </div>
           </div>
         ) : loading ? (
           <div className="text-center py-12">Loading...</div>

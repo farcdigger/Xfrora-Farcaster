@@ -140,6 +140,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalize wallet address
+    const normalizedAddress = walletAddress.toLowerCase();
+    if (!ethers.isAddress(walletAddress)) {
+      return NextResponse.json(
+        { error: "Invalid wallet address" },
+        { status: 400 }
+      );
+    }
+
+    // NFT Ownership Check - Users MUST have an NFT to use chatbot
+    const RPC_URL = env.RPC_URL || "https://mainnet.base.org";
+    const CONTRACT_ADDRESS = env.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396";
+    const ERC721_ABI = [
+      "function balanceOf(address owner) external view returns (uint256)",
+    ];
+
+    try {
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
+      
+      const checksummedAddress = ethers.getAddress(walletAddress);
+      const balanceResult = await contract.balanceOf(checksummedAddress);
+      const hasNFT = balanceResult > 0n;
+      
+      if (!hasNFT) {
+        console.log("❌ NFT ownership check failed for chatbot:", {
+          wallet: checksummedAddress,
+          balance: balanceResult.toString(),
+        });
+        return NextResponse.json(
+          { error: "Access denied. You must own an xFrora NFT to use the chatbot." },
+          { status: 403 }
+        );
+      }
+      
+      console.log("✅ NFT ownership verified for chatbot:", {
+        wallet: checksummedAddress,
+        balance: balanceResult.toString(),
+      });
+    } catch (error: any) {
+      console.error("❌ Error checking NFT ownership for chatbot:", error);
+      // In case of RPC error, deny access to be safe
+      return NextResponse.json(
+        { error: "Failed to verify NFT ownership. Please try again." },
+        { status: 500 }
+      );
+    }
+
     // Check token balance and points from database
     const { db, chat_tokens } = await import("@/lib/db");
     const { eq } = await import("drizzle-orm");
