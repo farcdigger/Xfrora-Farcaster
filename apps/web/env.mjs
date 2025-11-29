@@ -8,7 +8,6 @@ const envSchema = z.object({
   RPC_URL: z.string().url().optional().or(z.literal("http://localhost:8545")).default("https://mainnet.base.org"),
   CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0x7De68EB999A314A0f986D417adcbcE515E476396"),
   NEXT_PUBLIC_CONTRACT_ADDRESS: z.string().startsWith("0x").optional().or(z.literal("0x0000000000000000000000000000000000000000")).default("0x7De68EB999A314A0f986D417adcbcE515E476396"),
-  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().optional(),
   SERVER_SIGNER_PRIVATE_KEY: z.string().startsWith("0x").optional(),
   X_CLIENT_ID: z.string().optional(),
   X_CLIENT_SECRET: z.string().optional(),
@@ -64,7 +63,6 @@ const envSchema = z.object({
   CONTRACT_ADDRESS: data.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396",
   // Ensure NEXT_PUBLIC_CONTRACT_ADDRESS has default for client-side
   NEXT_PUBLIC_CONTRACT_ADDRESS: data.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396",
-  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: data.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID === "" ? undefined : data.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
 }));
 
 // Development için default değerler ekle
@@ -73,7 +71,6 @@ const envDefaults = isDevelopment ? {
   RPC_URL: "https://mainnet.base.org",
   CONTRACT_ADDRESS: "0x7De68EB999A314A0f986D417adcbcE515E476396", // Base Mainnet deployed contract
   NEXT_PUBLIC_CONTRACT_ADDRESS: "0x7De68EB999A314A0f986D417adcbcE515E476396", // Base Mainnet deployed contract
-  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "demo", // Replace with your WalletConnect Project ID in production
   SERVER_SIGNER_PRIVATE_KEY: "0x0000000000000000000000000000000000000000000000000000000000000001",
   UPDATE_TOKEN_SECRET: "dev-secret",
   X_CLIENT_ID: "mock_client_id",
