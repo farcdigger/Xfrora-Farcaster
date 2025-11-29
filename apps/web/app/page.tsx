@@ -15,7 +15,7 @@ import GenerationProgress from "@/components/GenerationProgress";
 import ThemeToggle from "@/components/ThemeToggle";
 import Chatbot from "@/components/Chatbot";
 import PaymentModal from "@/components/PaymentModal";
-import { useAccount, useWalletClient, useConnect } from "wagmi";
+import { useAccount, useWalletClient, useConnect, useDisconnect } from "wagmi";
 
 function HomePageContent() {
   const searchParams = useSearchParams();
@@ -38,9 +38,10 @@ function HomePageContent() {
   const [tokenBalance, setTokenBalance] = useState<number | null>(null); // Credits
   const [points, setPoints] = useState<number>(0); // Points
   const [yamaAgentLoading, setYamaAgentLoading] = useState(false);
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
   const introVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Initialize Farcaster SDK and call ready()
@@ -97,16 +98,27 @@ function HomePageContent() {
     const autoConnect = async () => {
       try {
         const inMiniApp = await sdk.isInMiniApp();
-        if (inMiniApp && !isConnected && connectors.length > 0) {
+        if (inMiniApp) {
           const miniAppConnector = connectors.find((c) => 
             c.id === "farcasterMiniApp" || c.name?.toLowerCase().includes("farcaster")
           );
+          
           if (miniAppConnector) {
-            try {
-              console.log("🔗 Auto-connecting to Farcaster wallet...");
-              connect({ connector: miniAppConnector });
-            } catch (connectError) {
-              console.log("ℹ️ Auto-connect failed (user may not have wallet):", connectError);
+            // If already connected but NOT to Farcaster wallet, disconnect first
+            if (isConnected && connector?.id !== "farcasterMiniApp") {
+              console.log("⚠️ Wrong wallet connected, disconnecting...");
+              disconnect();
+              return; // Will reconnect on next effect run
+            }
+            
+            // If not connected, connect to Farcaster wallet
+            if (!isConnected) {
+              try {
+                console.log("🔗 Auto-connecting to Farcaster wallet...");
+                connect({ connector: miniAppConnector });
+              } catch (connectError) {
+                console.log("ℹ️ Auto-connect failed (user may not have wallet):", connectError);
+              }
             }
           }
         }
@@ -116,7 +128,7 @@ function HomePageContent() {
     };
     
     autoConnect();
-  }, [isConnected, connect, connectors]);
+  }, [isConnected, connect, connectors, disconnect, connector]);
 
   // Fetch token balance and points
   const fetchTokenBalanceAndPoints = async (walletAddress: string) => {
