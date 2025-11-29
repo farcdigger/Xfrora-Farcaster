@@ -1337,63 +1337,9 @@ function HomePageContent() {
             </div>
           )}
           
-        {/* 3-Card Layout - Always show all 3 steps */}
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {/* Card 1: Connect Farcaster Profile */}
-            <StepCard
-              icon="farcaster"
-              title="Connect Your Profile"
-              status={farcasterUser ? "connected" : "idle"}
-              statusText={farcasterUser ? `Farcaster: @${farcasterUser.username}` : undefined}
-              actionButton={
-                !farcasterUser ? (
-                  <button
-                    onClick={connectFarcaster}
-                    disabled={loading}
-                    className="btn-primary w-full"
-                  >
-                    {loading ? "Connecting..." : "Connect Farcaster Profile"}
-                  </button>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => setStep("generate")}
-                    className="btn-secondary w-full"
-                  >
-                    ✓ Connected
-                  </button>
-                    <button
-                      onClick={disconnectFarcaster}
-                      className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors w-full"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-                )
-              }
-            />
-
-            {/* Card 2: Connect Wallet */}
-            <StepCard
-              icon="wallet"
-              title="Connect Wallet"
-              status={isConnected ? "connected" : "idle"}
-              statusText={isConnected && address ? `Wallet Connected: ${address.substring(0, 6)}...${address.substring(address.length - 4)}` : undefined}
-              actionButton={
-                isConnected && address ? (
-                  <button className="btn-secondary w-full" disabled>
-                    ✓ Wallet Connected
-                  </button>
-                ) : (
-                  <button className="btn-secondary w-full" disabled>
-                    Connecting...
-                  </button>
-                )
-              }
-            />
-
-            {/* Card 3: Generate */}
+        {/* Generate NFT - Simplified single card */}
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-12">
             <StepCard
               icon="nft"
               title="Generate"
