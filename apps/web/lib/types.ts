@@ -27,6 +27,7 @@ export interface FarcasterUser {
 export interface GenerateRequest {
   farcaster_user_id: string; // Farcaster user ID (fid)
   profile_image_url: string;
+  wallet_address?: string; // Optional: wallet address to save in users table
   username?: string; // Optional: username for better AI analysis
   bio?: string; // Optional: profile bio for better AI analysis
 }

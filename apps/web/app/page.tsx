@@ -613,6 +613,12 @@ function HomePageContent() {
       return;
     }
     
+    // Wait for wallet to be connected before generating
+    if (!address) {
+      setError("Please wait for wallet to connect...");
+      return;
+    }
+    
     // Save userId for mint step
     setCurrentUserId(farcasterUser.fid);
     
@@ -627,6 +633,7 @@ function HomePageContent() {
         body: JSON.stringify({
           farcaster_user_id: farcasterUser.fid,
           profile_image_url: farcasterUser.pfp_url,
+          wallet_address: address, // ✅ Send wallet address to save in users table
           username: farcasterUser.username,
           bio: farcasterUser.bio,
         }),

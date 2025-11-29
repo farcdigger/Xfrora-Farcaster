@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body: GenerateRequest = await request.json();
-    const { farcaster_user_id, profile_image_url } = body;
+    const { farcaster_user_id, profile_image_url, wallet_address } = body;
     
     if (!farcaster_user_id || !profile_image_url) {
       return NextResponse.json({ error: "Missing required fields (farcaster_user_id and profile_image_url)" }, { status: 400 });
@@ -370,23 +370,52 @@ export async function POST(request: NextRequest) {
       
       // Save to database (REQUIRED - for preventing duplicate generation)
       // IMPORTANT: Only save AFTER image and metadata are successfully uploaded to IPFS
-      // Get wallet_address from users table for this x_user_id
-      let walletAddress: string | null = null;
-      try {
-        const userResult = await db
-          .select()
-          .from(users)
-          .where(eq(users.farcaster_user_id, userId))
-          .limit(1);
-        
-        if (userResult && userResult.length > 0) {
-          walletAddress = userResult[0].wallet_address;
-          console.log(`✅ Found wallet_address for farcaster_user_id ${userId}:`, walletAddress?.substring(0, 10) + "...");
-        } else {
-          console.log(`⚠️ No user found for farcaster_user_id ${userId}, wallet_address will be NULL`);
+      
+      // 1. First, ensure user exists in users table with wallet_address
+      let walletAddress: string | null = wallet_address || null;
+      if (walletAddress) {
+        try {
+          console.log(`💾 Ensuring user exists in users table for Farcaster FID: ${userId}`);
+          
+          // Check if user already exists
+          const existingUser = await db
+            .select()
+            .from(users)
+            .where(eq(users.farcaster_user_id, userId))
+            .limit(1);
+          
+          if (existingUser && existingUser.length > 0) {
+            // User exists - update wallet_address if it's different
+            if (existingUser[0].wallet_address !== walletAddress.toLowerCase()) {
+              console.log(`🔄 Updating wallet_address for existing user`);
+              await db
+                .update(users)
+                .set({ 
+                  wallet_address: walletAddress.toLowerCase(),
+                  updated_at: new Date().toISOString()
+                })
+                .where(eq(users.farcaster_user_id, userId));
+              console.log(`✅ Wallet address updated in users table`);
+            } else {
+              console.log(`✅ User already has correct wallet_address`);
+            }
+          } else {
+            // User doesn't exist - create new user
+            console.log(`➕ Creating new user in users table`);
+            await db.insert(users).values({
+              farcaster_user_id: userId,
+              wallet_address: walletAddress.toLowerCase(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            console.log(`✅ New user created in users table`);
+          }
+        } catch (userError) {
+          console.error(`❌ Error managing user in users table:`, userError);
+          // Continue anyway - not critical for generation
         }
-      } catch (userError) {
-        console.warn(`⚠️ Error fetching user wallet_address:`, userError);
+      } else {
+        console.warn(`⚠️ No wallet_address provided, user will not be created/updated in users table`);
       }
 
       // This must succeed to prevent duplicate generation and cost
