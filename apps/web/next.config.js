@@ -6,6 +6,25 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@coinbase/x402'],
   },
+  // Headers configuration - Allow iframe embedding for Farcaster Mini Apps
+  async headers() {
+    return [
+      {
+        // Apply headers to all routes
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'ALLOWALL', // Allow iframe embedding for Farcaster Mini Apps
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors *;", // Allow all frame ancestors for Farcaster
+          },
+        ],
+      },
+    ];
+  },
   env: {
     NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID || "8453", // Base Mainnet
     NEXT_PUBLIC_CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396", // Base Mainnet default

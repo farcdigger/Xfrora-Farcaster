@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://xfroranft.xyz";
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://xfrora-farcaster-web.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
