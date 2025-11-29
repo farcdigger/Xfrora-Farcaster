@@ -10,6 +10,10 @@ import { env } from "@/env.mjs";
 import { db, tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
+// Force dynamic rendering (don't run during build)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const CONTRACT_ABI = [
   "function totalSupply() external view returns (uint256)",
   "function tokenURI(uint256 tokenId) external view returns (string)",
