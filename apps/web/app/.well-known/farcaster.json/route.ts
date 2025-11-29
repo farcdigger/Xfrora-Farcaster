@@ -39,11 +39,21 @@ export async function GET() {
   const canonicalDomain = baseUrl.replace(/^https?:\/\//, "");
 
   // Logo URLs - Use Frora logo from public folder
-  const logoUrl = `${baseUrl}/frora-logo-manifest.png`; // Custom manifest logo
-  const splashImageUrl = `${baseUrl}/frora-splash.png`; // Splash screen logo (Frora.jpeg)
+  // Farcaster requires iconUrl to be 512x512 or 1024x1024 PNG
+  // Using frora-logo.png as primary (fallback to manifest version if needed)
+  const logoUrl = `${baseUrl}/frora-logo.png`; // Primary app icon (should be 512x512 or 1024x1024 PNG)
+  const splashImageUrl = `${baseUrl}/frora-splash.png`; // Splash screen logo (Frora.jpeg converted to PNG)
   // Use sharing-banner.png if available, fallback to og-xfrora.png
   const sharingBannerUrl = `${baseUrl}/sharing-banner.png`; // Sharing banner for social cards
   const heroImageUrl = sharingBannerUrl; // Hero image (same as sharing banner)
+  
+  // Log logo URLs for debugging
+  console.log("🖼️ Logo URLs:", {
+    logoUrl,
+    splashImageUrl,
+    sharingBannerUrl,
+    baseUrl,
+  });
   
   // Splash screen and theme colors - matching site aesthetic
   // Black/white contrast with purple accents for premium, modern look
