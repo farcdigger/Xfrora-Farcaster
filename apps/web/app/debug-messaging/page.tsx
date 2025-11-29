@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+
 import { isMessagingEnabled, checkMessagingPermissions } from "@/lib/feature-flags";
 import { env } from "@/env.mjs";
 
@@ -45,7 +45,7 @@ export default function DebugMessagingPage() {
         </h1>
         
         <div className="mb-6">
-          <ConnectButton />
+          <div className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg">Wallet</div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

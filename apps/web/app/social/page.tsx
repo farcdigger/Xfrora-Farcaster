@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import PaymentModal from "@/components/PaymentModal";
@@ -505,9 +504,11 @@ export default function SocialPage() {
             </Link>
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <ThemeToggle />
-              <div className="scale-90 sm:scale-100 origin-right">
-                <ConnectButton />
-              </div>
+              {address && (
+                <div className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg">
+                  {address.substring(0, 6)}...{address.substring(address.length - 4)}
+                </div>
+              )}
             </div>
           </div>
         </div>

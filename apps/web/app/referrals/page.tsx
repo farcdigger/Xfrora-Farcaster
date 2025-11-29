@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -105,7 +105,7 @@ export default function ReferralsPage() {
             </div>
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <ConnectButton />
+              <div className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg">Wallet</div>
             </div>
           </div>
         </div>
