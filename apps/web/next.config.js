@@ -15,11 +15,11 @@ const nextConfig = {
         headers: [
           {
             key: 'X-Frame-Options',
-            value: 'ALLOWALL', // Allow iframe embedding for Farcaster Mini Apps
+            value: 'SAMEORIGIN', // Allow iframe embedding from same origin and Farcaster domains
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors *;", // Allow all frame ancestors for Farcaster
+            value: "frame-ancestors 'self' https://*.warpcast.com https://*.farcaster.xyz *;", // Allow Farcaster clients to embed
           },
         ],
       },
