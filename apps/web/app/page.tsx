@@ -15,6 +15,7 @@ import GenerationProgress from "@/components/GenerationProgress";
 import ThemeToggle from "@/components/ThemeToggle";
 import Chatbot from "@/components/Chatbot";
 import PaymentModal from "@/components/PaymentModal";
+import YamaAgentWebOnlyModal from "@/components/YamaAgentWebOnlyModal";
 import { useAccount, useWalletClient, useConnect } from "wagmi";
 
 function HomePageContent() {
@@ -33,10 +34,12 @@ function HomePageContent() {
   const [paymentReady, setPaymentReady] = useState(false);
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showYamaAgentModal, setShowYamaAgentModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null); // Credits
   const [points, setPoints] = useState<number>(0); // Points
   const [yamaAgentLoading, setYamaAgentLoading] = useState(false);
+  const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
   const { address, isConnected, connector } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { connect, connectors } = useConnect();
@@ -104,6 +107,8 @@ function HomePageContent() {
       
       try {
         const inMiniApp = await sdk.isInMiniApp();
+        setIsInMiniApp(inMiniApp); // Store Mini App status for Yama Agent button
+        
         if (!inMiniApp) {
           console.log("ℹ️ Not in Farcaster Mini App, skipping auto-connect");
           return;
@@ -1220,23 +1225,32 @@ function HomePageContent() {
             {/* Right: User Info & Buttons */}
             <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end">
               <ThemeToggle />
-              <Link
-                href="/yama-agent"
-                onClick={() => setYamaAgentLoading(true)}
-                className="inline-flex items-center gap-2 rounded-full border border-gray-900/15 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm backdrop-blur transition-all hover:bg-white dark:border-white/30 dark:bg-white/10 dark:text-white sm:px-4 sm:text-sm"
-              >
-                {yamaAgentLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Loading...
-                  </>
-                ) : (
-                  'Yama Agent'
-                )}
-              </Link>
+              {isInMiniApp ? (
+                <button
+                  onClick={() => setShowYamaAgentModal(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-900/15 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm backdrop-blur transition-all hover:bg-white dark:border-white/30 dark:bg-white/10 dark:text-white sm:px-4 sm:text-sm"
+                >
+                  Yama Agent
+                </button>
+              ) : (
+                <Link
+                  href="/yama-agent"
+                  onClick={() => setYamaAgentLoading(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-900/15 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm backdrop-blur transition-all hover:bg-white dark:border-white/30 dark:bg-white/10 dark:text-white sm:px-4 sm:text-sm"
+                >
+                  {yamaAgentLoading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    'Yama Agent'
+                  )}
+                </Link>
+              )}
               
               {/* Dropdown Menu */}
               <div className="relative">
@@ -1752,6 +1766,13 @@ function HomePageContent() {
         onClose={() => setChatbotOpen(false)}
         walletAddress={address ?? null}
       />
+
+      {/* Yama Agent Web Only Modal */}
+      {showYamaAgentModal && (
+        <YamaAgentWebOnlyModal
+          onClose={() => setShowYamaAgentModal(false)}
+        />
+      )}
 
       {/* Payment Modal */}
       {showPaymentModal && (

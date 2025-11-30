@@ -2,6 +2,7 @@ import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 import remarkGfm from "remark-gfm";
 import { supabaseClient } from "@/lib/db-supabase";
+import YamaAgentRedirect from "./YamaAgentRedirect";
 
 // Force dynamic rendering (don't run during build)
 export const dynamic = 'force-dynamic';
@@ -57,7 +58,8 @@ export default async function YamaAgentPage() {
         : "";
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 lg:py-12">
+    <YamaAgentRedirect>
+      <main className="mx-auto w-full max-w-5xl px-4 py-8 lg:py-12">
       <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -132,6 +134,7 @@ export default async function YamaAgentPage() {
         )}
       </section>
     </main>
+    </YamaAgentRedirect>
   );
 }
 
