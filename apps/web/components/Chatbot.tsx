@@ -103,7 +103,10 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     scrollToBottom();
   }, [messages, loading]);
 
-  // Check NFT ownership from blockchain when chatbot opens
+  // ✅ NFT Ownership Check: Only checks wallet balance on blockchain
+  // - Works for both minted NFTs and transferred NFTs
+  // - No database check required - only blockchain verification
+  // - If wallet has NFT → access granted
   useEffect(() => {
     const checkNFT = async () => {
       if (!walletAddress) {
@@ -114,6 +117,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
       setCheckingNFT(true);
       try {
+        // Check if wallet owns NFT directly from blockchain (handles transferred NFTs)
         const hasNFTResult = await checkNFTOwnershipClientSide(walletAddress);
         setHasNFT(hasNFTResult);
         

@@ -115,7 +115,9 @@ export default function ReferralsPage() {
     }
   };
 
-  // Check NFT ownership from blockchain
+  // ✅ NFT Ownership Check: Only checks wallet balance on blockchain
+  // - Works for both minted NFTs and transferred NFTs (no database check)
+  // - If wallet has NFT → access granted (mint status not required)
   useEffect(() => {
     const checkNFT = async () => {
       if (!address) {
@@ -126,6 +128,7 @@ export default function ReferralsPage() {
 
       setCheckingNFT(true);
       try {
+        // Check if wallet owns NFT directly from blockchain (handles transferred NFTs)
         const hasNFTResult = await checkNFTOwnershipClientSide(address);
         setHasNFT(hasNFTResult);
         

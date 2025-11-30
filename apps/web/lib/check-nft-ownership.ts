@@ -1,6 +1,11 @@
 /**
  * Client-side NFT ownership check using ethers.js
  * This directly checks the blockchain without making API calls
+ * 
+ * ✅ IMPORTANT: This checks ONLY wallet balance on blockchain
+ * - Works for both minted NFTs and transferred NFTs
+ * - No database check required - only blockchain verification
+ * - If wallet has NFT → access granted (mint status not required)
  */
 
 import { ethers } from "ethers";
@@ -14,8 +19,9 @@ const ERC721_ABI = [
 
 /**
  * Check NFT ownership directly from blockchain (client-side)
+ * Works for both minted NFTs and transferred NFTs - no database check
  * @param walletAddress - The wallet address to check
- * @returns Promise<boolean> - True if wallet owns at least one NFT
+ * @returns Promise<boolean> - True if wallet owns at least one NFT (any source)
  */
 export async function checkNFTOwnershipClientSide(
   walletAddress: string

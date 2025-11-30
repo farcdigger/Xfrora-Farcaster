@@ -72,8 +72,10 @@ export async function POST(request: NextRequest) {
     // Get the updated total_messages_sent from rate limit check
     const totalMessagesSent = rateLimitCheck.totalMessagesSent || 0;
 
-    // 1. NFT Ownership Check via Blockchain (Access Control)
-    // Users MUST have an NFT to use messaging
+    // ✅ NFT Ownership Check: Only checks wallet balance on blockchain
+    // - Works for both minted NFTs and transferred NFTs (no database check)
+    // - If wallet has NFT → access granted (mint status not required)
+    // - Direct blockchain verification - most reliable method
     if (process.env.NODE_ENV !== "development") {
       const DEVELOPER_WALLET = "0xEdf8e693b3ab4899a03aB22eDF90E36a6AC1Fd9d";
       
@@ -82,10 +84,10 @@ export async function POST(request: NextRequest) {
           const provider = new ethers.JsonRpcProvider(RPC_URL);
           const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
           
-          // Use checksummed address for contract call
+          // Check wallet balance directly from blockchain (works for transferred NFTs)
           const checksummedAddress = ethers.getAddress(senderWallet);
           const balanceResult = await contract.balanceOf(checksummedAddress);
-          const hasNFT = balanceResult > 0n;
+          const hasNFT = balanceResult > 0n; // Any balance > 0 = access granted
           
           if (!hasNFT) {
             console.log("❌ NFT ownership check failed for messaging:", {

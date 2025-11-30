@@ -28,8 +28,10 @@ export async function POST(request: NextRequest) {
 
     const normalizedWallet = walletAddress.toLowerCase();
 
-    // ✅ Check if user owns an NFT via blockchain (required to create referral link)
-    // Always check NFT ownership (except for developer wallet in development)
+    // ✅ NFT Ownership Check: Only checks wallet balance on blockchain
+    // - Works for both minted NFTs and transferred NFTs (no database check)
+    // - If wallet has NFT → access granted (mint status not required)
+    // - Direct blockchain verification - handles all NFT ownership cases
     const DEVELOPER_WALLET = "0xEdf8e693b3ab4899a03aB22eDF90E36a6AC1Fd9d";
     const isDeveloperWallet = normalizedWallet.toLowerCase() === DEVELOPER_WALLET.toLowerCase();
     
@@ -44,9 +46,10 @@ export async function POST(request: NextRequest) {
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
         
+        // Check wallet balance directly from blockchain (works for transferred NFTs)
         const checksummedAddress = ethers.getAddress(walletAddress);
         const balanceResult = await contract.balanceOf(checksummedAddress);
-        const hasNFT = balanceResult > 0n;
+        const hasNFT = balanceResult > 0n; // Any balance > 0 = access granted
         
         console.log("✅ NFT ownership check result:", {
           wallet: checksummedAddress,
