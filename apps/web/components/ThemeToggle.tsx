@@ -14,10 +14,11 @@ export default function ThemeToggle() {
   if (!mounted) {
     return (
       <button
-        className="px-3 py-2 rounded-full border border-gray-300 bg-white/80 text-sm font-semibold text-gray-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 transition"
+        className="relative inline-flex h-5 w-9 items-center rounded-full bg-gray-300 transition-colors"
         aria-label="Toggle theme"
+        disabled
       >
-        …
+        <span className="inline-block h-4 w-4 translate-x-0.5 transform rounded-full bg-white transition-transform"></span>
       </button>
     );
   }
@@ -27,10 +28,22 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="px-3 py-2 rounded-full border border-gray-300 bg-white/80 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700/80 shadow-sm"
-      aria-label="Toggle theme"
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+        isDark ? "bg-purple-600" : "bg-gray-300"
+      }`}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      role="switch"
+      aria-checked={isDark}
     >
-      {isDark ? "☀️ Light" : "🌙 Dark"}
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+          isDark ? "translate-x-4" : "translate-x-0.5"
+        }`}
+      >
+        <span className="flex h-full w-full items-center justify-center text-xs">
+          {isDark ? "🌙" : "☀️"}
+        </span>
+      </span>
     </button>
   );
 }

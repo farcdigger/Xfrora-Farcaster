@@ -1643,7 +1643,7 @@ function HomePageContent() {
                   onClick={async () => {
                     try {
                       const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
-                      const castText = `🎉 Just minted my AI-powered xFrora NFT! My Farcaster profile transformed into a unique digital masterpiece ✨\n\nReady to create yours? Turn your profile into art! 🚀\n\n${miniappUrl}`;
+                      const castText = `🎉 Profilinizi sanata dönüştürün ve AI destekli ürünlerin kilidini açın! ✨\n\nJust minted my xFrora NFT - my Farcaster profile is now a unique digital masterpiece! Ready to unlock yours? 🚀\n\n${miniappUrl}`;
                       
                       console.log("📤 Sharing cast on Farcaster:", castText);
                       
