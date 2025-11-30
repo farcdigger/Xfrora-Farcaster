@@ -199,26 +199,6 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     }
   };
 
-  // Check if message is requesting image generation
-  const isImageGenerationRequest = (message: string): boolean => {
-    const lowerMessage = message.toLowerCase().trim();
-    const imageKeywords = [
-      "generate image",
-      "create image",
-      "make image",
-      "draw image",
-      "show me an image",
-      "generate a picture",
-      "create a picture",
-      "make a picture",
-      "draw a picture",
-      "show me a picture",
-      "generate img",
-      "create img",
-    ];
-    return imageKeywords.some(keyword => lowerMessage.includes(keyword));
-  };
-
   const handleSendMessage = async () => {
     if (!input.trim() || loading || !walletAddress || (tokenBalance !== null && tokenBalance <= 0)) return;
 
@@ -234,89 +214,8 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     setLoading(true);
 
     try {
-      // Check if this is an image generation request
-      if (isImageGenerationRequest(currentInput)) {
-        // Extract prompt from message (remove image generation keywords)
-        let prompt = currentInput;
-        const imageKeywords = [
-          "generate image of",
-          "create image of",
-          "make image of",
-          "draw image of",
-          "generate a picture of",
-          "create a picture of",
-          "make a picture of",
-          "draw a picture of",
-          "show me an image of",
-          "show me a picture of",
-          "generate image",
-          "create image",
-          "make image",
-          "draw image",
-          "generate a picture",
-          "create a picture",
-          "make a picture",
-          "draw a picture",
-        ];
-        
-        for (const keyword of imageKeywords) {
-          if (prompt.toLowerCase().includes(keyword)) {
-            prompt = prompt.substring(prompt.toLowerCase().indexOf(keyword) + keyword.length).trim();
-            break;
-          }
-        }
-
-        // If prompt is empty after removing keywords, use the original message
-        if (!prompt) {
-          prompt = currentInput;
-        }
-
-        console.log("🎨 Detected image generation request. Prompt:", prompt);
-
-        // Call image generation endpoint
-        const imageResponse = await fetch("/api/chat/generate-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress,
-            prompt,
-          }),
-        });
-
-        if (imageResponse.status === 402) {
-          setShowPaymentModal(true);
-          setMessages((prev) => prev.slice(0, -1));
-          return;
-        }
-
-        const imageData = await imageResponse.json();
-
-        if (imageData.error) {
-          throw new Error(imageData.error);
-        }
-
-        // Create assistant message with image
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: `Here's your generated image! ✨`,
-          timestamp: new Date(),
-          imageUrl: imageData.imageUrl,
-        };
-
-        setMessages((prev) => [...prev, assistantMessage]);
-        setTokenBalance(imageData.newBalance || 0);
-        if (imageData.points !== undefined) {
-          setPoints(imageData.points);
-        }
-        
-        if (imageData.newBalance <= 0) {
-          setShowPaymentModal(true);
-        }
-
-        return;
-      }
-
-      // Regular text message
+      // Send all messages to /api/chat/message endpoint
+      // Server-side will detect image generation requests automatically
       const response = await fetch("/api/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -343,10 +242,13 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         throw new Error(data.error);
       }
 
+      // Server-side detects image generation requests automatically
+      // If imageUrl is present in response, display the image
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.response,
+        content: data.response || "Here's your generated image! ✨",
         timestamp: new Date(),
+        imageUrl: data.imageUrl, // Will be present if image was generated
       };
 
       setMessages((prev) => [...prev, assistantMessage]);

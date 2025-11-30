@@ -20,7 +20,8 @@ const ERC721_ABI = [
 ];
 
 // Image generation cost in tokens (more expensive than text messages)
-const IMAGE_GENERATION_COST = 100; // Adjust based on your pricing
+// Matches website implementation: 80,000 credits per render
+const IMAGE_GENERATION_COST = 80000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -187,8 +188,8 @@ export async function POST(request: NextRequest) {
         
         // Calculate base points from total tokens spent (every 2,000 tokens = 1 point)
         const basePoints = Math.floor(totalTokensSpent / 2000);
-        // Add bonus points for image generation
-        const imageBonusPoints = 10;
+        // Add bonus points for image generation (matches website: +40 points)
+        const imageBonusPoints = 40;
         newPoints = basePoints + imageBonusPoints;
         
         mockTokenBalances.set(normalizedAddress, {
@@ -211,8 +212,8 @@ export async function POST(request: NextRequest) {
         
         // Calculate base points from total tokens spent (every 2,000 tokens = 1 point)
         const basePoints = Math.floor(totalTokensSpent / 2000);
-        // Add bonus points for image generation
-        const imageBonusPoints = 10;
+        // Add bonus points for image generation (matches website: +40 points)
+        const imageBonusPoints = 40;
         newPoints = basePoints + imageBonusPoints;
         
         // Update balance, points, and total_tokens_spent

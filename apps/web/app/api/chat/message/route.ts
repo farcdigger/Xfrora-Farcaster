@@ -7,13 +7,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { env } from "@/env.mjs";
-import { db, tokens } from "@/lib/db";
+import { db, tokens, chat_tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { ethers } from "ethers";
 import { generateSystemPrompt } from "@/lib/chat-prompt";
 import { updateTokenBalance } from "@/lib/chat-tokens-mock";
+import { generateImageViaDaydreamsAPI } from "@/lib/daydreams-api";
+import { pinToIPFS } from "@/lib/ipfs";
 
 const MODEL = "openai/gpt-4o-mini"; // Daydreams model name (gpt-5-nano not available)
+
+// Image generation cost in tokens (more expensive than text messages)
+// Matches website implementation: 80,000 credits per render
+const IMAGE_GENERATION_COST = 80000;
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -126,6 +132,69 @@ function calculateTokensFromResponse(response: any): number {
 }
 
 /**
+ * Check if message is requesting image generation
+ */
+function isImageGenerationRequest(message: string): boolean {
+  const lowerMessage = message.toLowerCase().trim();
+  const imageKeywords = [
+    "generate image",
+    "create image",
+    "make image",
+    "draw image",
+    "show me an image",
+    "generate a picture",
+    "create a picture",
+    "make a picture",
+    "draw a picture",
+    "show me a picture",
+    "generate img",
+    "create img",
+  ];
+  return imageKeywords.some(keyword => lowerMessage.includes(keyword));
+}
+
+/**
+ * Extract prompt from image generation request
+ */
+function extractImagePrompt(message: string): string {
+  let prompt = message;
+  const imageKeywords = [
+    "generate image of",
+    "create image of",
+    "make image of",
+    "draw image of",
+    "generate a picture of",
+    "create a picture of",
+    "make a picture of",
+    "draw a picture of",
+    "show me an image of",
+    "show me a picture of",
+    "generate image",
+    "create image",
+    "make image",
+    "draw image",
+    "generate a picture",
+    "create a picture",
+    "make a picture",
+    "draw a picture",
+  ];
+  
+  for (const keyword of imageKeywords) {
+    if (prompt.toLowerCase().includes(keyword)) {
+      prompt = prompt.substring(prompt.toLowerCase().indexOf(keyword) + keyword.length).trim();
+      break;
+    }
+  }
+  
+  // If prompt is empty after removing keywords, use the original message
+  if (!prompt) {
+    prompt = message;
+  }
+  
+  return prompt;
+}
+
+/**
  * POST - Send chat message
  */
 export async function POST(request: NextRequest) {
@@ -232,6 +301,158 @@ export async function POST(request: NextRequest) {
         },
         { status: 402 }
       );
+    }
+
+    // Check if this is an image generation request
+    if (isImageGenerationRequest(message)) {
+      // Check if user has enough tokens for image generation
+      if (currentBalance < IMAGE_GENERATION_COST) {
+        return NextResponse.json(
+          {
+            error: `Insufficient tokens. Image generation requires ${IMAGE_GENERATION_COST} tokens. You have ${currentBalance} tokens.`,
+            paymentRequired: true,
+          },
+          { status: 402 }
+        );
+      }
+
+      // Extract prompt from message
+      const prompt = extractImagePrompt(message);
+
+      try {
+        console.log("🎨 Generating image from chatbot prompt:", prompt);
+        
+        // Generate seed from prompt + wallet for uniqueness
+        const seed = ethers.id(prompt + walletAddress + Date.now());
+        
+        // Generate image
+        const imageBuffer = await generateImageViaDaydreamsAPI(
+          prompt,
+          seed,
+          env.COLLECTION_THEME || "frog"
+        );
+
+        if (!imageBuffer || imageBuffer.length === 0) {
+          throw new Error("Image generation returned empty buffer");
+        }
+
+        console.log("✅ Image generated successfully. Size:", imageBuffer.length, "bytes");
+
+        // Pin image to IPFS
+        const filename = `chatbot_${normalizedAddress}_${Date.now()}.png`;
+        let imageUrl: string;
+        try {
+          imageUrl = await pinToIPFS(imageBuffer, filename);
+          console.log("✅ Image pinned to IPFS:", imageUrl);
+        } catch (ipfsError: any) {
+          console.error("❌ Failed to pin image to IPFS:", ipfsError);
+          return NextResponse.json(
+            { 
+              error: "Failed to upload image",
+              details: ipfsError?.message || "Unknown IPFS error",
+            },
+            { status: 500 }
+          );
+        }
+
+        // Convert IPFS URL to gateway URL for display
+        let imageGatewayUrl = imageUrl;
+        if (imageUrl.startsWith("ipfs://")) {
+          imageGatewayUrl = `https://gateway.pinata.cloud/ipfs/${imageUrl.replace("ipfs://", "")}`;
+        }
+
+        // Deduct tokens and update points
+        const newBalance = Math.max(0, currentBalance - IMAGE_GENERATION_COST);
+        
+        // Calculate points: image generation earns bonus points
+        // Every image generation = 10 bonus points + normal token-based points
+        let totalTokensSpent = 0;
+        let newPoints = currentPoints;
+
+        if (isMockMode) {
+          const { getMockTokenBalances } = await import("@/lib/chat-tokens-mock");
+          const mockTokenBalances = getMockTokenBalances();
+          const userData = mockTokenBalances.get(normalizedAddress) || { balance: 0, points: 0, totalTokensSpent: 0 };
+          const previousTotalSpent = userData.totalTokensSpent || 0;
+          totalTokensSpent = previousTotalSpent + IMAGE_GENERATION_COST;
+          
+          // Calculate base points from total tokens spent (every 2,000 tokens = 1 point)
+          const basePoints = Math.floor(totalTokensSpent / 2000);
+          // Add bonus points for image generation (matches website: +40 points)
+          const imageBonusPoints = 40;
+          newPoints = basePoints + imageBonusPoints;
+          
+          mockTokenBalances.set(normalizedAddress, {
+            balance: newBalance,
+            points: newPoints,
+            totalTokensSpent: totalTokensSpent,
+          });
+        } else {
+          const result = await db
+            .select()
+            .from(chat_tokens)
+            .where(eq(chat_tokens.wallet_address, normalizedAddress))
+            .limit(1);
+          
+          const currentTotalSpent = result && result.length > 0
+            ? Number(result[0].total_tokens_spent) || 0
+            : 0;
+          
+          totalTokensSpent = currentTotalSpent + IMAGE_GENERATION_COST;
+          
+          // Calculate base points from total tokens spent (every 2,000 tokens = 1 point)
+          const basePoints = Math.floor(totalTokensSpent / 2000);
+          // Add bonus points for image generation (matches website: +40 points)
+          const imageBonusPoints = 40;
+          newPoints = basePoints + imageBonusPoints;
+          
+          // Update balance, points, and total_tokens_spent
+          await updateTokenBalance(walletAddress, newBalance, newPoints, totalTokensSpent);
+        }
+
+        const pointsEarned = newPoints - currentPoints;
+        
+        console.log("💾 Token balance updated for image generation:", {
+          walletAddress: normalizedAddress,
+          cost: IMAGE_GENERATION_COST,
+          newBalance,
+          pointsEarned,
+          newPoints,
+          previousPoints: currentPoints,
+        });
+
+        return NextResponse.json({
+          response: "Here's your generated image! ✨",
+          imageUrl: imageGatewayUrl,
+          ipfsUrl: imageUrl,
+          tokensUsed: IMAGE_GENERATION_COST,
+          newBalance,
+          points: newPoints,
+          pointsEarned,
+        });
+      } catch (error: any) {
+        console.error("❌ Image generation error:", error);
+        
+        // Handle payment required error
+        if (error.paymentRequired || error.message?.includes("PAYMENT_REQUIRED")) {
+          return NextResponse.json(
+            {
+              error: "Daydreams account balance insufficient",
+              code: "PAYMENT_REQUIRED",
+              message: "Image generation service requires payment. Please contact support.",
+            },
+            { status: 402 }
+          );
+        }
+
+        return NextResponse.json(
+          {
+            error: "Image generation failed",
+            message: error.message || "Unknown error",
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Get NFT traits for system prompt
