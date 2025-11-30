@@ -70,33 +70,73 @@ export async function POST(request: NextRequest) {
         if (status === "unknown" && hasCompletedPayment) {
           status = "paid";
         }
-        const recordedWallet = tokenData?.wallet_address || paymentRecord?.wallet_address || null;
         
-        // hasMinted = true if status='minted' OR token_id > 0
-        const hasMinted = (status === "minted") || (tokenId != null && tokenId > 0);
+        // Get wallet address from userData (users table) first, then token, then payment
+        const recordedWallet = userData?.wallet_address || tokenData?.wallet_address || paymentRecord?.wallet_address || null;
+        
+        // ✅ IMPORTANT: If user exists in users table with wallet_address, consider it minted
+        // (Mint process creates user record in users table after payment)
+        const hasUserWithWallet = !!(userData?.wallet_address);
+        
+        // hasMinted = true if:
+        // 1. status='minted' OR token_id > 0 (from tokens table)
+        // 2. OR user exists in users table with wallet_address (mint completed but token_id not updated)
+        const hasMinted = (status === "minted") || (tokenId != null && tokenId > 0) || hasUserWithWallet;
         
         // hasPaid = true if status='paid' (payment done, waiting for mint)
         const hasPaid = status === "paid" || hasCompletedPayment;
+        
+        // If user exists but token_id is missing, try to get token info from users table
+        let finalTokenId = tokenId;
+        let finalImageUri = tokenData?.image_uri || null;
+        let finalMetadataUri = tokenData?.metadata_uri || null;
+        
+        // If hasUserWithWallet but no token_id in tokens table, try to find token via user's wallet
+        if (hasUserWithWallet && (!tokenId || tokenId === 0 || tokenId === null) && userData?.wallet_address) {
+          console.log("⚠️ User exists with wallet but no token_id found, attempting to find token...");
+          try {
+            // Try to find token by wallet_address in tokens table
+            const tokenByWallet = await db
+              .select()
+              .from(tokens)
+              .where(eq(tokens.wallet_address, userData.wallet_address.toLowerCase()))
+              .limit(1);
+            
+            if (tokenByWallet && tokenByWallet.length > 0) {
+              const foundToken = tokenByWallet[0];
+              finalTokenId = foundToken.token_id;
+              finalImageUri = foundToken.image_uri || finalImageUri;
+              finalMetadataUri = foundToken.metadata_uri || finalMetadataUri;
+              console.log("✅ Found token via wallet_address:", {
+                token_id: finalTokenId,
+                hasImage: !!finalImageUri,
+              });
+            }
+          } catch (walletLookupError) {
+            console.warn("⚠️ Token lookup by wallet_address failed:", walletLookupError);
+          }
+        }
 
         console.log("✅ Mint status checked for Farcaster user:", {
           farcaster_user_id: userId,
           status,
           hasMinted,
           hasPaid,
-          token_id: tokenId,
-          has_metadata: !!tokenData?.metadata_uri,
+          token_id: finalTokenId || tokenId,
+          has_user_with_wallet: hasUserWithWallet,
+          has_metadata: !!(finalMetadataUri || tokenData?.metadata_uri),
           recordedWallet,
-          logic: `status=${status}, hasMinted=${hasMinted}, hasPaid=${hasPaid}`
+          logic: `status=${status}, hasMinted=${hasMinted}, hasPaid=${hasPaid}, hasUserWithWallet=${hasUserWithWallet}`
         });
 
         return NextResponse.json({
           hasMinted,
           hasPaid,
-          hasMetadata: !!tokenData?.metadata_uri,
-          tokenId: tokenId || 0,  // Return 0 if NULL for backward compatibility
-          status,
-          imageUri: tokenData?.image_uri || null,
-          metadataUri: tokenData?.metadata_uri || null,
+          hasMetadata: !!(finalMetadataUri || tokenData?.metadata_uri),
+          tokenId: finalTokenId || tokenId || 0,  // Return 0 if NULL for backward compatibility
+          status: hasMinted ? "minted" : status, // Update status if user has wallet
+          imageUri: finalImageUri || tokenData?.image_uri || null,
+          metadataUri: finalMetadataUri || tokenData?.metadata_uri || null,
           walletAddress: recordedWallet,
         });
       } catch (dbError) {

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
             tx_hash: transaction_hash || null,
             status: "minted",
           })
-          .eq("farcaster_user_id", userId)
+          .eq("x_user_id", userId) // Farcaster FID stored in x_user_id column
           .select();
 
         if (error) {
