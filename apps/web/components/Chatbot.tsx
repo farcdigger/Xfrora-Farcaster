@@ -802,119 +802,106 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
-              <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4 bg-gray-50/70 dark:bg-white/5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Model</p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">gemini-2.5-flash-image</p>
-                  </div>
-                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-semibold">
-                      {IMAGE_CREDIT_COST.toLocaleString("en-US")} credits
-                    </span>{" "}
-                    +{IMAGE_POINTS_REWARD} points
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
-                  Powered by Daydreams Router. Describe your scene and we&apos;ll render a 1024x1024 image. Credits burn only when a generation succeeds.
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 p-4">
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1.5">
-                      Storage Information / Depolama Bilgisi
-                    </h4>
-                    <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                      <strong>EN:</strong> Your generated images are stored in localStorage. Please download your images after generation, as they may be lost over time in the chat session.
-                    </p>
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      <strong>TR:</strong> Ürettiğiniz görseller localStorage&apos;da saklanmaktadır. Lütfen görsellerinizi üretim sonrası indiriniz, çünkü görselleriniz zamanla chat oturumunda kaybolabilir.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
+            <div className="flex flex-col gap-4">
+              {/* Prompt Input Section - More prominent */}
               <div className="space-y-3">
-                <textarea
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                  placeholder="Describe the scene you want to generate..."
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent resize-none text-sm sm:text-base"
-                  rows={3}
-                  disabled={imageLoading}
-                />
-                {imageError && (
-                  <div className="text-sm text-red-500 dark:text-red-400">{imageError}</div>
-                )}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Each generation burns {IMAGE_CREDIT_COST.toLocaleString("en-US")} credits and rewards {IMAGE_POINTS_REWARD} points.
-                  </p>
-                  <button
-                    onClick={handleGenerateImage}
-                    disabled={imageLoading || !imagePrompt.trim()}
-                    className="px-4 sm:px-6 py-2 bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base whitespace-nowrap w-full sm:w-auto"
-                  >
-                    {imageLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="w-4 h-4 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin"></span>
-                        Generating...
-                      </span>
-                    ) : (
-                      "Generate"
-                    )}
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Describe your scene
+                  </label>
+                  <textarea
+                    value={imagePrompt}
+                    onChange={(e) => setImagePrompt(e.target.value)}
+                    placeholder="Describe the scene you want to generate... (e.g., a beautiful sunset over mountains, a futuristic city at night, a cute cat playing)"
+                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent resize-none text-sm sm:text-base min-h-[100px]"
+                    rows={4}
+                    disabled={imageLoading}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault();
+                        handleGenerateImage();
+                      }
+                    }}
+                  />
+                  {imageError && (
+                    <div className="mt-2 text-sm text-red-500 dark:text-red-400">{imageError}</div>
+                  )}
                 </div>
+                <button
+                  onClick={handleGenerateImage}
+                  disabled={imageLoading || !imagePrompt.trim()}
+                  className="w-full px-6 py-3 bg-black dark:bg-white text-white dark:text-black border-2 border-black dark:border-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:bg-gray-900 dark:hover:bg-gray-100 text-sm sm:text-base"
+                >
+                  {imageLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-5 h-5 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin"></span>
+                      Generating...
+                    </span>
+                  ) : (
+                    `Generate Image (${IMAGE_CREDIT_COST.toLocaleString("en-US")} credits, +${IMAGE_POINTS_REWARD} points)`
+                  )}
+                </button>
               </div>
 
               {imageResults.length === 0 ? (
                 renderImageEmptyState()
               ) : (
-                <div className="grid gap-6 sm:grid-cols-2">
-                  {imageResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-black shadow-sm"
-                    >
-                      <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500 mb-1">Prompt</p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-3">{result.prompt}</p>
+                <>
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    {imageResults.map((result) => (
+                      <div
+                        key={result.id}
+                        className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-black shadow-sm"
+                      >
+                        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500 mb-1">Prompt</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-3">{result.prompt}</p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-900">
+                          <img
+                            src={result.imageUrl}
+                            alt={`AI generated result for ${result.prompt}`}
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                          <span>{result.createdAt.toLocaleString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          <button
+                            onClick={() => handleDownloadImage(result.imageUrl, result.prompt)}
+                            className="flex items-center gap-1.5 text-sm font-semibold text-black dark:text-white hover:opacity-70 transition-opacity"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download
+                          </button>
+                        </div>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-900">
-                        <img
-                          src={result.imageUrl}
-                          alt={`AI generated result for ${result.prompt}`}
-                          className="w-full h-auto object-cover"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                        <span>{result.createdAt.toLocaleString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        <button
-                          onClick={() => handleDownloadImage(result.imageUrl, result.prompt)}
-                          className="flex items-center gap-1.5 text-sm font-semibold text-black dark:text-white hover:opacity-70 transition-opacity"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                          Download
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
 
-              {imageLoading && imageResults.length > 0 && (
-                <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                  <div className="w-4 h-4 border-2 border-black dark:border-white border-t-transparent rounded-full animate-spin" />
-                  Generating with Daydreams...
-                </div>
+                  {imageLoading && imageResults.length > 0 && (
+                    <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="w-4 h-4 border-2 border-black dark:border-white border-t-transparent rounded-full animate-spin" />
+                      Generating with Daydreams...
+                    </div>
+                  )}
+
+                  {/* Storage Info and Model Info - Small footer */}
+                  <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+                    <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="flex-1">
+                        <strong>Storage:</strong> Images are stored in localStorage. Download them to keep them safe.
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                      Model: gemini-2.5-flash-image • Powered by Daydreams Router
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
