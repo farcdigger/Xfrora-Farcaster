@@ -1643,7 +1643,7 @@ function HomePageContent() {
                   onClick={async () => {
                     try {
                       const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
-                      const castText = `I just minted my xFrora NFT! 🚀✨${mintedTokenId ? ` Token #${mintedTokenId}` : ""}\n\nMint yours: ${miniappUrl}`;
+                      const castText = `🎉 Just minted my AI-powered xFrora NFT! My Farcaster profile transformed into a unique digital masterpiece ✨\n\nReady to create yours? Turn your profile into art! 🚀\n\n${miniappUrl}`;
                       
                       console.log("📤 Sharing cast on Farcaster:", castText);
                       
@@ -1667,7 +1667,7 @@ function HomePageContent() {
                       // Fallback: Use Web Share API
                       if (typeof navigator !== "undefined" && navigator.share) {
                         await navigator.share({
-                          title: "I just minted my xFrora NFT! 🚀✨",
+                          title: "🎉 Just minted my AI-powered xFrora NFT!",
                           text: castText,
                           url: miniappUrl
                         });
