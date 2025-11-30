@@ -31,24 +31,11 @@ export default function YamaAgentWebOnlyModal({
           </button>
         </div>
         
-        <div className="space-y-4 mb-6">
+        <div className="mb-6">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-1">
               <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                Bu özellik şu anda sadece web sitesinde mevcuttur. Yama Agent'a erişmek için lütfen web sitemizi ziyaret edin.
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-1">
-              <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
             <div>
