@@ -134,33 +134,66 @@ export async function POST(request: NextRequest) {
       // Continue anyway - not critical for referral code creation
     }
 
+    // Get Farcaster user ID (x_user_id) from users table using wallet address
+    // This is required for referrer_x_user_id column in referral_codes table
+    console.log("🔍 Fetching Farcaster user ID for wallet:", normalizedWallet);
+    const { data: userData, error: userError } = await (client as any)
+      .from("users")
+      .select("x_user_id")
+      .eq("wallet_address", normalizedWallet)
+      .single();
+    
+    let referrerXUserId: string | null = null;
+    if (userData && userData.x_user_id) {
+      referrerXUserId = userData.x_user_id.toString();
+      console.log("✅ Found Farcaster user ID:", referrerXUserId);
+    } else {
+      console.warn("⚠️ No user found with wallet address, referrer_x_user_id will be null");
+      if (userError && userError.code !== 'PGRST116') {
+        console.error("❌ Error fetching user:", userError);
+      }
+    }
+
+    if (!referrerXUserId) {
+      console.error("❌ Cannot create referral code: referrer_x_user_id is required but not found");
+      return NextResponse.json(
+        { 
+          error: "User not found. Please ensure you have minted an NFT or connected your wallet.",
+          details: "referrer_x_user_id is required but user not found in database"
+        },
+        { status: 400 }
+      );
+    }
+
     // Create new unique code (last 6 chars of wallet + random string if needed)
     // Simple version: 'ref_' + last 6 chars of wallet
     const code = `ref_${normalizedWallet.slice(-6)}`;
-    console.log("➕ Creating new referral code:", { wallet: normalizedWallet, code });
+    console.log("➕ Creating new referral code:", { wallet: normalizedWallet, code, referrer_x_user_id: referrerXUserId });
 
     // Insert - try with referrer_wallet_address first (new schema)
     // If that fails, try wallet_address (old schema for compatibility)
     let insertData: any = null;
     let insertError: any = null;
     
-    // Try new schema first
+    // Try new schema first (with referrer_x_user_id)
     const { data: insertDataNew, error: insertErrorNew } = await (client as any)
       .from("referral_codes")
       .insert({
         referrer_wallet_address: normalizedWallet,
+        referrer_x_user_id: referrerXUserId,
         code: code
       })
       .select("code")
       .single();
     
     if (insertErrorNew && insertErrorNew.code === '42703') {
-      // Column doesn't exist, try old schema
+      // Column doesn't exist, try old schema (but still include referrer_x_user_id if column exists)
       console.log("⚠️ New schema column not found, trying old schema...");
       const { data: insertDataOld, error: insertErrorOld } = await (client as any)
         .from("referral_codes")
         .insert({
           wallet_address: normalizedWallet,
+          referrer_x_user_id: referrerXUserId, // Still try to include this even for old schema
           code: code
         })
         .select("code")
@@ -197,6 +230,7 @@ export async function POST(request: NextRequest) {
             .from("referral_codes")
             .insert({
                 referrer_wallet_address: normalizedWallet,
+                referrer_x_user_id: referrerXUserId,
                 code: newCode
             })
             .select("code")
@@ -208,6 +242,7 @@ export async function POST(request: NextRequest) {
               .from("referral_codes")
               .insert({
                   wallet_address: normalizedWallet,
+                  referrer_x_user_id: referrerXUserId, // Include even for old schema
                   code: newCode
               })
               .select("code")
