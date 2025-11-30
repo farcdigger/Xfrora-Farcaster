@@ -416,22 +416,18 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
   const handleDownloadImage = async (imageUrl: string, prompt: string) => {
     try {
-      console.log("Downloading image:", { imageUrl: imageUrl.substring(0, 50), prompt });
+      console.log("Downloading image:", { imageUrlType: imageUrl.startsWith('data:') ? 'base64' : 'url', prompt });
       
       let blob: Blob;
-      let downloadUrl: string;
       
       if (imageUrl.startsWith('data:image')) {
-        // Base64 data URL
-        console.log("Processing base64 image...");
-        
-        // Extract base64 data from data URL
+        // Base64 data URL - convert directly to blob
         const base64Data = imageUrl.split(',')[1];
         if (!base64Data) {
           throw new Error("Invalid base64 data");
         }
         
-        // Convert base64 to binary string
+        // Decode base64
         const binaryString = atob(base64Data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -439,62 +435,53 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         }
         
         blob = new Blob([bytes], { type: 'image/png' });
-        downloadUrl = URL.createObjectURL(blob);
       } else {
-        // Regular URL (HTTP or IPFS)
-        console.log("Fetching image from URL...");
-        try {
-          const response = await fetch(imageUrl);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          blob = await response.blob();
-          downloadUrl = URL.createObjectURL(blob);
-        } catch (fetchError) {
-          console.error("Error fetching image:", fetchError);
-          // Fallback: try to open in new tab
-          window.open(imageUrl, '_blank');
-          return;
+        // URL - fetch it
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
         }
+        blob = await response.blob();
       }
       
-      // Create filename from prompt
+      // Create filename
       const sanitizedPrompt = prompt
         .replace(/[^a-z0-9\s]/gi, '_')
         .replace(/\s+/g, '_')
-        .substring(0, 50)
-        .toLowerCase();
+        .substring(0, 40)
+        .toLowerCase() || 'image';
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const filename = `xfrora-${sanitizedPrompt || 'image'}-${timestamp}.png`;
+      const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
       
-      console.log("Creating download link:", filename);
+      // Create download using blob URL
+      const blobUrl = URL.createObjectURL(blob);
       
-      // Create download link
+      // Create and trigger download
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = blobUrl;
       link.download = filename;
-      link.style.display = 'none';
+      link.setAttribute('download', filename);
       
-      // Append to body, click, and remove
+      // Add to DOM, click, then remove
       document.body.appendChild(link);
+      link.click();
       
-      // Use setTimeout to ensure the link is in the DOM
+      // Cleanup
       setTimeout(() => {
-        link.click();
-        console.log("Download triggered");
-        
-        // Clean up after a delay
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(downloadUrl);
-        }, 100);
-      }, 10);
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      console.log("Download initiated:", filename);
       
     } catch (error) {
       console.error("Error downloading image:", error);
-      alert(`Failed to download image: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      // Fallback: open in new tab
-      window.open(imageUrl, '_blank');
+      // For mobile, try opening in new tab as fallback
+      if (imageUrl.startsWith('http')) {
+        window.open(imageUrl, '_blank');
+      } else {
+        alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
   };
 
