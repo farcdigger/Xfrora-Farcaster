@@ -101,7 +101,8 @@ export async function GET() {
       requiredCapabilities: [
         "actions.signIn",
         "wallet.getEthereumProvider"
-      ]
+      ],
+      castShareUrl: `${baseUrl}/share` // Enable share extensions - allows users to share casts to this Mini App
     },
     
     // Account Association (Domain Verification)

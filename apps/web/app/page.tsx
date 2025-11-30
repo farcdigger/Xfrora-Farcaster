@@ -1604,24 +1604,37 @@ function HomePageContent() {
                   onClick={async () => {
                     try {
                       const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
+                      const castText = `I just minted my xFrora NFT! 🚀✨${mintedTokenId ? ` Token #${mintedTokenId}` : ""}\n\nMint yours: ${miniappUrl}`;
                       
-                      // Use Farcaster SDK share extension to share the Mini App URL
-                      // This will open the Farcaster share sheet with the URL
-                      console.log("📤 Sharing Mini App URL on Farcaster:", miniappUrl);
+                      console.log("📤 Sharing cast on Farcaster:", castText);
                       
-                      // Check if we're in a Farcaster Mini App
+                      // Try to use Farcaster SDK composeCast action if available
                       const inMiniApp = await sdk.isInMiniApp();
                       
-                      if (inMiniApp && typeof navigator !== "undefined" && navigator.share) {
-                        // Use Web Share API if available (works in Farcaster client)
+                      if (inMiniApp && (sdk.actions as any).composeCast) {
+                        // Use SDK composeCast action (if available in future SDK versions)
+                        try {
+                          await (sdk.actions as any).composeCast({
+                            text: castText,
+                            embeds: [miniappUrl]
+                          });
+                          console.log("✅ Cast composed via SDK");
+                          return;
+                        } catch (sdkError) {
+                          console.warn("⚠️ SDK composeCast not available, falling back to Web Share API");
+                        }
+                      }
+                      
+                      // Fallback: Use Web Share API
+                      if (typeof navigator !== "undefined" && navigator.share) {
                         await navigator.share({
                           title: "I just minted my xFrora NFT! 🚀✨",
-                          text: `I just minted my xFrora NFT! 🚀✨${mintedTokenId ? ` Token #${mintedTokenId}` : ""}`,
+                          text: castText,
                           url: miniappUrl
                         });
                         console.log("✅ Shared via Web Share API");
                       } else {
-                        // Fallback: Copy URL to clipboard
+                        // Final fallback: Copy URL to clipboard
                         await navigator.clipboard.writeText(miniappUrl);
                         alert("Mini App link copied to clipboard! Paste it in Farcaster to share.");
                         console.log("✅ URL copied to clipboard");
