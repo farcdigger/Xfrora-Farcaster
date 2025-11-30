@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db, tokens, payments } from "@/lib/db";
+import { db, tokens, payments, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { isMockMode } from "@/env.mjs";
 
@@ -28,6 +28,23 @@ export async function POST(request: NextRequest) {
     // Check in database
     if (!isMockMode && db) {
       try {
+        // First check users table to see if user exists (mint edildiyse user tablosunda olmalı)
+        let userData: any = null;
+        try {
+          const userRows = await db
+            .select()
+            .from(users)
+            .where(eq(users.x_user_id, userId)) // Farcaster FID stored in x_user_id column
+            .limit(1);
+          userData = userRows?.[0] || null;
+          console.log("👤 User data from users table:", {
+            exists: !!userData,
+            hasWallet: !!userData?.wallet_address,
+          });
+        } catch (userError) {
+          console.warn("⚠️ Users table lookup failed (non-critical):", userError);
+        }
+        
         const existingToken = await db
           .select()
           .from(tokens)

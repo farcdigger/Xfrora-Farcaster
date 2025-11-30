@@ -162,6 +162,86 @@ function HomePageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
 
+  // Check mint status when Farcaster user is loaded
+  // This ensures the success screen persists after page refresh
+  // Priority: API check (most reliable) > localStorage (quick restore)
+  useEffect(() => {
+    const restoreMintStatus = async () => {
+      if (!farcasterUser?.fid) return;
+      
+      console.log("🔄 Restoring mint status on page load/reload...", {
+        userId: farcasterUser.fid,
+        alreadyMinted,
+      });
+      
+      // Always check API first - users table and tokens table from database
+      // This is the source of truth
+      try {
+        const hasMinted = await checkExistingNFT(farcasterUser.fid);
+        if (hasMinted) {
+          console.log("✅ Mint status restored from API (users/tokens table)");
+          return; // API check succeeded, no need for localStorage
+        }
+      } catch (error) {
+        console.warn("⚠️ API check failed, trying localStorage:", error);
+      }
+      
+      // Fallback: Check localStorage for quick restoration (if API fails)
+      if (!alreadyMinted) {
+        const mintDataKey = `mint_success_${farcasterUser.fid}`;
+        const savedMintData = localStorage.getItem(mintDataKey);
+        
+        if (savedMintData) {
+          try {
+            const mintData = JSON.parse(savedMintData);
+            console.log("💾 Found saved mint data in localStorage (fallback):", mintData);
+            
+            // Restore state from localStorage temporarily
+            if (mintData.tokenId) {
+              setMintedTokenId(mintData.tokenId.toString());
+            }
+            if (mintData.transactionHash) {
+              setTransactionHash(mintData.transactionHash);
+            }
+            setAlreadyMinted(true);
+            setStep("mint");
+            
+            // Fetch NFT data from API
+            try {
+              const response = await fetch(`/api/generate?farcaster_user_id=${farcasterUser.fid}`);
+              if (response.ok) {
+                const nftData = await response.json();
+                if (nftData.imageUrl) {
+                  setGenerated({
+                    imageUrl: nftData.imageUrl,
+                    metadataUrl: nftData.metadataUrl || "",
+                    preview: nftData.imageUrl,
+                    seed: "",
+                    traits: nftData.traits || {
+                      description: "Minted NFT",
+                      main_colors: [],
+                      style: "unique",
+                      accessory: "none"
+                    },
+                  });
+                }
+              }
+            } catch (fetchError) {
+              console.warn("⚠️ Could not fetch NFT data:", fetchError);
+            }
+            
+            console.log("✅ Mint status restored from localStorage (fallback)");
+          } catch (error) {
+            console.error("❌ Error parsing saved mint data:", error);
+            localStorage.removeItem(mintDataKey);
+          }
+        }
+      }
+    };
+
+    restoreMintStatus();
+  }, [farcasterUser?.fid]); // Check when Farcaster user loads
+
   // Capture referral code from URL (?ref=...) - Store in BOTH localStorage AND cookie
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -310,6 +390,16 @@ function HomePageContent() {
             });
             setCurrentUserId(userId);
             setStep("mint"); // Show success screen
+            
+            // 💾 Persist to localStorage for page refresh persistence
+            const mintData = {
+              userId: userId,
+              tokenId: mintStatus.tokenId,
+              timestamp: Date.now(),
+            };
+            localStorage.setItem(`mint_success_${userId}`, JSON.stringify(mintData));
+            console.log("💾 Mint status persisted to localStorage:", mintData);
+            
             return true;
           }
           
@@ -355,6 +445,16 @@ function HomePageContent() {
                 });
                 setCurrentUserId(userId);
                 setStep("mint"); // Show success screen
+                
+                // 💾 Persist to localStorage for page refresh persistence
+                const mintData = {
+                  userId: userId,
+                  tokenId: null, // Not available from contract check
+                  timestamp: Date.now(),
+                };
+                localStorage.setItem(`mint_success_${userId}`, JSON.stringify(mintData));
+                console.log("💾 Mint status persisted to localStorage:", mintData);
+                
                 return true;
               }
             } catch (contractError) {
@@ -1139,6 +1239,18 @@ function HomePageContent() {
       setPaymentReady(false);
       setStep("mint");
       setError(null);
+      
+      // 💾 Persist mint success to localStorage for page refresh persistence
+      if (farcasterUser?.fid) {
+        const mintData = {
+          userId: farcasterUser.fid,
+          tokenId: mintedTokenId,
+          transactionHash: transactionHash,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(`mint_success_${farcasterUser.fid}`, JSON.stringify(mintData));
+        console.log("💾 Mint success persisted to localStorage:", mintData);
+      }
     } catch (err: any) {
       console.error("❌ Minting failed:", err);
       const errorMessage = err instanceof Error ? err.message : "Minting failed";
