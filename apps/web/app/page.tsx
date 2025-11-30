@@ -174,37 +174,29 @@ function HomePageContent() {
     const restoreMintStatus = async () => {
       if (!farcasterUser?.fid) return;
       
-      // Skip if we already know user minted (to avoid unnecessary API calls)
-      if (alreadyMinted && step === "mint") {
-        console.log("ℹ️ Mint status already restored, skipping check");
-        return;
-      }
-      
       console.log("🔄 Checking mint status on page load/reload...", {
         userId: farcasterUser.fid,
         currentStep: step,
         alreadyMinted,
       });
       
-      // Always check API first - users table and tokens table from database
+      // Always check API - users table and tokens table from database
       // This is the source of truth (users table has wallet_address if minted)
+      // Even if alreadyMinted is true, verify with API to ensure consistency
       try {
         const hasMinted = await checkExistingNFT(farcasterUser.fid);
         if (hasMinted) {
           console.log("✅ Mint status verified from API (users/tokens table)");
-          return; // API check succeeded
+        } else {
+          console.log("ℹ️ User has not minted yet");
         }
       } catch (error) {
         console.warn("⚠️ API check failed:", error);
-        // Continue to localStorage fallback
       }
-      
-      // Only use localStorage if API check failed and we don't have mint status
-      // localStorage is just a cache, API is the source of truth
     };
 
     restoreMintStatus();
-  }, [farcasterUser?.fid, step, alreadyMinted]); // Check when Farcaster user loads or step changes
+  }, [farcasterUser?.fid]); // Check when Farcaster user loads - this is the trigger
 
   // Capture referral code from URL (?ref=...) - Store in BOTH localStorage AND cookie
   useEffect(() => {
