@@ -414,82 +414,85 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     }
   };
 
-  const handleDownloadImage = (imageUrl: string, prompt: string) => {
+  const handleDownloadImage = async (imageUrl: string, prompt: string) => {
     try {
-      // Check if imageUrl is a data URL (base64)
+      console.log("Downloading image:", { imageUrl: imageUrl.substring(0, 50), prompt });
+      
       let blob: Blob;
+      let downloadUrl: string;
       
       if (imageUrl.startsWith('data:image')) {
+        // Base64 data URL
+        console.log("Processing base64 image...");
+        
         // Extract base64 data from data URL
         const base64Data = imageUrl.split(',')[1];
         if (!base64Data) {
           throw new Error("Invalid base64 data");
         }
         
-        // Convert base64 to blob
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        // Convert base64 to binary string
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        blob = new Blob([byteArray], { type: 'image/png' });
+        
+        blob = new Blob([bytes], { type: 'image/png' });
+        downloadUrl = URL.createObjectURL(blob);
       } else {
-        // If it's a regular URL, fetch it first
-        // This handles both HTTP URLs and IPFS URLs
-        fetch(imageUrl)
-          .then(response => response.blob())
-          .then(blobData => {
-            const url = URL.createObjectURL(blobData);
-            const link = document.createElement('a');
-            link.href = url;
-            
-            // Create filename from prompt
-            const sanitizedPrompt = prompt
-              .replace(/[^a-z0-9]/gi, '_')
-              .substring(0, 50)
-              .toLowerCase();
-            const timestamp = new Date().toISOString().split('T')[0];
-            link.download = `xfrora-image-${sanitizedPrompt}-${timestamp}.png`;
-            
-            // Trigger download
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            // Clean up
-            URL.revokeObjectURL(url);
-          })
-          .catch(error => {
-            console.error("Error downloading image from URL:", error);
-            // Fallback: open in new tab
-            window.open(imageUrl, '_blank');
-          });
-        return;
+        // Regular URL (HTTP or IPFS)
+        console.log("Fetching image from URL...");
+        try {
+          const response = await fetch(imageUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          blob = await response.blob();
+          downloadUrl = URL.createObjectURL(blob);
+        } catch (fetchError) {
+          console.error("Error fetching image:", fetchError);
+          // Fallback: try to open in new tab
+          window.open(imageUrl, '_blank');
+          return;
+        }
       }
       
-      // Create download link for base64 images
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Create filename from prompt (sanitize and limit length)
+      // Create filename from prompt
       const sanitizedPrompt = prompt
-        .replace(/[^a-z0-9]/gi, '_')
+        .replace(/[^a-z0-9\s]/gi, '_')
+        .replace(/\s+/g, '_')
         .substring(0, 50)
         .toLowerCase();
-      const timestamp = new Date().toISOString().split('T')[0];
-      link.download = `xfrora-image-${sanitizedPrompt}-${timestamp}.png`;
+      const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const filename = `xfrora-${sanitizedPrompt || 'image'}-${timestamp}.png`;
       
-      // Trigger download
+      console.log("Creating download link:", filename);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      link.style.display = 'none';
+      
+      // Append to body, click, and remove
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       
-      // Clean up
-      URL.revokeObjectURL(url);
+      // Use setTimeout to ensure the link is in the DOM
+      setTimeout(() => {
+        link.click();
+        console.log("Download triggered");
+        
+        // Clean up after a delay
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(downloadUrl);
+        }, 100);
+      }, 10);
+      
     } catch (error) {
       console.error("Error downloading image:", error);
+      alert(`Failed to download image: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // Fallback: open in new tab
       window.open(imageUrl, '_blank');
     }
