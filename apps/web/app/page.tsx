@@ -1604,33 +1604,45 @@ function HomePageContent() {
                   onClick={async () => {
                     try {
                       const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
-                      const nftLink = mintedTokenId 
-                        ? `https://opensea.io/assets/base/${env.NEXT_PUBLIC_CONTRACT_ADDRESS}/${mintedTokenId}`
-                        : "";
-                      const castText = `I just minted my xFrora NFT! 🚀✨\n\n${mintedTokenId ? `Token #${mintedTokenId}` : ""}\n\nMint yours: ${miniappUrl}`;
                       
-                      console.log("📤 Sharing cast on Farcaster:", castText);
+                      // Use Farcaster SDK share extension to share the Mini App URL
+                      // This will open the Farcaster share sheet with the URL
+                      console.log("📤 Sharing Mini App URL on Farcaster:", miniappUrl);
                       
-                      // Use Farcaster SDK to cast with Mini App embed
-                      await sdk.actions.cast({
-                        text: castText,
-                        embeds: [
-                          {
-                            url: miniappUrl
-                          }
-                        ]
-                      });
+                      // Check if we're in a Farcaster Mini App
+                      const inMiniApp = await sdk.isInMiniApp();
                       
-                      console.log("✅ Cast shared successfully!");
+                      if (inMiniApp && typeof navigator !== "undefined" && navigator.share) {
+                        // Use Web Share API if available (works in Farcaster client)
+                        await navigator.share({
+                          title: "I just minted my xFrora NFT! 🚀✨",
+                          text: `I just minted my xFrora NFT! 🚀✨${mintedTokenId ? ` Token #${mintedTokenId}` : ""}`,
+                          url: miniappUrl
+                        });
+                        console.log("✅ Shared via Web Share API");
+                      } else {
+                        // Fallback: Copy URL to clipboard
+                        await navigator.clipboard.writeText(miniappUrl);
+                        alert("Mini App link copied to clipboard! Paste it in Farcaster to share.");
+                        console.log("✅ URL copied to clipboard");
+                      }
                     } catch (error: any) {
-                      console.error("❌ Error sharing cast:", error);
-                      setError(error.message || "Failed to share cast on Farcaster. Please try again.");
+                      // If share fails, fallback to clipboard
+                      try {
+                        const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
+                        await navigator.clipboard.writeText(miniappUrl);
+                        alert("Mini App link copied to clipboard! Paste it in Farcaster to share.");
+                        console.log("✅ URL copied to clipboard (fallback)");
+                      } catch (clipboardError) {
+                        console.error("❌ Error sharing:", error);
+                        setError("Failed to share. Please copy the link manually.");
+                      }
                     }
                   }}
                   className="btn-secondary flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
                   </svg>
                   Share on Farcaster
                 </button>
