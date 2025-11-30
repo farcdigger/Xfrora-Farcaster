@@ -109,10 +109,21 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        return parsed.map((img: any) => ({
-          ...img,
-          createdAt: new Date(img.createdAt),
-        })).slice(0, MAX_IMAGE_RESULTS);
+        // Filter out Pinata URL images, only keep base64 images
+        const base64Images = parsed
+          .filter((img: any) => img.imageUrl && img.imageUrl.startsWith('data:image'))
+          .map((img: any) => ({
+            ...img,
+            createdAt: new Date(img.createdAt),
+          }))
+          .slice(0, MAX_IMAGE_RESULTS);
+        
+        // If we filtered out images, update localStorage
+        if (base64Images.length !== parsed.length) {
+          localStorage.setItem(storageKey, JSON.stringify(base64Images));
+        }
+        
+        return base64Images;
       }
     } catch (error) {
       console.error("Error loading image results from localStorage:", error);
