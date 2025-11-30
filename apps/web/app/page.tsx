@@ -1453,7 +1453,7 @@ function HomePageContent() {
                       }
                       alt="Generated NFT"
                       className={`w-full rounded-lg shadow-2xl transition-all duration-700 ${
-                        !alreadyMinted ? "blur-2xl brightness-75 scale-110" : "scale-100"
+                        !alreadyMinted ? "blur-lg brightness-85 scale-105" : "scale-100"
                       }`}
                       onError={(e) => {
                         console.error("Image load error:", e);
@@ -1475,11 +1475,11 @@ function HomePageContent() {
                     />
                     
                     {!alreadyMinted && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/10">
-                        <div className="bg-black/40 backdrop-blur-sm p-3 rounded-full border border-white/30 text-white mb-2 shadow-lg">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/20">
+                        <div className="bg-black/50 backdrop-blur-md p-3 rounded-full border border-white/30 text-white mb-2 shadow-lg">
                           <span className="text-2xl">🔒</span>
                         </div>
-                        <p className="text-white font-bold text-base drop-shadow-lg bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
+                        <p className="text-white font-bold text-base drop-shadow-lg bg-black/40 px-3 py-1 rounded-full backdrop-blur-md">
                           Mint to Reveal
                         </p>
                       </div>
