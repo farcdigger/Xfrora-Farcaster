@@ -1604,11 +1604,14 @@ function HomePageContent() {
                   onClick={async () => {
                     try {
                       const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
-                      const castText = `I just minted my xFrora NFT! 🚀✨\n\n${mintedTokenId ? `Token #${mintedTokenId}` : ""}\nMint yours: ${miniappUrl}`;
+                      const nftLink = mintedTokenId 
+                        ? `https://opensea.io/assets/base/${env.NEXT_PUBLIC_CONTRACT_ADDRESS}/${mintedTokenId}`
+                        : "";
+                      const castText = `I just minted my xFrora NFT! 🚀✨\n\n${mintedTokenId ? `Token #${mintedTokenId}` : ""}\n\nMint yours: ${miniappUrl}`;
                       
                       console.log("📤 Sharing cast on Farcaster:", castText);
                       
-                      // Use Farcaster SDK to cast
+                      // Use Farcaster SDK to cast with Mini App embed
                       await sdk.actions.cast({
                         text: castText,
                         embeds: [
@@ -1621,13 +1624,13 @@ function HomePageContent() {
                       console.log("✅ Cast shared successfully!");
                     } catch (error: any) {
                       console.error("❌ Error sharing cast:", error);
-                      setError(error.message || "Failed to share cast on Farcaster");
+                      setError(error.message || "Failed to share cast on Farcaster. Please try again.");
                     }
                   }}
                   className="btn-secondary flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2.4c5.302 0 9.6 4.298 9.6 9.6S17.302 21.6 12 21.6 2.4 17.302 2.4 12 6.698 2.4 12 2.4zm-1.2 5.4v8.4h2.4V7.8h-2.4zm0-3.6v2.4h2.4V4.2h-2.4z"/>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                   </svg>
                   Share on Farcaster
                 </button>
