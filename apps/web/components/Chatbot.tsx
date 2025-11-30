@@ -427,33 +427,28 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
   const handleDownloadImage = async (imageUrl: string, prompt: string) => {
     try {
-      console.log("Downloading image:", { imageUrlType: imageUrl.startsWith('data:') ? 'base64' : 'url', prompt });
-      
-      let blob: Blob;
-      
-      if (imageUrl.startsWith('data:image')) {
-        // Base64 data URL - convert directly to blob
-        const base64Data = imageUrl.split(',')[1];
-        if (!base64Data) {
-          throw new Error("Invalid base64 data");
-        }
-        
-        // Decode base64
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        
-        blob = new Blob([bytes], { type: 'image/png' });
-      } else {
-        // URL - fetch it
-        const response = await fetch(imageUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch image: ${response.status}`);
-        }
-        blob = await response.blob();
+      // Only handle base64 images (Pinata URLs should not exist anymore)
+      if (!imageUrl.startsWith('data:image')) {
+        console.warn("Non-base64 image URL detected:", imageUrl.substring(0, 50));
+        alert("Please regenerate the image. Old Pinata URLs are not supported.");
+        return;
       }
+      
+      // Extract base64 data
+      const base64Data = imageUrl.split(',')[1];
+      if (!base64Data) {
+        throw new Error("Invalid base64 data");
+      }
+      
+      // Decode base64 to binary
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Create blob
+      const blob = new Blob([bytes], { type: 'image/png' });
       
       // Create filename
       const sanitizedPrompt = prompt
@@ -464,35 +459,32 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
       
-      // Create download using blob URL
+      // Create download link
       const blobUrl = URL.createObjectURL(blob);
-      
-      // Create and trigger download
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = filename;
-      link.setAttribute('download', filename);
+      link.style.display = 'none';
       
-      // Add to DOM, click, then remove
+      // Add to DOM
       document.body.appendChild(link);
+      
+      // Trigger download
       link.click();
       
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      }, 100);
+      console.log("Download started:", filename);
       
-      console.log("Download initiated:", filename);
+      // Cleanup after download
+      setTimeout(() => {
+        if (link.parentNode) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(blobUrl);
+      }, 200);
       
     } catch (error) {
       console.error("Error downloading image:", error);
-      // For mobile, try opening in new tab as fallback
-      if (imageUrl.startsWith('http')) {
-        window.open(imageUrl, '_blank');
-      } else {
-        alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     }
   };
 
