@@ -8,7 +8,6 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  imageUrl?: string; // For generated images in chat messages
 }
 
 interface ChatbotProps {
@@ -274,13 +273,11 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         throw new Error(data.error);
       }
 
-      // Server-side detects image generation requests automatically
-      // If imageUrl is present in response, display the image
+      // Chat messages are text-only. Image generation is only available in Images tab.
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.response || "Here's your generated image! ✨",
+        content: data.response,
         timestamp: new Date(),
-        imageUrl: data.imageUrl, // Will be present if image was generated
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -683,20 +680,6 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                       : "bg-white dark:bg-black text-black dark:text-white border border-gray-200 dark:border-gray-800"
                   }`}
                 >
-                  {message.imageUrl && (
-                    <div className="mb-3 rounded-lg overflow-hidden">
-                      <img
-                        src={message.imageUrl}
-                        alt="Generated image"
-                        className="w-full h-auto max-w-md object-cover"
-                        onError={(e) => {
-                          console.error("Failed to load generated image:", message.imageUrl);
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  )}
                   <p className="whitespace-pre-wrap break-words">{message.content}</p>
                   <p className={`text-xs mt-2 ${message.role === "user" ? "text-gray-300 dark:text-gray-700" : "text-gray-500 dark:text-gray-400"}`}>
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
