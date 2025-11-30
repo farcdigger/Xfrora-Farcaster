@@ -9,6 +9,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  imageUrl?: string; // For generated images
 }
 
 interface ChatbotProps {
@@ -198,6 +199,26 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     }
   };
 
+  // Check if message is requesting image generation
+  const isImageGenerationRequest = (message: string): boolean => {
+    const lowerMessage = message.toLowerCase().trim();
+    const imageKeywords = [
+      "generate image",
+      "create image",
+      "make image",
+      "draw image",
+      "show me an image",
+      "generate a picture",
+      "create a picture",
+      "make a picture",
+      "draw a picture",
+      "show me a picture",
+      "generate img",
+      "create img",
+    ];
+    return imageKeywords.some(keyword => lowerMessage.includes(keyword));
+  };
+
   const handleSendMessage = async () => {
     if (!input.trim() || loading || !walletAddress || (tokenBalance !== null && tokenBalance <= 0)) return;
 
@@ -208,16 +229,100 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input.trim();
     setInput("");
     setLoading(true);
 
     try {
+      // Check if this is an image generation request
+      if (isImageGenerationRequest(currentInput)) {
+        // Extract prompt from message (remove image generation keywords)
+        let prompt = currentInput;
+        const imageKeywords = [
+          "generate image of",
+          "create image of",
+          "make image of",
+          "draw image of",
+          "generate a picture of",
+          "create a picture of",
+          "make a picture of",
+          "draw a picture of",
+          "show me an image of",
+          "show me a picture of",
+          "generate image",
+          "create image",
+          "make image",
+          "draw image",
+          "generate a picture",
+          "create a picture",
+          "make a picture",
+          "draw a picture",
+        ];
+        
+        for (const keyword of imageKeywords) {
+          if (prompt.toLowerCase().includes(keyword)) {
+            prompt = prompt.substring(prompt.toLowerCase().indexOf(keyword) + keyword.length).trim();
+            break;
+          }
+        }
+
+        // If prompt is empty after removing keywords, use the original message
+        if (!prompt) {
+          prompt = currentInput;
+        }
+
+        console.log("🎨 Detected image generation request. Prompt:", prompt);
+
+        // Call image generation endpoint
+        const imageResponse = await fetch("/api/chat/generate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            walletAddress,
+            prompt,
+          }),
+        });
+
+        if (imageResponse.status === 402) {
+          setShowPaymentModal(true);
+          setMessages((prev) => prev.slice(0, -1));
+          return;
+        }
+
+        const imageData = await imageResponse.json();
+
+        if (imageData.error) {
+          throw new Error(imageData.error);
+        }
+
+        // Create assistant message with image
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: `Here's your generated image! ✨`,
+          timestamp: new Date(),
+          imageUrl: imageData.imageUrl,
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+        setTokenBalance(imageData.newBalance || 0);
+        if (imageData.points !== undefined) {
+          setPoints(imageData.points);
+        }
+        
+        if (imageData.newBalance <= 0) {
+          setShowPaymentModal(true);
+        }
+
+        return;
+      }
+
+      // Regular text message
       const response = await fetch("/api/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           walletAddress,
-          message: userMessage.content,
+          message: currentInput,
           conversationHistory: messages.map((m) => ({
             role: m.role,
             content: m.content,
@@ -456,6 +561,21 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                       : "bg-white dark:bg-black text-black dark:text-white border border-gray-200 dark:border-gray-800"
                   }`}
                 >
+                  {message.imageUrl && (
+                    <div className="mb-3 rounded-lg overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={message.imageUrl}
+                        alt="Generated image"
+                        className="w-full max-w-md rounded-lg"
+                        onError={(e) => {
+                          console.error("Failed to load generated image:", message.imageUrl);
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
                   <p className="whitespace-pre-wrap break-words">{message.content}</p>
                   <p className={`text-xs mt-2 ${message.role === "user" ? "text-gray-300 dark:text-gray-700" : "text-gray-500 dark:text-gray-400"}`}>
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
