@@ -416,19 +416,59 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
   const handleDownloadImage = (imageUrl: string, prompt: string) => {
     try {
-      // Extract base64 data from data URL
-      const base64Data = imageUrl.split(',')[1] || imageUrl;
+      // Check if imageUrl is a data URL (base64)
+      let blob: Blob;
       
-      // Convert base64 to blob
-      const byteCharacters = atob(base64Data);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      if (imageUrl.startsWith('data:image')) {
+        // Extract base64 data from data URL
+        const base64Data = imageUrl.split(',')[1];
+        if (!base64Data) {
+          throw new Error("Invalid base64 data");
+        }
+        
+        // Convert base64 to blob
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: 'image/png' });
+      } else {
+        // If it's a regular URL, fetch it first
+        // This handles both HTTP URLs and IPFS URLs
+        fetch(imageUrl)
+          .then(response => response.blob())
+          .then(blobData => {
+            const url = URL.createObjectURL(blobData);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // Create filename from prompt
+            const sanitizedPrompt = prompt
+              .replace(/[^a-z0-9]/gi, '_')
+              .substring(0, 50)
+              .toLowerCase();
+            const timestamp = new Date().toISOString().split('T')[0];
+            link.download = `xfrora-image-${sanitizedPrompt}-${timestamp}.png`;
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up
+            URL.revokeObjectURL(url);
+          })
+          .catch(error => {
+            console.error("Error downloading image from URL:", error);
+            // Fallback: open in new tab
+            window.open(imageUrl, '_blank');
+          });
+        return;
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'image/png' });
       
-      // Create download link
+      // Create download link for base64 images
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

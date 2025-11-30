@@ -8,7 +8,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/env.mjs";
 import { ethers } from "ethers";
 import { generateImageViaDaydreamsAPI } from "@/lib/daydreams-api";
-import { pinToIPFS } from "@/lib/ipfs";
 import { ensureChatTokensRecordForNFTOwner } from "@/lib/nft-ownership-helpers";
 import { db, chat_tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -148,28 +147,11 @@ export async function POST(request: NextRequest) {
 
       console.log("✅ Image generated successfully. Size:", imageBuffer.length, "bytes");
 
-      // Pin image to IPFS
-      const filename = `chatbot_image_${normalizedAddress}_${Date.now()}.png`;
-      let imageUrl: string;
-      try {
-        imageUrl = await pinToIPFS(imageBuffer, filename);
-        console.log("✅ Image pinned to IPFS:", imageUrl);
-      } catch (ipfsError: any) {
-        console.error("❌ Failed to pin image to IPFS:", ipfsError);
-        return NextResponse.json(
-          { 
-            error: "Failed to upload image",
-            details: ipfsError?.message || "Unknown IPFS error",
-          },
-          { status: 500 }
-        );
-      }
-
-      // Convert IPFS URL to gateway URL for display
-      let imageGatewayUrl = imageUrl;
-      if (imageUrl.startsWith("ipfs://")) {
-        imageGatewayUrl = `https://gateway.pinata.cloud/ipfs/${imageUrl.replace("ipfs://", "")}`;
-      }
+      // Convert image buffer to base64 for storage (no Pinata upload)
+      const base64Image = imageBuffer.toString('base64');
+      const imageDataUrl = `data:image/png;base64,${base64Image}`;
+      
+      console.log("✅ Image converted to base64 for storage");
 
       // Deduct tokens and update points
       const newBalance = Math.max(0, currentBalance - IMAGE_GENERATION_COST);
@@ -233,8 +215,7 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({
-        imageUrl: imageGatewayUrl,
-        ipfsUrl: imageUrl,
+        imageUrl: imageDataUrl, // Base64 data URL for storage and display
         newBalance,
         points: newPoints,
         pointsEarned,
