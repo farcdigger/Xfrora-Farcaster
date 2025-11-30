@@ -172,28 +172,28 @@ function HomePageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
 
-  // Check mint status when Farcaster user is loaded
-  // This ensures the success screen persists after page refresh
-  // Always check API first (users/tokens table from database) - this is the source of truth
+  // ✅ ALWAYS check mint status from Supabase (users table) - this is the source of truth
+  // Check when Farcaster user loads, page becomes visible, and periodically
+  // Users table with wallet_address = mint completed (persistent check, no localStorage)
   useEffect(() => {
+    if (!farcasterUser?.fid) return;
+    
     const restoreMintStatus = async () => {
-      if (!farcasterUser?.fid) return;
-      
-      console.log("🔄 Checking mint status on page load/reload...", {
+      console.log("🔄 Checking mint status from Supabase (users/tokens table)...", {
         userId: farcasterUser.fid,
         currentStep: step,
         alreadyMinted,
       });
       
-      // Always check API - users table and tokens table from database
-      // This is the source of truth (users table has wallet_address if minted)
-      // Even if alreadyMinted is true, verify with API to ensure consistency
+      // ✅ ALWAYS check API - users table is the source of truth
+      // If users table has wallet_address → hasMinted = true (mint completed)
+      // No localStorage - always check from database
       try {
         const hasMinted = await checkExistingNFT(farcasterUser.fid);
         if (hasMinted) {
-          console.log("✅ Mint status verified from API (users/tokens table)");
+          console.log("✅ Mint status verified from Supabase (users table has wallet_address) - success screen will persist");
         } else {
-          console.log("ℹ️ User has not minted yet");
+          console.log("ℹ️ User has not minted yet (users table has no wallet_address)");
         }
       } catch (error) {
         console.warn("⚠️ API check failed:", error);
@@ -201,6 +201,25 @@ function HomePageContent() {
     };
 
     restoreMintStatus();
+    
+    // Also check periodically (every 5 seconds) while page is visible
+    // This ensures mint status is updated even if user stays on the page
+    const interval = setInterval(() => {
+      restoreMintStatus();
+    }, 5000);
+    
+    // Check when page becomes visible again (user switches tabs/windows)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        restoreMintStatus();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [farcasterUser?.fid]); // Check when Farcaster user loads - this is the trigger
 
   // Capture referral code from URL (?ref=...) - Store in BOTH localStorage AND cookie
@@ -329,11 +348,21 @@ function HomePageContent() {
         
         if (mintStatusResponse.ok) {
           const mintStatus = await mintStatusResponse.json();
-          console.log("🔍 Mint status:", mintStatus);
+          console.log("🔍 Mint status from API:", {
+            hasMinted: mintStatus.hasMinted,
+            tokenId: mintStatus.tokenId,
+            walletAddress: mintStatus.walletAddress,
+            imageUri: !!mintStatus.imageUri,
+          });
           
-          // If database says minted (token_id > 0), show success screen
-          if (mintStatus.hasMinted && mintStatus.tokenId > 0) {
-            console.log("✅ User already minted (DB)! Token ID:", mintStatus.tokenId);
+          // ✅ IMPORTANT: If hasMinted is true (users table has wallet_address), show success screen
+          // Don't check tokenId > 0 because tokenId might be 0 even if user exists in users table
+          // Users table with wallet_address = mint completed (source of truth from Supabase)
+          if (mintStatus.hasMinted) {
+            console.log("✅ User already minted (users table has wallet_address)!", {
+              tokenId: mintStatus.tokenId,
+              walletAddress: mintStatus.walletAddress,
+            });
             setPaymentReady(false);
             setAlreadyMinted(true);
             setMintedTokenId(mintStatus.tokenId?.toString() || null);
@@ -352,64 +381,19 @@ function HomePageContent() {
             setCurrentUserId(userId);
             setStep("mint"); // Show success screen
             
-            // ✅ Mint status is stored in Supabase (tokens table), no need for localStorage
-            console.log("✅ Mint status loaded from Supabase (tokens table)");
+            // ✅ Mint status loaded from Supabase (users/tokens table) - this is the source of truth
+            // No localStorage - always check from database
+            console.log("✅ Mint status loaded from Supabase (users/tokens table) - success screen will persist");
             
             return true;
           }
           
           pendingPayment = !mintStatus.hasMinted && !!mintStatus.hasPaid;
           setPaymentReady(pendingPayment);
-
-          // If database says not minted, double-check with contract
-          // (in case token_id wasn't updated in DB)
-          console.log("🔍 Database token_id=0, checking contract...");
-          if (typeof window.ethereum !== "undefined") {
-            try {
-              const provider = new ethers.BrowserProvider(window.ethereum);
-              const contract = new ethers.Contract(
-                env.NEXT_PUBLIC_CONTRACT_ADDRESS!,
-                ["function usedXUserId(uint256) view returns (bool)"],
-                provider
-              );
-              
-              // Convert user ID to contract format (same as backend)
-              const userIdString = userId.toString();
-              const hash = ethers.id(userIdString);
-              const xUserIdBigInt = BigInt(hash);
-              const isUsed = await contract.usedXUserId(xUserIdBigInt);
-              
-              console.log("🔍 Contract check result:", { isUsed });
-              
-              if (isUsed) {
-                console.log("✅ User already minted (CONTRACT)!");
-                setPaymentReady(false);
-                setAlreadyMinted(true);
-                setMintedTokenId(null); // token_id not available, will show without it
-                setGenerated({
-                  imageUrl: mintStatus.imageUri || "",
-                  metadataUrl: mintStatus.metadataUri || "",
-                  preview: mintStatus.imageUri || "",
-                  seed: "",
-                  traits: {
-                    description: "Already minted NFT",
-                    main_colors: [],
-                    style: "unique",
-                    accessory: "none"
-                  },
-                });
-                setCurrentUserId(userId);
-                setStep("mint"); // Show success screen
-                
-                // ✅ Mint status verified from contract, Supabase should have the data
-                console.log("✅ Mint status verified from contract");
-                
-                return true;
-              }
-            } catch (contractError) {
-              console.warn("⚠️ Contract check failed:", contractError);
-            }
-          }
+          
+          // ✅ No contract check needed - if users table has wallet_address, hasMinted is already true
+          // Users table is the source of truth (mint process creates user record after payment)
+          // If hasMinted is false, user hasn't minted yet
         }
       } catch (mintCheckError) {
         console.warn("⚠️ Mint status check failed (non-critical):", mintCheckError);
@@ -496,9 +480,13 @@ function HomePageContent() {
             mintStatus = await mintStatusResponse.json();
             console.log("🔍 Mint status result (DB):", mintStatus);
             
-            // If database says minted, show success
-            if (mintStatus.hasMinted && mintStatus.tokenId > 0) {
-              console.log("✅ User already minted (DB)! Redirecting to success...");
+            // ✅ IMPORTANT: If hasMinted is true (users table has wallet_address), show success
+            // Users table with wallet_address = mint completed (source of truth from Supabase)
+            if (mintStatus.hasMinted) {
+              console.log("✅ User already minted (users table)! Redirecting to success...", {
+                tokenId: mintStatus.tokenId,
+                walletAddress: mintStatus.walletAddress,
+              });
               setPaymentReady(false);
               setAlreadyMinted(true);
               setMintedTokenId(mintStatus.tokenId?.toString() || null);
