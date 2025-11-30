@@ -347,14 +347,8 @@ function HomePageContent() {
             setCurrentUserId(userId);
             setStep("mint"); // Show success screen
             
-            // 💾 Persist to localStorage for page refresh persistence
-            const mintData = {
-              userId: userId,
-              tokenId: mintStatus.tokenId,
-              timestamp: Date.now(),
-            };
-            localStorage.setItem(`mint_success_${userId}`, JSON.stringify(mintData));
-            console.log("💾 Mint status persisted to localStorage:", mintData);
+            // ✅ Mint status is stored in Supabase (tokens table), no need for localStorage
+            console.log("✅ Mint status loaded from Supabase (tokens table)");
             
             return true;
           }
@@ -402,14 +396,8 @@ function HomePageContent() {
                 setCurrentUserId(userId);
                 setStep("mint"); // Show success screen
                 
-                // 💾 Persist to localStorage for page refresh persistence
-                const mintData = {
-                  userId: userId,
-                  tokenId: null, // Not available from contract check
-                  timestamp: Date.now(),
-                };
-                localStorage.setItem(`mint_success_${userId}`, JSON.stringify(mintData));
-                console.log("💾 Mint status persisted to localStorage:", mintData);
+                // ✅ Mint status verified from contract, Supabase should have the data
+                console.log("✅ Mint status verified from contract");
                 
                 return true;
               }
@@ -1181,11 +1169,6 @@ function HomePageContent() {
           console.error("❌ Referral tracking error:", refError);
         }
         
-        // 💾 Update localStorage to persist mint success
-        if (farcasterUser) {
-          localStorage.setItem("farcasterUser", JSON.stringify(farcasterUser));
-          console.log("💾 Farcaster user data persisted to localStorage");
-        }
       } else {
         throw new Error("Transaction receipt is null");
       }
@@ -1196,17 +1179,9 @@ function HomePageContent() {
       setStep("mint");
       setError(null);
       
-      // 💾 Persist mint success to localStorage for page refresh persistence
-      if (farcasterUser?.fid) {
-        const mintData = {
-          userId: farcasterUser.fid,
-          tokenId: mintedTokenId,
-          transactionHash: transactionHash,
-          timestamp: Date.now(),
-        };
-        localStorage.setItem(`mint_success_${farcasterUser.fid}`, JSON.stringify(mintData));
-        console.log("💾 Mint success persisted to localStorage:", mintData);
-      }
+      // ✅ Mint status is stored in Supabase (tokens table), no need for localStorage
+      // Data will be fetched from Supabase on page refresh via checkExistingNFT
+      console.log("✅ Mint successful - status stored in Supabase (tokens table)");
     } catch (err: any) {
       console.error("❌ Minting failed:", err);
       const errorMessage = err instanceof Error ? err.message : "Minting failed";
