@@ -70,8 +70,13 @@ function HomePageContent() {
               setFarcasterUser(user);
               console.log("✅ Farcaster user loaded:", user);
               
-              // Check for existing NFT (non-blocking)
-              checkExistingNFT(user.fid).catch((err) => {
+              // Check for existing NFT immediately (non-blocking)
+              // This will restore mint status if user already minted
+              checkExistingNFT(user.fid).then((hasMinted) => {
+                if (hasMinted) {
+                  console.log("✅ Existing NFT found, success screen should be visible");
+                }
+              }).catch((err) => {
                 console.warn("⚠️ Error checking existing NFT:", err);
               });
             }
@@ -164,83 +169,42 @@ function HomePageContent() {
 
   // Check mint status when Farcaster user is loaded
   // This ensures the success screen persists after page refresh
-  // Priority: API check (most reliable) > localStorage (quick restore)
+  // Always check API first (users/tokens table from database) - this is the source of truth
   useEffect(() => {
     const restoreMintStatus = async () => {
       if (!farcasterUser?.fid) return;
       
-      console.log("🔄 Restoring mint status on page load/reload...", {
+      // Skip if we already know user minted (to avoid unnecessary API calls)
+      if (alreadyMinted && step === "mint") {
+        console.log("ℹ️ Mint status already restored, skipping check");
+        return;
+      }
+      
+      console.log("🔄 Checking mint status on page load/reload...", {
         userId: farcasterUser.fid,
+        currentStep: step,
         alreadyMinted,
       });
       
       // Always check API first - users table and tokens table from database
-      // This is the source of truth
+      // This is the source of truth (users table has wallet_address if minted)
       try {
         const hasMinted = await checkExistingNFT(farcasterUser.fid);
         if (hasMinted) {
-          console.log("✅ Mint status restored from API (users/tokens table)");
-          return; // API check succeeded, no need for localStorage
+          console.log("✅ Mint status verified from API (users/tokens table)");
+          return; // API check succeeded
         }
       } catch (error) {
-        console.warn("⚠️ API check failed, trying localStorage:", error);
+        console.warn("⚠️ API check failed:", error);
+        // Continue to localStorage fallback
       }
       
-      // Fallback: Check localStorage for quick restoration (if API fails)
-      if (!alreadyMinted) {
-        const mintDataKey = `mint_success_${farcasterUser.fid}`;
-        const savedMintData = localStorage.getItem(mintDataKey);
-        
-        if (savedMintData) {
-          try {
-            const mintData = JSON.parse(savedMintData);
-            console.log("💾 Found saved mint data in localStorage (fallback):", mintData);
-            
-            // Restore state from localStorage temporarily
-            if (mintData.tokenId) {
-              setMintedTokenId(mintData.tokenId.toString());
-            }
-            if (mintData.transactionHash) {
-              setTransactionHash(mintData.transactionHash);
-            }
-            setAlreadyMinted(true);
-            setStep("mint");
-            
-            // Fetch NFT data from API
-            try {
-              const response = await fetch(`/api/generate?farcaster_user_id=${farcasterUser.fid}`);
-              if (response.ok) {
-                const nftData = await response.json();
-                if (nftData.imageUrl) {
-                  setGenerated({
-                    imageUrl: nftData.imageUrl,
-                    metadataUrl: nftData.metadataUrl || "",
-                    preview: nftData.imageUrl,
-                    seed: "",
-                    traits: nftData.traits || {
-                      description: "Minted NFT",
-                      main_colors: [],
-                      style: "unique",
-                      accessory: "none"
-                    },
-                  });
-                }
-              }
-            } catch (fetchError) {
-              console.warn("⚠️ Could not fetch NFT data:", fetchError);
-            }
-            
-            console.log("✅ Mint status restored from localStorage (fallback)");
-          } catch (error) {
-            console.error("❌ Error parsing saved mint data:", error);
-            localStorage.removeItem(mintDataKey);
-          }
-        }
-      }
+      // Only use localStorage if API check failed and we don't have mint status
+      // localStorage is just a cache, API is the source of truth
     };
 
     restoreMintStatus();
-  }, [farcasterUser?.fid]); // Check when Farcaster user loads
+  }, [farcasterUser?.fid, step, alreadyMinted]); // Check when Farcaster user loads or step changes
 
   // Capture referral code from URL (?ref=...) - Store in BOTH localStorage AND cookie
   useEffect(() => {
