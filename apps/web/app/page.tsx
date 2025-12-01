@@ -1268,6 +1268,16 @@ function HomePageContent() {
             {/* Right: User Info & Buttons */}
             <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end">
               <ThemeToggle />
+              {/* Chat Button - Next to Yama */}
+              <button
+                onClick={() => setChatbotOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-gray-900/15 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-900 shadow-sm backdrop-blur transition-all hover:bg-white dark:border-white/30 dark:bg-white/10 dark:text-white sm:px-4 sm:text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span className="hidden sm:inline">Chat</span>
+              </button>
               {isInMiniApp ? (
                 <button
                   onClick={() => setShowYamaAgentModal(true)}
@@ -1399,42 +1409,38 @@ function HomePageContent() {
                         <span>Credits</span>
                       </button>
                     )}
-                    
-                    <button
-                      onClick={() => {
-                        setChatbotOpen(true);
-                        setMenuOpen(false);
-                      }}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white w-full text-left"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                      <span>Chat</span>
-                    </button>
                   </div>
                 )}
               </div>
               
-              <div className="flex items-center gap-2">
-                {farcasterUser && (
-                  <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-sm dark:bg-slate-800 dark:text-slate-100">
-                    <span className="text-gray-700 dark:text-slate-100">@{farcasterUser.username}</span>
-                  </div>
-                )}
-
-                <div className="flex">
-                  {isConnected && address ? (
-                    <div className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                      {address.substring(0, 6)}...{address.substring(address.length - 4)}
-                    </div>
+              {/* Farcaster Profile - Instead of wallet address */}
+              {farcasterUser ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700">
+                  {farcasterUser.pfp_url ? (
+                    <img 
+                      src={farcasterUser.pfp_url} 
+                      alt={farcasterUser.username || "Farcaster"} 
+                      className="w-6 h-6 rounded-full object-cover"
+                    />
                   ) : (
-                    <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
-                      Connecting wallet...
+                    <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                      {farcasterUser.username?.[0]?.toUpperCase() || "F"}
                     </div>
                   )}
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {farcasterUser.username ? `@${farcasterUser.username}` : farcasterUser.display_name || "Farcaster"}
+                  </span>
+                  {isConnected && address && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {address.substring(0, 4)}...{address.substring(address.length - 4)}
+                    </span>
+                  )}
                 </div>
-              </div>
+              ) : isConnected && address ? (
+                <div className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                  {address.substring(0, 4)}...{address.substring(address.length - 4)}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
