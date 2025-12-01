@@ -1262,7 +1262,6 @@ function HomePageContent() {
                 alt="XFRORA Logo" 
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <span className="text-xl font-bold text-gray-800 uppercase dark:text-slate-100">XFRORA</span>
             </div>
             
             {/* Right: User Info & Buttons */}
