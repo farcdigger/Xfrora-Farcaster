@@ -1182,7 +1182,7 @@ function HomePageContent() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                farcaster_user_id: userId,
+                x_user_id: userId.toString(), // Endpoint expects x_user_id, not farcaster_user_id
                 wallet: address.toLowerCase(),
               }),
             });
