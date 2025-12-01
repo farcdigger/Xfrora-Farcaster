@@ -430,43 +430,27 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     try {
       console.log("📥 Downloading image:", { prompt, imageUrl: imageUrl.substring(0, 50) + "..." });
       
-      // Only handle base64 images (Pinata URLs should not exist anymore)
+      // Only handle base64 images
       if (!imageUrl.startsWith('data:image')) {
         console.warn("Non-base64 image URL detected:", imageUrl.substring(0, 50));
         alert("Please regenerate the image. Old Pinata URLs are not supported.");
         return;
       }
       
-      // Extract base64 data (handle both data:image/png;base64, and data:image/png;base64, formats)
+      // Extract base64 data
       const base64Match = imageUrl.match(/data:image\/[^;]+;base64,(.+)/);
       const base64Data = base64Match ? base64Match[1] : imageUrl.split(',')[1];
       
       if (!base64Data) {
-        console.error("❌ Invalid base64 data:", imageUrl.substring(0, 100));
+        console.error("❌ Invalid base64 data");
         throw new Error("Invalid base64 data");
       }
       
-      console.log("✅ Base64 data extracted, length:", base64Data.length);
+      // Use fetch to convert data URL to blob (more reliable)
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
       
-      // Decode base64 to binary
-      let binaryString: string;
-      try {
-        binaryString = atob(base64Data);
-      } catch (decodeError) {
-        console.error("❌ Base64 decode error:", decodeError);
-        throw new Error("Failed to decode base64 data");
-      }
-      
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      
-      console.log("✅ Binary data created, size:", bytes.length);
-      
-      // Create blob
-      const blob = new Blob([bytes], { type: 'image/png' });
-      console.log("✅ Blob created, size:", blob.size);
+      console.log("✅ Blob created from fetch, size:", blob.size);
       
       // Create filename
       const sanitizedPrompt = prompt
@@ -477,33 +461,34 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
       
-      console.log("📝 Filename:", filename);
-      
-      // Create download link
+      // Create download using a more reliable method
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = filename;
-      link.style.display = 'none';
+      link.setAttribute('download', filename); // Ensure download attribute is set
       
-      // Add to DOM
-      document.body.appendChild(link);
-      
-      console.log("🔗 Download link created, triggering click...");
-      
-      // Trigger download
-      link.click();
-      
-      console.log("✅ Download triggered:", filename);
-      
-      // Cleanup after download
-      setTimeout(() => {
-        if (link.parentNode) {
-          document.body.removeChild(link);
-        }
-        URL.revokeObjectURL(blobUrl);
-        console.log("🧹 Cleanup completed");
-      }, 500);
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        document.body.appendChild(link);
+        // Use MouseEvent for more reliable click
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window
+        });
+        link.dispatchEvent(clickEvent);
+        console.log("✅ Download triggered:", filename);
+        
+        // Cleanup after a longer delay to ensure download starts
+        setTimeout(() => {
+          if (link.parentNode) {
+            document.body.removeChild(link);
+          }
+          URL.revokeObjectURL(blobUrl);
+          console.log("🧹 Cleanup completed");
+        }, 1000);
+      });
       
     } catch (error) {
       console.error("❌ Error downloading image:", error);
@@ -526,44 +511,47 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const inMiniApp = await sdk.isInMiniApp();
       
       if (inMiniApp && (sdk.actions as any).composeCast) {
-        // Use SDK composeCast action with image embed only (no text, no links)
         try {
-          // Farcaster SDK expects the image as a data URL string, not blob URL
-          // Pass the base64 data URL directly
-          await (sdk.actions as any).composeCast({
-            text: "", // Empty text - only image
-            embeds: [imageUrl] // Pass base64 data URL directly, not blob URL
-          });
+          // Convert base64 to File object (Farcaster SDK may expect File)
+          const base64Match = imageUrl.match(/data:image\/([^;]+);base64,(.+)/);
+          if (!base64Match) {
+            throw new Error("Invalid base64 image format");
+          }
           
-          console.log("✅ Cast composed via SDK with image only");
-          return;
-        } catch (sdkError) {
-          console.warn("⚠️ SDK composeCast failed, trying fallback:", sdkError);
-          // Try with blob URL as fallback
+          const mimeType = base64Match[1] || 'png';
+          const base64Data = base64Match[2];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: `image/${mimeType}` });
+          const file = new File([blob], `xfrora-image.${mimeType}`, { type: `image/${mimeType}` });
+          
+          console.log("✅ File object created:", { name: file.name, size: file.size, type: file.type });
+          
+          // Try with File object first
           try {
-            const base64Data = imageUrl.split(',')[1];
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: 'image/png' });
-            const blobUrl = URL.createObjectURL(blob);
+            await (sdk.actions as any).composeCast({
+              text: "", // Empty text - only image
+              embeds: [file] // Pass File object
+            });
+            console.log("✅ Cast composed via SDK with File object");
+            return;
+          } catch (fileError) {
+            console.warn("⚠️ File object failed, trying data URL:", fileError);
             
+            // Fallback: Try with data URL
             await (sdk.actions as any).composeCast({
               text: "",
-              embeds: [blobUrl]
+              embeds: [imageUrl] // Pass base64 data URL directly
             });
-            
-            setTimeout(() => {
-              URL.revokeObjectURL(blobUrl);
-            }, 1000);
-            
-            console.log("✅ Cast composed via SDK with blob URL");
+            console.log("✅ Cast composed via SDK with data URL");
             return;
-          } catch (blobError) {
-            console.warn("⚠️ Blob URL also failed:", blobError);
           }
+        } catch (sdkError) {
+          console.error("❌ SDK composeCast error:", sdkError);
+          throw sdkError;
         }
       }
       
@@ -571,14 +559,20 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       if (typeof navigator !== "undefined" && navigator.share) {
         try {
           // Convert base64 to File for sharing
-          const base64Data = imageUrl.split(',')[1];
+          const base64Match = imageUrl.match(/data:image\/([^;]+);base64,(.+)/);
+          if (!base64Match) {
+            throw new Error("Invalid base64 image format");
+          }
+          
+          const mimeType = base64Match[1] || 'png';
+          const base64Data = base64Match[2];
           const binaryString = atob(base64Data);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
           }
-          const blob = new Blob([bytes], { type: 'image/png' });
-          const file = new File([blob], 'xfrora-image.png', { type: 'image/png' });
+          const blob = new Blob([bytes], { type: `image/${mimeType}` });
+          const file = new File([blob], 'xfrora-image.png', { type: `image/${mimeType}` });
           
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
