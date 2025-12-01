@@ -512,7 +512,8 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       
       if (inMiniApp && (sdk.actions as any).composeCast) {
         try {
-          // Convert base64 to File object (Farcaster SDK may expect File)
+          // Convert base64 to blob and create blob URL
+          // Farcaster SDK needs a valid URL, not base64 data URL
           const base64Match = imageUrl.match(/data:image\/([^;]+);base64,(.+)/);
           if (!base64Match) {
             throw new Error("Invalid base64 image format");
@@ -526,27 +527,36 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
             bytes[i] = binaryString.charCodeAt(i);
           }
           const blob = new Blob([bytes], { type: `image/${mimeType}` });
-          const file = new File([blob], `xfrora-image.${mimeType}`, { type: `image/${mimeType}` });
+          const blobUrl = URL.createObjectURL(blob);
           
-          console.log("✅ File object created:", { name: file.name, size: file.size, type: file.type });
+          console.log("✅ Blob URL created:", blobUrl);
           
-          // Try with File object first
+          // Try with blob URL (most likely to work)
           try {
             await (sdk.actions as any).composeCast({
               text: "", // Empty text - only image
+              embeds: [blobUrl] // Pass blob URL
+            });
+            console.log("✅ Cast composed via SDK with blob URL");
+            
+            // Don't revoke URL immediately - Farcaster needs time to fetch it
+            setTimeout(() => {
+              URL.revokeObjectURL(blobUrl);
+              console.log("🧹 Blob URL revoked");
+            }, 10000); // Wait 10 seconds before cleanup
+            
+            return;
+          } catch (blobError) {
+            console.warn("⚠️ Blob URL failed, trying File object:", blobError);
+            URL.revokeObjectURL(blobUrl);
+            
+            // Fallback: Try with File object
+            const file = new File([blob], `xfrora-image.${mimeType}`, { type: `image/${mimeType}` });
+            await (sdk.actions as any).composeCast({
+              text: "",
               embeds: [file] // Pass File object
             });
             console.log("✅ Cast composed via SDK with File object");
-            return;
-          } catch (fileError) {
-            console.warn("⚠️ File object failed, trying data URL:", fileError);
-            
-            // Fallback: Try with data URL
-            await (sdk.actions as any).composeCast({
-              text: "",
-              embeds: [imageUrl] // Pass base64 data URL directly
-            });
-            console.log("✅ Cast composed via SDK with data URL");
             return;
           }
         } catch (sdkError) {
