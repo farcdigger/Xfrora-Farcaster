@@ -216,7 +216,7 @@ function HomePageContent() {
   }, [farcasterUser?.fid]); // Save when Farcaster user loads
 
   // ✅ ALWAYS check mint status from Supabase (users table) - this is the source of truth
-  // Check when Farcaster user loads, page becomes visible, and periodically
+  // Check when Farcaster user loads, page becomes visible, and periodically (reduced frequency)
   // Users table with wallet_address = mint completed (persistent check, no localStorage)
   useEffect(() => {
     if (!farcasterUser?.fid) return;
@@ -243,27 +243,39 @@ function HomePageContent() {
       }
     };
 
+    // Initial check when user loads
     restoreMintStatus();
     
-    // Also check periodically (every 5 seconds) while page is visible
-    // This ensures mint status is updated even if user stays on the page
-    const interval = setInterval(() => {
-      restoreMintStatus();
-    }, 5000);
+    // Only check periodically if user has NOT minted yet
+    // If already minted, no need to keep checking
+    // Reduced frequency: every 30 seconds (was 5 seconds)
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (!alreadyMinted) {
+      interval = setInterval(() => {
+        // Stop checking if mint is completed
+        if (alreadyMinted) {
+          if (interval) clearInterval(interval);
+          return;
+        }
+        restoreMintStatus();
+      }, 30000); // Check every 30 seconds instead of 5 seconds
+    }
     
     // Check when page becomes visible again (user switches tabs/windows)
+    // But only if not already minted
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && !alreadyMinted) {
         restoreMintStatus();
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     
     return () => {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [farcasterUser?.fid]); // Check when Farcaster user loads - this is the trigger
+  }, [farcasterUser?.fid, alreadyMinted]); // Check when Farcaster user loads OR mint status changes
 
   // Capture referral code from URL (?ref=...) - Store in BOTH localStorage AND cookie
   useEffect(() => {
