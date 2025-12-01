@@ -35,9 +35,10 @@ export async function POST(request: NextRequest) {
     
     console.log("📤 Optimizing image for cast (original size:", buffer.length, "bytes)");
     
-    // Optimize image specifically for cast: smaller size (512x512) for faster loading
+    // Optimize image specifically for cast: smaller size (384x384) for faster loading
     // Cast images don't need to be as large as display images
-    buffer = await optimizeImage(buffer, 512, 512, 0.85);
+    // Smaller size = faster loading on mobile and desktop
+    buffer = await optimizeImage(buffer, 384, 384, 0.85);
     
     console.log("✅ Image optimized for cast (final size:", buffer.length, "bytes)");
     

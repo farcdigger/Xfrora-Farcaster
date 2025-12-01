@@ -1,8 +1,7 @@
-import { createCanvas, loadImage } from 'canvas';
-
 /**
  * Optimize image by resizing and compressing
  * Reduces file size while maintaining reasonable quality
+ * Uses dynamic import for canvas to avoid build-time issues
  */
 export async function optimizeImage(
   imageBuffer: Buffer,
@@ -11,6 +10,9 @@ export async function optimizeImage(
   quality: number = 0.85
 ): Promise<Buffer> {
   try {
+    // Dynamic import to avoid build-time native dependency issues
+    const { createCanvas, loadImage } = await import('canvas');
+    
     // Convert buffer to data URL for canvas loadImage
     // Canvas loadImage accepts data URLs, paths, or ImageData
     const dataUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
@@ -45,9 +47,9 @@ export async function optimizeImage(
     console.log(`✅ Image optimized: ${imageBuffer.length} bytes → ${optimizedBuffer.length} bytes (${Math.round((1 - optimizedBuffer.length / imageBuffer.length) * 100)}% reduction)`);
     
     return optimizedBuffer;
-  } catch (error) {
-    console.error("❌ Error optimizing image:", error);
-    // If optimization fails, return original buffer
+  } catch (error: any) {
+    console.error("❌ Error optimizing image (falling back to original):", error?.message || error);
+    // If optimization fails (e.g., canvas not available in build), return original buffer
     return imageBuffer;
   }
 }
