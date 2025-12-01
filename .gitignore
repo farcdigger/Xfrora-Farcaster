@@ -38,3 +38,7 @@ packages/contracts/lib/
 # TypeScript
 *.tsbuildinfo
 
+# Temporary images for Farcaster casts (but keep .gitkeep)
+public/temp-images/*
+!public/temp-images/.gitkeep
+

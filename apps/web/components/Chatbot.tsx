@@ -697,55 +697,37 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       
       if (inMiniApp && (sdk.actions as any).composeCast) {
         try {
-          // Convert base64 to blob and create blob URL
-          // Farcaster SDK needs a valid URL, not base64 data URL
-          const base64Match = imageUrl.match(/data:image\/([^;]+);base64,(.+)/);
-          if (!base64Match) {
-            throw new Error("Invalid base64 image format");
+          // Upload image to temporary endpoint to get a real HTTP URL
+          // Blob URLs don't work with Farcaster SDK - it needs a real HTTP URL
+          console.log("📤 Uploading image to temporary endpoint...");
+          
+          const uploadResponse = await fetch('/api/chat/upload-temp-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageData: imageUrl }),
+          });
+          
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            throw new Error(`Failed to upload image: ${errorData.error || 'Unknown error'}`);
           }
           
-          const mimeType = base64Match[1] || 'png';
-          const base64Data = base64Match[2];
-          const binaryString = atob(base64Data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: `image/${mimeType}` });
-          const blobUrl = URL.createObjectURL(blob);
+          const { url: publicImageUrl } = await uploadResponse.json();
+          console.log("✅ Image uploaded, public URL:", publicImageUrl);
           
-          console.log("✅ Blob URL created:", blobUrl);
+          // Use the real HTTP URL for Farcaster cast
+          await (sdk.actions as any).composeCast({
+            text: "", // Empty text - only image
+            embeds: [publicImageUrl] // Pass real HTTP URL
+          });
+          console.log("✅ Cast composed via SDK with public image URL");
           
-          // Try with blob URL (most likely to work)
-          try {
-            await (sdk.actions as any).composeCast({
-              text: "", // Empty text - only image
-              embeds: [blobUrl] // Pass blob URL
-            });
-            console.log("✅ Cast composed via SDK with blob URL");
-            
-            // Don't revoke URL immediately - Farcaster needs time to fetch it
-            setTimeout(() => {
-              URL.revokeObjectURL(blobUrl);
-              console.log("🧹 Blob URL revoked");
-            }, 10000); // Wait 10 seconds before cleanup
-            
-            return;
-          } catch (blobError) {
-            console.warn("⚠️ Blob URL failed, trying File object:", blobError);
-            URL.revokeObjectURL(blobUrl);
-            
-            // Fallback: Try with File object
-            const file = new File([blob], `xfrora-image.${mimeType}`, { type: `image/${mimeType}` });
-            await (sdk.actions as any).composeCast({
-              text: "",
-              embeds: [file] // Pass File object
-            });
-            console.log("✅ Cast composed via SDK with File object");
-            return;
-          }
+          return;
         } catch (sdkError) {
           console.error("❌ SDK composeCast error:", sdkError);
+          alert(`Failed to share image: ${sdkError instanceof Error ? sdkError.message : 'Unknown error'}`);
           throw sdkError;
         }
       }
