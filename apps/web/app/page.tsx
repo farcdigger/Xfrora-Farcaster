@@ -1108,7 +1108,7 @@ function HomePageContent() {
           console.log("📦 Parsed event full:", parsed);
           console.log("📦 Parsed event args:", parsed?.args);
           
-          // tokenId is indexed (3rd parameter), so it's in topics[2] or args[2]
+          // tokenId is indexed (3rd parameter), so it is in topics[2] or args[2]
           let tokenId = null;
           
           // Try multiple methods to extract tokenId
