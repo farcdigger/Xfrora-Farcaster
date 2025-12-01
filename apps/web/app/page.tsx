@@ -1256,7 +1256,7 @@ function HomePageContent() {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             {/* Logo */}
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0 pt-1">
               <img 
                 src="/frora-logo.png" 
                 alt="XFRORA Logo" 
@@ -1418,10 +1418,18 @@ function HomePageContent() {
                 )}
               </div>
               
-              {/* Wallet Address - Shortened */}
-              {isConnected && address ? (
-                <div className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
-                  {address.substring(0, 4)}...{address.substring(address.length - 4)}
+              {/* Farcaster Profile Photo Only */}
+              {farcasterUser?.pfp_url ? (
+                <div className="flex-shrink-0">
+                  <img 
+                    src={farcasterUser.pfp_url} 
+                    alt={farcasterUser.username || "Farcaster"} 
+                    className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                  />
+                </div>
+              ) : farcasterUser ? (
+                <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 border-2 border-gray-200 dark:border-gray-700">
+                  {farcasterUser.username?.[0]?.toUpperCase() || "F"}
                 </div>
               ) : null}
             </div>
