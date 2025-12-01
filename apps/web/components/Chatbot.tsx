@@ -448,7 +448,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       
       console.log("✅ Base64 data extracted, length:", base64Data.length);
       
-      // Decode base64 to binary manually (more reliable than fetch for large images)
+      // Decode base64 to binary manually
       let binaryString: string;
       try {
         binaryString = atob(base64Data);
@@ -481,57 +481,81 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const blobUrl = URL.createObjectURL(blob);
       console.log("🔗 Blob URL created:", blobUrl);
       
-      // Create download link
+      // For mobile devices, use a different approach
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        console.log("📱 Mobile device detected");
+        // On mobile, open blob URL in new tab/window
+        // User can then long-press to save
+        const newWindow = window.open(blobUrl, '_blank');
+        if (newWindow) {
+          console.log("✅ Opened image in new window for mobile download");
+          // Cleanup after a delay
+          setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+          }, 5000);
+        } else {
+          // Popup blocked, try direct link
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          link.target = '_blank';
+          link.style.display = 'block';
+          link.style.position = 'fixed';
+          link.style.top = '0';
+          link.style.left = '0';
+          link.style.width = '1px';
+          link.style.height = '1px';
+          link.style.opacity = '0';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            if (link.parentNode) {
+              document.body.removeChild(link);
+            }
+            URL.revokeObjectURL(blobUrl);
+          }, 3000);
+        }
+        return;
+      }
+      
+      // Desktop: Create and trigger download link
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = filename;
       link.style.display = 'none';
-      link.setAttribute('download', filename);
       
-      // Add to DOM immediately
+      // Add to DOM
       document.body.appendChild(link);
       console.log("✅ Link added to DOM");
       
-      // Wait a bit to ensure DOM is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Force a reflow to ensure link is in DOM
+      void link.offsetWidth;
       
-      // Try multiple methods to trigger download
-      try {
-        // Method 1: Direct click (works in most browsers)
-        link.click();
-        console.log("✅ Download triggered via link.click()");
-      } catch (clickError) {
-        console.warn("⚠️ link.click() failed, trying MouseEvent:", clickError);
-        
-        // Method 2: MouseEvent (fallback)
-        const clickEvent = new MouseEvent('click', {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-          buttons: 1
-        });
-        link.dispatchEvent(clickEvent);
-        console.log("✅ Download triggered via MouseEvent");
-      }
-      
-      // For mobile browsers, also try opening in new window as fallback
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        console.log("📱 Mobile device detected, trying alternative method");
-        // On mobile, sometimes we need to open the blob URL directly
-        setTimeout(() => {
-          window.open(blobUrl, '_blank');
-        }, 500);
-      }
-      
-      // Cleanup after delay (longer for mobile)
-      const cleanupDelay = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 3000 : 2000;
+      // Trigger download with user gesture (button click is a user gesture)
+      // Use setTimeout to ensure it's in the same event loop as user click
       setTimeout(() => {
-        if (link.parentNode) {
-          document.body.removeChild(link);
+        try {
+          // Create a synthetic click event that browsers will accept
+          const event = document.createEvent('MouseEvents');
+          event.initEvent('click', true, true);
+          link.dispatchEvent(event);
+          console.log("✅ Download triggered via synthetic event");
+        } catch (e) {
+          // Fallback to direct click
+          console.warn("⚠️ Synthetic event failed, using direct click:", e);
+          link.click();
+          console.log("✅ Download triggered via direct click");
         }
-        URL.revokeObjectURL(blobUrl);
-        console.log("🧹 Cleanup completed");
-      }, cleanupDelay);
+        
+        // Cleanup after delay
+        setTimeout(() => {
+          if (link.parentNode) {
+            document.body.removeChild(link);
+          }
+          URL.revokeObjectURL(blobUrl);
+          console.log("🧹 Cleanup completed");
+        }, 2000);
+      }, 0);
       
     } catch (error) {
       console.error("❌ Error downloading image:", error);
