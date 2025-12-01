@@ -637,42 +637,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         }, 2000);
         
         // Show feedback
-        const message = document.createElement('div');
-        message.innerHTML = `
-          <div style="text-align: center;">
-            <div style="font-size: 16px; margin-bottom: 8px;">💾 Downloading...</div>
-            <div style="font-size: 12px; opacity: 0.9;">
-              If download doesn't start, check the new tab
-            </div>
-          </div>
-        `;
-        message.style.cssText = `
-          position: fixed;
-          top: 20px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          padding: 16px 24px;
-          border-radius: 8px;
-          font-weight: 600;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-          z-index: 10000;
-          max-width: 90%;
-        `;
-        document.body.appendChild(message);
-        
-        setTimeout(() => {
-          if (message.parentNode) {
-            message.style.transition = 'opacity 0.3s';
-            message.style.opacity = '0';
-            setTimeout(() => {
-              if (message.parentNode) {
-                document.body.removeChild(message);
-              }
-            }, 300);
-          }
-        }, 3000);
+        // Download notification removed - download happens silently
       }
       
     } catch (error) {
@@ -891,6 +856,19 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="relative w-full max-w-5xl h-[90vh] sm:h-[90vh] max-h-screen bg-white dark:bg-black flex flex-col border border-gray-200 dark:border-gray-800 overflow-hidden m-2 sm:m-0">
+        {/* Home Button - Top Left */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 left-3 z-10 p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-lg transition-colors flex items-center gap-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-black shadow-sm"
+          aria-label="Home"
+          title="Home"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <span className="text-sm font-medium hidden sm:inline">Home</span>
+        </button>
+        
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 flex-1 min-w-0">
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
@@ -970,15 +948,6 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                 New Chat
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-lg transition-colors flex-shrink-0"
-              aria-label="Close chatbot"
-            >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -1170,9 +1139,6 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                         <p className="text-sm text-red-600 dark:text-red-400">{imageError}</p>
                       </div>
                     )}
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      💡 Tip: Press Cmd/Ctrl + Enter to generate
-                    </p>
                   </div>
                   <button
                     onClick={handleGenerateImage}
