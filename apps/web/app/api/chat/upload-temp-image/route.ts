@@ -31,14 +31,22 @@ export async function POST(request: NextRequest) {
     const base64Data = base64Match[2];
     
     // Convert base64 to buffer
-    const buffer = Buffer.from(base64Data, 'base64');
+    let buffer = Buffer.from(base64Data, 'base64');
+    
+    console.log("📤 Optimizing image for cast (original size:", buffer.length, "bytes)");
+    
+    // Optimize image specifically for cast: smaller size (512x512) for faster loading
+    // Cast images don't need to be as large as display images
+    buffer = await optimizeImage(buffer, 512, 512, 0.85);
+    
+    console.log("✅ Image optimized for cast (final size:", buffer.length, "bytes)");
     
     // Generate unique filename
     const filename = `cast-${Date.now()}-${Math.random().toString(36).substring(7)}.${mimeType}`;
     
     // Upload to Pinata (IPFS) for temporary storage
     // This works in Vercel serverless environment
-    console.log("📤 Uploading image to Pinata for cast...");
+    console.log("📤 Uploading optimized image to Pinata for cast...");
     
     let imageUrl: string;
     try {
