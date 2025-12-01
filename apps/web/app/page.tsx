@@ -672,11 +672,11 @@ function HomePageContent() {
           
           setStep("generate");
         } else {
-          throw new Error("No Farcaster user found. Please make sure you're using the app within a Farcaster client.");
+          throw new Error("No Farcaster user found. Please make sure you are using the app within a Farcaster client.");
         }
       } catch (sdkError) {
         console.error("❌ Farcaster SDK error:", sdkError);
-        throw new Error("Failed to connect to Farcaster. Please make sure you're using the app within a Farcaster client.");
+        throw new Error("Failed to connect to Farcaster. Please make sure you are using the app within a Farcaster client.");
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to connect Farcaster";
