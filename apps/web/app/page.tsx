@@ -1352,31 +1352,6 @@ function HomePageContent() {
                       </svg>
                     </a>
                     
-                    <a
-                      href="https://opensea.io/collection/xfrora"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/opensea-icon.png" alt="OpenSea" className="w-5 h-5" />
-                      <span>OpenSea</span>
-                    </a>
-                    
-                    <a
-                      href="https://x.com/XFroraNFT"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                      </svg>
-                      <span>Follow on X</span>
-                    </a>
-                    
                     <Link
                       href="/leaderboard"
                       className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
@@ -1405,7 +1380,7 @@ function HomePageContent() {
                           setShowPaymentModal(true);
                           setMenuOpen(false);
                         }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white w-full text-left"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white w-full text-left border-b border-gray-100/70 dark:border-gray-800/80"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1413,6 +1388,31 @@ function HomePageContent() {
                         <span>Credits</span>
                       </button>
                     )}
+                    
+                    <a
+                      href="https://opensea.io/collection/xfrora"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/opensea-icon.png" alt="OpenSea" className="w-5 h-5" />
+                      <span>OpenSea</span>
+                    </a>
+                    
+                    <a
+                      href="https://x.com/XFroraNFT"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-black dark:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                      </svg>
+                      <span>Follow on X</span>
+                    </a>
                   </div>
                 )}
               </div>
