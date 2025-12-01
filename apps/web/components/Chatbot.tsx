@@ -428,6 +428,8 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
   const handleDownloadImage = async (imageUrl: string, prompt: string) => {
     try {
+      console.log("📥 Downloading image:", { prompt, imageUrl: imageUrl.substring(0, 50) + "..." });
+      
       // Only handle base64 images (Pinata URLs should not exist anymore)
       if (!imageUrl.startsWith('data:image')) {
         console.warn("Non-base64 image URL detected:", imageUrl.substring(0, 50));
@@ -435,21 +437,36 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         return;
       }
       
-      // Extract base64 data
-      const base64Data = imageUrl.split(',')[1];
+      // Extract base64 data (handle both data:image/png;base64, and data:image/png;base64, formats)
+      const base64Match = imageUrl.match(/data:image\/[^;]+;base64,(.+)/);
+      const base64Data = base64Match ? base64Match[1] : imageUrl.split(',')[1];
+      
       if (!base64Data) {
+        console.error("❌ Invalid base64 data:", imageUrl.substring(0, 100));
         throw new Error("Invalid base64 data");
       }
       
+      console.log("✅ Base64 data extracted, length:", base64Data.length);
+      
       // Decode base64 to binary
-      const binaryString = atob(base64Data);
+      let binaryString: string;
+      try {
+        binaryString = atob(base64Data);
+      } catch (decodeError) {
+        console.error("❌ Base64 decode error:", decodeError);
+        throw new Error("Failed to decode base64 data");
+      }
+      
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
       
+      console.log("✅ Binary data created, size:", bytes.length);
+      
       // Create blob
       const blob = new Blob([bytes], { type: 'image/png' });
+      console.log("✅ Blob created, size:", blob.size);
       
       // Create filename
       const sanitizedPrompt = prompt
@@ -459,6 +476,8 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         .toLowerCase() || 'image';
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
+      
+      console.log("📝 Filename:", filename);
       
       // Create download link
       const blobUrl = URL.createObjectURL(blob);
@@ -470,10 +489,12 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       // Add to DOM
       document.body.appendChild(link);
       
+      console.log("🔗 Download link created, triggering click...");
+      
       // Trigger download
       link.click();
       
-      console.log("Download started:", filename);
+      console.log("✅ Download triggered:", filename);
       
       // Cleanup after download
       setTimeout(() => {
@@ -481,10 +502,11 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
           document.body.removeChild(link);
         }
         URL.revokeObjectURL(blobUrl);
-      }, 200);
+        console.log("🧹 Cleanup completed");
+      }, 500);
       
     } catch (error) {
-      console.error("Error downloading image:", error);
+      console.error("❌ Error downloading image:", error);
       alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     }
   };
