@@ -930,11 +930,11 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                           <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500 mb-1">Prompt</p>
                           <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-3">{result.prompt}</p>
                         </div>
-                        <div className="bg-gray-50 dark:bg-gray-900">
+                        <div className="bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
                           <img
                             src={result.imageUrl}
                             alt={`AI generated result for ${result.prompt}`}
-                            className="w-full h-auto object-cover"
+                            className="w-full h-auto object-contain max-h-[300px] sm:max-h-[400px]"
                           />
                         </div>
                         <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
