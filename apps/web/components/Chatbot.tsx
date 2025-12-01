@@ -436,6 +436,9 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         return;
       }
       
+      // Detect mobile devices
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
       // Convert data URL to Blob
       const parts = imageUrl.split(',');
       const mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
@@ -463,80 +466,214 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
       
-      // Try multiple download methods
-      // Method 1: Direct download link (works in most browsers)
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      
-      // Use requestAnimationFrame to ensure DOM is ready and user gesture is preserved
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          try {
-            // Try direct download
-            link.click();
-            console.log("✅ Download triggered via link.click():", filename);
-          } catch (clickError) {
-            console.warn("⚠️ link.click() failed, opening in new tab:", clickError);
-            // Fallback: Open in new tab (user can right-click to save)
-            window.open(blobUrl, '_blank');
-            console.log("✅ Opened image in new tab (fallback - right-click to save)");
-          }
-        });
-      });
-      
-      // Cleanup after longer delay (give download time to start)
-      setTimeout(() => {
-        if (link.parentNode) {
-          document.body.removeChild(link);
+      if (isMobile) {
+        // MOBILE: Open image in new tab with instructions
+        // Mobile browsers block programmatic downloads, so we show the image
+        // User can long-press → Save Image
+        console.log("📱 Mobile device detected - opening image in new tab");
+        
+        const newWindow = window.open();
+        if (newWindow) {
+          const sanitizedPromptDisplay = prompt.substring(0, 60);
+          newWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>xFrora Image - Download</title>
+              <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  min-height: 100vh;
+                  padding: 20px;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                }
+                .container {
+                  max-width: 100%;
+                  width: 100%;
+                  text-align: center;
+                }
+                img {
+                  max-width: 100%;
+                  height: auto;
+                  border-radius: 16px;
+                  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
+                  margin-bottom: 24px;
+                }
+                .instructions {
+                  background: rgba(139, 92, 246, 0.1);
+                  border: 2px solid rgba(139, 92, 246, 0.3);
+                  border-radius: 12px;
+                  padding: 20px;
+                  color: #fff;
+                  margin-top: 20px;
+                }
+                .instructions h2 {
+                  font-size: 20px;
+                  margin-bottom: 12px;
+                  color: #a78bfa;
+                }
+                .instructions p {
+                  font-size: 16px;
+                  line-height: 1.6;
+                  margin: 8px 0;
+                  color: #e5e7eb;
+                }
+                .emoji {
+                  font-size: 24px;
+                  margin: 0 4px;
+                }
+                .prompt {
+                  font-size: 14px;
+                  color: #9ca3af;
+                  margin-top: 12px;
+                  font-style: italic;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <img src="${blobUrl}" alt="${sanitizedPromptDisplay}" />
+                <div class="instructions">
+                  <h2>📱 Görseli Kaydet</h2>
+                  <p><span class="emoji">👆</span> Görsele <strong>uzun basın</strong></p>
+                  <p><span class="emoji">💾</span> "<strong>Görseli Kaydet</strong>" veya "<strong>Resmi Kaydet</strong>" seçeneğini seçin</p>
+                  <div class="prompt">"${sanitizedPromptDisplay}"</div>
+                </div>
+              </div>
+            </body>
+            </html>
+          `);
+          newWindow.document.close();
+          console.log("✅ Image opened in new tab for mobile download");
+        } else {
+          // Popup blocked - show alert with instructions
+          alert("📱 Görseli kaydetmek için:\n\n1. Görsele uzun basın\n2. 'Görseli Kaydet' veya 'Resmi Kaydet' seçeneğini seçin\n\n(Popup engellendi, görseli doğrudan kaydedebilirsiniz)");
         }
-        // Don't revoke blob URL immediately - give download time
+        
+        // Show feedback message
+        const message = document.createElement('div');
+        message.innerHTML = `
+          <div style="text-align: center;">
+            <div style="font-size: 16px; margin-bottom: 8px;">📱 Yeni sekmede açıldı</div>
+            <div style="font-size: 12px; opacity: 0.9;">
+              Görsele uzun basıp "Görseli Kaydet" seçin
+            </div>
+          </div>
+        `;
+        message.style.cssText = `
+          position: fixed;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+          color: white;
+          padding: 16px 24px;
+          border-radius: 8px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          z-index: 10000;
+          max-width: 90%;
+        `;
+        document.body.appendChild(message);
+        
+        setTimeout(() => {
+          if (message.parentNode) {
+            message.style.transition = 'opacity 0.3s';
+            message.style.opacity = '0';
+            setTimeout(() => {
+              if (message.parentNode) {
+                document.body.removeChild(message);
+              }
+            }, 300);
+          }
+        }, 4000);
+        
+        // Don't revoke blob URL immediately on mobile (user needs time to save)
         setTimeout(() => {
           URL.revokeObjectURL(blobUrl);
-          console.log("🧹 Cleanup completed");
-        }, 5000);
-      }, 2000);
-      
-      // Show user feedback with instructions
-      const message = document.createElement('div');
-      message.innerHTML = `
-        <div style="text-align: center;">
-          <div style="font-size: 16px; margin-bottom: 8px;">💾 Downloading...</div>
-          <div style="font-size: 12px; opacity: 0.9;">
-            If download doesn't start, check the new tab or right-click the image
-          </div>
-        </div>
-      `;
-      message.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        padding: 16px 24px;
-        border-radius: 8px;
-        font-weight: 600;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        z-index: 10000;
-        max-width: 90%;
-      `;
-      document.body.appendChild(message);
-      
-      // Remove message after 3 seconds
-      setTimeout(() => {
-        if (message.parentNode) {
-          message.style.transition = 'opacity 0.3s';
-          message.style.opacity = '0';
-          setTimeout(() => {
-            if (message.parentNode) {
-              document.body.removeChild(message);
+          console.log("🧹 Cleanup completed (mobile)");
+        }, 30000); // 30 seconds for mobile
+        
+      } else {
+        // DESKTOP: Try programmatic download
+        console.log("🖥️ Desktop device - attempting programmatic download");
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        
+        // Use requestAnimationFrame to preserve user gesture
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            try {
+              link.click();
+              console.log("✅ Download triggered via link.click():", filename);
+            } catch (clickError) {
+              console.warn("⚠️ link.click() failed, opening in new tab:", clickError);
+              window.open(blobUrl, '_blank');
+              console.log("✅ Opened image in new tab (fallback)");
             }
-          }, 300);
-        }
-      }, 3000);
+          });
+        });
+        
+        // Cleanup
+        setTimeout(() => {
+          if (link.parentNode) {
+            document.body.removeChild(link);
+          }
+          setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+            console.log("🧹 Cleanup completed (desktop)");
+          }, 5000);
+        }, 2000);
+        
+        // Show feedback
+        const message = document.createElement('div');
+        message.innerHTML = `
+          <div style="text-align: center;">
+            <div style="font-size: 16px; margin-bottom: 8px;">💾 Downloading...</div>
+            <div style="font-size: 12px; opacity: 0.9;">
+              If download doesn't start, check the new tab
+            </div>
+          </div>
+        `;
+        message.style.cssText = `
+          position: fixed;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          padding: 16px 24px;
+          border-radius: 8px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          z-index: 10000;
+          max-width: 90%;
+        `;
+        document.body.appendChild(message);
+        
+        setTimeout(() => {
+          if (message.parentNode) {
+            message.style.transition = 'opacity 0.3s';
+            message.style.opacity = '0';
+            setTimeout(() => {
+              if (message.parentNode) {
+                document.body.removeChild(message);
+              }
+            }, 300);
+          }
+        }, 3000);
+      }
       
     } catch (error) {
       console.error("❌ Error downloading image:", error);
