@@ -780,74 +780,8 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         } catch (castError: any) {
           console.error("❌ Cast error:", castError);
           
-          // Try alternative: Upload to server and use URL (with timeout)
-          console.log("📤 Trying alternative: Upload to server...");
-          try {
-            const uploadTimeout = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error("Upload timeout after 10 seconds")), 10000);
-            });
-            
-            const uploadResponse = await Promise.race([
-              fetch('/api/chat/upload-temp-image', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ imageData: imageUrl }),
-              }),
-              uploadTimeout
-            ]) as Response;
-            
-            console.log("✅ Upload response received:", uploadResponse.status);
-            
-            if (uploadResponse.ok) {
-              const uploadData = await uploadResponse.json();
-              const publicImageUrl = uploadData.url;
-              console.log("✅ Image uploaded, trying with URL:", publicImageUrl);
-              
-              const urlCastPromise = (sdk.actions as any).composeCast({
-                text: "",
-                embeds: [publicImageUrl]
-              });
-              
-              await Promise.race([urlCastPromise, timeoutPromise]);
-              console.log("✅ Cast composed with URL!");
-              
-              const message = document.createElement('div');
-              message.textContent = '✅ Cast opened!';
-              message.style.cssText = `
-                position: fixed;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 14px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                z-index: 10000;
-              `;
-              document.body.appendChild(message);
-              setTimeout(() => {
-                if (message.parentNode) {
-                  document.body.removeChild(message);
-                }
-              }, 2000);
-              return;
-            } else {
-              const errorData = await uploadResponse.json().catch(() => ({ error: 'Unknown error' }));
-              console.error("❌ Upload failed:", uploadResponse.status, errorData);
-              throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
-            }
-          } catch (uploadError: any) {
-            console.error("❌ Upload fallback also failed:", uploadError);
-            throw uploadError;
-          }
-          
-          // If all fails, show error
-          alert(`Failed to share image: ${castError.message || 'Unknown error'}\n\nPlease check the console for details.`);
+          // File object method failed - show helpful error message
+          alert(`Failed to share image: ${castError.message || 'Unknown error'}\n\nYou can download the image and share it manually on Farcaster.`);
           throw castError;
         }
         
