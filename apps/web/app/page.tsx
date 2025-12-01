@@ -1300,7 +1300,7 @@ function HomePageContent() {
                       Loading...
                     </>
                   ) : (
-                    'Yama Agent'
+                    &apos;Yama Agent&apos;
                   )}
                 </Link>
               )}
