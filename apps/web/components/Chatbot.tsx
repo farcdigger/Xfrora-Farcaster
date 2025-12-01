@@ -446,11 +446,25 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         throw new Error("Invalid base64 data");
       }
       
-      // Use fetch to convert data URL to blob (more reliable)
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
+      console.log("✅ Base64 data extracted, length:", base64Data.length);
       
-      console.log("✅ Blob created from fetch, size:", blob.size);
+      // Decode base64 to binary manually (more reliable than fetch for large images)
+      let binaryString: string;
+      try {
+        binaryString = atob(base64Data);
+      } catch (decodeError) {
+        console.error("❌ Base64 decode error:", decodeError);
+        throw new Error("Failed to decode base64 data");
+      }
+      
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Create blob
+      const blob = new Blob([bytes], { type: 'image/png' });
+      console.log("✅ Blob created, size:", blob.size, "bytes");
       
       // Create filename
       const sanitizedPrompt = prompt
@@ -461,34 +475,63 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
       
-      // Create download using a more reliable method
+      console.log("📝 Filename:", filename);
+      
+      // Create blob URL
       const blobUrl = URL.createObjectURL(blob);
+      console.log("🔗 Blob URL created:", blobUrl);
+      
+      // Create download link
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = filename;
-      link.setAttribute('download', filename); // Ensure download attribute is set
+      link.style.display = 'none';
+      link.setAttribute('download', filename);
       
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        document.body.appendChild(link);
-        // Use MouseEvent for more reliable click
+      // Add to DOM immediately
+      document.body.appendChild(link);
+      console.log("✅ Link added to DOM");
+      
+      // Wait a bit to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Try multiple methods to trigger download
+      try {
+        // Method 1: Direct click (works in most browsers)
+        link.click();
+        console.log("✅ Download triggered via link.click()");
+      } catch (clickError) {
+        console.warn("⚠️ link.click() failed, trying MouseEvent:", clickError);
+        
+        // Method 2: MouseEvent (fallback)
         const clickEvent = new MouseEvent('click', {
           bubbles: true,
           cancelable: true,
-          view: window
+          view: window,
+          buttons: 1
         });
         link.dispatchEvent(clickEvent);
-        console.log("✅ Download triggered:", filename);
-        
-        // Cleanup after a longer delay to ensure download starts
+        console.log("✅ Download triggered via MouseEvent");
+      }
+      
+      // For mobile browsers, also try opening in new window as fallback
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        console.log("📱 Mobile device detected, trying alternative method");
+        // On mobile, sometimes we need to open the blob URL directly
         setTimeout(() => {
-          if (link.parentNode) {
-            document.body.removeChild(link);
-          }
-          URL.revokeObjectURL(blobUrl);
-          console.log("🧹 Cleanup completed");
-        }, 1000);
-      });
+          window.open(blobUrl, '_blank');
+        }, 500);
+      }
+      
+      // Cleanup after delay (longer for mobile)
+      const cleanupDelay = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 3000 : 2000;
+      setTimeout(() => {
+        if (link.parentNode) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(blobUrl);
+        console.log("🧹 Cleanup completed");
+      }, cleanupDelay);
       
     } catch (error) {
       console.error("❌ Error downloading image:", error);
