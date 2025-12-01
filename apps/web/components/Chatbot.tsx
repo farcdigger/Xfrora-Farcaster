@@ -426,140 +426,120 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     }
   };
 
-  const handleDownloadImage = async (imageUrl: string, prompt: string) => {
+  const handleDownloadImage = (imageUrl: string, prompt: string) => {
     try {
-      console.log("📥 Downloading image:", { prompt, imageUrl: imageUrl.substring(0, 50) + "..." });
+      console.log("📥 Opening image for download:", prompt);
       
       // Only handle base64 images
       if (!imageUrl.startsWith('data:image')) {
-        console.warn("Non-base64 image URL detected:", imageUrl.substring(0, 50));
-        alert("Please regenerate the image. Old Pinata URLs are not supported.");
+        alert("Please regenerate the image.");
         return;
       }
       
-      // Extract base64 data
-      const base64Match = imageUrl.match(/data:image\/[^;]+;base64,(.+)/);
-      const base64Data = base64Match ? base64Match[1] : imageUrl.split(',')[1];
-      
-      if (!base64Data) {
-        console.error("❌ Invalid base64 data");
-        throw new Error("Invalid base64 data");
-      }
-      
-      console.log("✅ Base64 data extracted, length:", base64Data.length);
-      
-      // Decode base64 to binary manually
-      let binaryString: string;
-      try {
-        binaryString = atob(base64Data);
-      } catch (decodeError) {
-        console.error("❌ Base64 decode error:", decodeError);
-        throw new Error("Failed to decode base64 data");
-      }
-      
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      
-      // Create blob
-      const blob = new Blob([bytes], { type: 'image/png' });
-      console.log("✅ Blob created, size:", blob.size, "bytes");
-      
-      // Create filename
-      const sanitizedPrompt = prompt
-        .replace(/[^a-z0-9\s]/gi, '_')
-        .replace(/\s+/g, '_')
-        .substring(0, 40)
-        .toLowerCase() || 'image';
-      const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
-      
-      console.log("📝 Filename:", filename);
-      
-      // Create blob URL
-      const blobUrl = URL.createObjectURL(blob);
-      console.log("🔗 Blob URL created:", blobUrl);
-      
-      // For mobile devices, use a different approach
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        console.log("📱 Mobile device detected");
-        // On mobile, open blob URL in new tab/window
-        // User can then long-press to save
-        const newWindow = window.open(blobUrl, '_blank');
-        if (newWindow) {
-          console.log("✅ Opened image in new window for mobile download");
-          // Cleanup after a delay
-          setTimeout(() => {
-            URL.revokeObjectURL(blobUrl);
-          }, 5000);
-        } else {
-          // Popup blocked, try direct link
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = filename;
-          link.target = '_blank';
-          link.style.display = 'block';
-          link.style.position = 'fixed';
-          link.style.top = '0';
-          link.style.left = '0';
-          link.style.width = '1px';
-          link.style.height = '1px';
-          link.style.opacity = '0';
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => {
-            if (link.parentNode) {
-              document.body.removeChild(link);
-            }
-            URL.revokeObjectURL(blobUrl);
-          }, 3000);
-        }
-        return;
-      }
-      
-      // Desktop: Create and trigger download link
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      link.style.display = 'none';
-      
-      // Add to DOM
-      document.body.appendChild(link);
-      console.log("✅ Link added to DOM");
-      
-      // Force a reflow to ensure link is in DOM
-      void link.offsetWidth;
-      
-      // Trigger download with user gesture (button click is a user gesture)
-      // Use setTimeout to ensure it's in the same event loop as user click
-      setTimeout(() => {
-        try {
-          // Create a synthetic click event that browsers will accept
-          const event = document.createEvent('MouseEvents');
-          event.initEvent('click', true, true);
-          link.dispatchEvent(event);
-          console.log("✅ Download triggered via synthetic event");
-        } catch (e) {
-          // Fallback to direct click
-          console.warn("⚠️ Synthetic event failed, using direct click:", e);
-          link.click();
-          console.log("✅ Download triggered via direct click");
-        }
+      // Simple approach: Open data URL in new window
+      // User can right-click → Save As or long-press → Save Image
+      const newWindow = window.open();
+      if (newWindow) {
+        // Create a simple HTML page with the image
+        const sanitizedPrompt = prompt
+          .replace(/[^a-z0-9\s]/gi, ' ')
+          .substring(0, 60);
         
-        // Cleanup after delay
-        setTimeout(() => {
-          if (link.parentNode) {
-            document.body.removeChild(link);
-          }
-          URL.revokeObjectURL(blobUrl);
-          console.log("🧹 Cleanup completed");
-        }, 2000);
-      }, 0);
-      
+        newWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>xFrora Image - ${sanitizedPrompt}</title>
+            <style>
+              body {
+                margin: 0;
+                padding: 20px;
+                background: #000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                font-family: system-ui, -apple-system, sans-serif;
+              }
+              img {
+                max-width: 100%;
+                height: auto;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
+              }
+              .info {
+                margin-top: 20px;
+                color: #fff;
+                text-align: center;
+                padding: 0 20px;
+              }
+              .info h2 {
+                margin: 0 0 8px 0;
+                font-size: 18px;
+                color: #a78bfa;
+              }
+              .info p {
+                margin: 4px 0;
+                font-size: 14px;
+                color: #9ca3af;
+              }
+              .download-btn {
+                margin-top: 16px;
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-block;
+                transition: transform 0.2s;
+              }
+              .download-btn:hover {
+                transform: scale(1.05);
+              }
+              .download-btn:active {
+                transform: scale(0.95);
+              }
+            </style>
+          </head>
+          <body>
+            <img src="${imageUrl}" alt="${sanitizedPrompt}" />
+            <div class="info">
+              <h2>🎨 xFrora Generated Image</h2>
+              <p>${sanitizedPrompt}</p>
+              <a href="${imageUrl}" download="xfrora-${sanitizedPrompt.replace(/\s+/g, '_').toLowerCase()}.png" class="download-btn">
+                💾 Download Image
+              </a>
+              <p style="margin-top: 12px; font-size: 12px;">
+                Desktop: Right-click image → Save As<br>
+                Mobile: Long-press image → Save Image
+              </p>
+            </div>
+          </body>
+          </html>
+        `);
+        newWindow.document.close();
+        console.log("✅ Image opened in new window");
+      } else {
+        // Popup blocked - fallback to direct download attempt
+        console.log("⚠️ Popup blocked, trying direct download...");
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `xfrora-${prompt.replace(/[^a-z0-9\s]/gi, '_').substring(0, 40).toLowerCase()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        console.log("✅ Direct download triggered");
+      }
     } catch (error) {
-      console.error("❌ Error downloading image:", error);
-      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
+      console.error("❌ Error opening image:", error);
+      alert("Failed to open image. Please try again.");
     }
   };
 
