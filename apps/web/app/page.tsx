@@ -172,6 +172,49 @@ function HomePageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
 
+  // 🔗 Save referral code to pending_referrals when Farcaster user loads
+  useEffect(() => {
+    if (!farcasterUser?.fid) return;
+    if (typeof window === "undefined") return;
+
+    const savePendingReferral = async () => {
+      const referralCode = localStorage.getItem("referralCode");
+      if (!referralCode) {
+        console.log("ℹ️ No referral code in localStorage");
+        return;
+      }
+
+      try {
+        console.log("💾 Saving referral code to pending_referrals:", {
+          x_user_id: farcasterUser.fid,
+          referral_code: referralCode
+        });
+
+        const response = await fetch("/api/referrals/save-pending", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            x_user_id: farcasterUser.fid.toString(),
+            referral_code: referralCode
+          }),
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+          console.log("✅ Referral code saved to pending_referrals:", data.message);
+        } else {
+          console.warn("⚠️ Failed to save pending referral:", data.message || data.error);
+        }
+      } catch (error) {
+        console.error("❌ Error saving pending referral:", error);
+      }
+    };
+
+    savePendingReferral();
+  }, [farcasterUser?.fid]); // Save when Farcaster user loads
+
   // ✅ ALWAYS check mint status from Supabase (users table) - this is the source of truth
   // Check when Farcaster user loads, page becomes visible, and periodically
   // Users table with wallet_address = mint completed (persistent check, no localStorage)
