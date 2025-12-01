@@ -500,14 +500,11 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         return;
       }
 
-      const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
-      const castText = `🎨 AI-generated image created with xFrora!\n\n"${prompt}"\n\nTransform your profile into art and unlock AI-powered products! ✨\n\n${miniappUrl}`;
-      
       // Check if we're in Farcaster Mini App
       const inMiniApp = await sdk.isInMiniApp();
       
       if (inMiniApp && (sdk.actions as any).composeCast) {
-        // Use SDK composeCast action with image embed
+        // Use SDK composeCast action with image embed only (no text, no links)
         try {
           // Convert base64 to blob URL for embedding
           const base64Data = imageUrl.split(',')[1];
@@ -520,11 +517,11 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
           const blobUrl = URL.createObjectURL(blob);
           
           await (sdk.actions as any).composeCast({
-            text: castText,
-            embeds: [blobUrl, miniappUrl]
+            text: "", // Empty text - only image
+            embeds: [blobUrl] // Only image, no links
           });
           
-          console.log("✅ Cast composed via SDK with image");
+          console.log("✅ Cast composed via SDK with image only");
           
           // Cleanup blob URL after a delay
           setTimeout(() => {
@@ -537,7 +534,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         }
       }
       
-      // Fallback: Use Web Share API with image
+      // Fallback: Use Web Share API with image only
       if (typeof navigator !== "undefined" && navigator.share) {
         try {
           // Convert base64 to File for sharing
@@ -552,27 +549,22 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
           
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
-              title: "🎨 AI-generated image created with xFrora!",
-              text: castText,
-              files: [file],
-              url: miniappUrl
+              files: [file] // Only image, no text or URL
             });
-            console.log("✅ Shared via Web Share API with image");
+            console.log("✅ Shared via Web Share API with image only");
             return;
           }
         } catch (shareError) {
-          console.warn("⚠️ Web Share API failed, trying clipboard:", shareError);
+          console.warn("⚠️ Web Share API failed:", shareError);
+          alert("Image sharing requires Farcaster Mini App. Please use the Cast button from within Farcaster.");
         }
+      } else {
+        alert("Image sharing requires Farcaster Mini App. Please use the Cast button from within Farcaster.");
       }
-      
-      // Final fallback: Copy text to clipboard
-      await navigator.clipboard.writeText(castText);
-      alert("Cast text copied to clipboard! Paste it in Farcaster to share. (Image sharing requires Farcaster Mini App)");
-      console.log("✅ Cast text copied to clipboard");
       
     } catch (error: any) {
       console.error("❌ Error sharing image on Farcaster:", error);
-      alert(`Failed to share image: ${error.message || 'Unknown error'}. Please try again.`);
+      alert(`Failed to share image: ${error.message || 'Unknown error'}. Please try again from within Farcaster Mini App.`);
     }
   };
 
