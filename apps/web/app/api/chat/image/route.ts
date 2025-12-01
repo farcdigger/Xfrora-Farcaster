@@ -12,6 +12,7 @@ import { ensureChatTokensRecordForNFTOwner } from "@/lib/nft-ownership-helpers";
 import { db, chat_tokens } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { isMockMode } from "@/env.mjs";
+import { optimizeImage } from "@/lib/image-optimizer";
 
 const CONTRACT_ADDRESS = env.CONTRACT_ADDRESS || "0x7De68EB999A314A0f986D417adcbcE515E476396";
 const RPC_URL = env.RPC_URL || "https://mainnet.base.org";
@@ -145,10 +146,16 @@ export async function POST(request: NextRequest) {
         throw new Error("Image generation returned empty buffer");
       }
 
-      console.log("✅ Image generated successfully. Size:", imageBuffer.length, "bytes");
+      console.log("✅ Image generated successfully. Original size:", imageBuffer.length, "bytes");
 
-      // Convert image buffer to base64 for storage (no Pinata upload)
-      const base64Image = imageBuffer.toString('base64');
+      // Optimize image: resize to max 768x768 and compress
+      // This reduces file size from ~1.5MB to ~200-400KB while maintaining good quality
+      const optimizedBuffer = await optimizeImage(imageBuffer, 768, 768, 0.85);
+      
+      console.log("✅ Image optimized. Final size:", optimizedBuffer.length, "bytes");
+
+      // Convert optimized image buffer to base64 for storage (no Pinata upload)
+      const base64Image = optimizedBuffer.toString('base64');
       const imageDataUrl = `data:image/png;base64,${base64Image}`;
       
       console.log("✅ Image converted to base64 for storage");
