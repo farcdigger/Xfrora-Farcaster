@@ -428,7 +428,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
   const handleDownloadImage = (imageUrl: string, prompt: string) => {
     try {
-      console.log("📥 Opening image for download:", prompt);
+      console.log("📥 Downloading image:", prompt);
       
       // Only handle base64 images
       if (!imageUrl.startsWith('data:image')) {
@@ -436,110 +436,68 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         return;
       }
       
-      // Simple approach: Open data URL in new window
-      // User can right-click → Save As or long-press → Save Image
-      const newWindow = window.open();
-      if (newWindow) {
-        // Create a simple HTML page with the image
-        const sanitizedPrompt = prompt
-          .replace(/[^a-z0-9\s]/gi, ' ')
-          .substring(0, 60);
-        
-        newWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>xFrora Image - ${sanitizedPrompt}</title>
-            <style>
-              body {
-                margin: 0;
-                padding: 20px;
-                background: #000;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                min-height: 100vh;
-                font-family: system-ui, -apple-system, sans-serif;
-              }
-              img {
-                max-width: 100%;
-                height: auto;
-                border-radius: 12px;
-                box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
-              }
-              .info {
-                margin-top: 20px;
-                color: #fff;
-                text-align: center;
-                padding: 0 20px;
-              }
-              .info h2 {
-                margin: 0 0 8px 0;
-                font-size: 18px;
-                color: #a78bfa;
-              }
-              .info p {
-                margin: 4px 0;
-                font-size: 14px;
-                color: #9ca3af;
-              }
-              .download-btn {
-                margin-top: 16px;
-                padding: 12px 24px;
-                background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-                color: white;
-                border: none;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: 600;
-                cursor: pointer;
-                text-decoration: none;
-                display: inline-block;
-                transition: transform 0.2s;
-              }
-              .download-btn:hover {
-                transform: scale(1.05);
-              }
-              .download-btn:active {
-                transform: scale(0.95);
-              }
-            </style>
-          </head>
-          <body>
-            <img src="${imageUrl}" alt="${sanitizedPrompt}" />
-            <div class="info">
-              <h2>🎨 xFrora Generated Image</h2>
-              <p>${sanitizedPrompt}</p>
-              <a href="${imageUrl}" download="xfrora-${sanitizedPrompt.replace(/\s+/g, '_').toLowerCase()}.png" class="download-btn">
-                💾 Download Image
-              </a>
-              <p style="margin-top: 12px; font-size: 12px;">
-                Desktop: Right-click image → Save As<br>
-                Mobile: Long-press image → Save Image
-              </p>
-            </div>
-          </body>
-          </html>
-        `);
-        newWindow.document.close();
-        console.log("✅ Image opened in new window");
-      } else {
-        // Popup blocked - fallback to direct download attempt
-        console.log("⚠️ Popup blocked, trying direct download...");
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `xfrora-${prompt.replace(/[^a-z0-9\s]/gi, '_').substring(0, 40).toLowerCase()}.png`;
-        document.body.appendChild(link);
-        link.click();
+      // Create filename
+      const sanitizedPrompt = prompt
+        .replace(/[^a-z0-9\s]/gi, '_')
+        .replace(/\s+/g, '_')
+        .substring(0, 40)
+        .toLowerCase();
+      const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
+      
+      // Create temporary download link
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = filename;
+      
+      // Important: Must be added to DOM for Firefox
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      
+      // Trigger download
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
         document.body.removeChild(link);
-        console.log("✅ Direct download triggered");
-      }
+      }, 100);
+      
+      console.log("✅ Download triggered:", filename);
+      
+      // Show user feedback
+      // Create a temporary success message
+      const message = document.createElement('div');
+      message.textContent = '✅ Download started!';
+      message.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 10000;
+        animation: slideDown 0.3s ease-out;
+      `;
+      document.body.appendChild(message);
+      
+      // Remove message after 2 seconds
+      setTimeout(() => {
+        message.style.animation = 'slideUp 0.3s ease-out';
+        setTimeout(() => {
+          if (message.parentNode) {
+            document.body.removeChild(message);
+          }
+        }, 300);
+      }, 2000);
+      
     } catch (error) {
-      console.error("❌ Error opening image:", error);
-      alert("Failed to open image. Please try again.");
+      console.error("❌ Error downloading image:", error);
+      alert("Download failed. Please try again.");
     }
   };
 
