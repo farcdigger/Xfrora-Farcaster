@@ -35,10 +35,11 @@ export async function POST(request: NextRequest) {
     
     console.log("📤 Optimizing image for cast (original size:", buffer.length, "bytes)");
     
-    // Optimize image specifically for cast: smaller size (384x384) for faster loading
-    // Cast images don't need to be as large as display images
-    // Smaller size = faster loading on mobile and desktop
-    buffer = await optimizeImage(buffer, 384, 384, 0.85);
+    // Optimize image specifically for cast: very small size (256x256) for fastest loading
+    // Cast images are just previews - don't need high resolution
+    // Smaller size = faster upload to Pinata + faster download from gateway
+    // 256x256 is perfect for social media previews and loads much faster
+    buffer = await optimizeImage(buffer, 256, 256, 0.8);
     
     console.log("✅ Image optimized for cast (final size:", buffer.length, "bytes)");
     
