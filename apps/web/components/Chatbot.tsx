@@ -1028,15 +1028,18 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={handleNewChat}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-black dark:text-white bg-white dark:bg-black rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 transition-all duration-200 border border-gray-200 dark:border-gray-800 whitespace-nowrap"
-            >
-              New Chat
-            </button>
+            {mode === "chat" && (
+              <button
+                onClick={handleNewChat}
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-black dark:text-white bg-white dark:bg-black rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 transition-all duration-200 border border-gray-200 dark:border-gray-800 whitespace-nowrap"
+              >
+                New Chat
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-lg transition-colors flex-shrink-0"
+              aria-label="Close chatbot"
             >
               <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1203,95 +1206,122 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              {/* Prompt Input Section - More prominent */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Describe your scene
-                  </label>
-                  <textarea
-                    value={imagePrompt}
-                    onChange={(e) => setImagePrompt(e.target.value)}
-                    placeholder="Describe the scene you want to generate... (e.g., a beautiful sunset over mountains, a futuristic city at night, a cute cat playing)"
-                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent resize-none text-sm sm:text-base min-h-[100px]"
-                    rows={4}
-                    disabled={imageLoading}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault();
-                        handleGenerateImage();
-                      }
-                    }}
-                  />
-                  {imageError && (
-                    <div className="mt-2 text-sm text-red-500 dark:text-red-400">{imageError}</div>
-                  )}
+            <div className="flex flex-col gap-6">
+              {/* Prompt Input Section - Clean and Simple */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                      🎨 Generate AI Image
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Describe what you want to see and we'll create it for you
+                    </p>
+                    <textarea
+                      value={imagePrompt}
+                      onChange={(e) => setImagePrompt(e.target.value)}
+                      placeholder="Example: A futuristic city at sunset with flying cars and neon lights..."
+                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent resize-none text-sm sm:text-base min-h-[120px] placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      rows={5}
+                      disabled={imageLoading}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault();
+                          handleGenerateImage();
+                        }
+                      }}
+                    />
+                    {imageError && (
+                      <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <p className="text-sm text-red-600 dark:text-red-400">{imageError}</p>
+                      </div>
+                    )}
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      💡 Tip: Press Cmd/Ctrl + Enter to generate
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleGenerateImage}
+                    disabled={imageLoading || !imagePrompt.trim()}
+                    className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl text-base sm:text-lg flex items-center justify-center gap-3"
+                  >
+                    {imageLoading ? (
+                      <>
+                        <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Generating your image...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Generate Image</span>
+                        <span className="text-sm opacity-90">({IMAGE_CREDIT_COST.toLocaleString("en-US")} credits)</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={handleGenerateImage}
-                  disabled={imageLoading || !imagePrompt.trim()}
-                  className="w-full px-6 py-3 bg-black dark:bg-white text-white dark:text-black border-2 border-black dark:border-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:bg-gray-900 dark:hover:bg-gray-100 text-sm sm:text-base"
-                >
-                  {imageLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-5 h-5 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin"></span>
-                      Generating...
-                    </span>
-                  ) : (
-                    `Generate Image (${IMAGE_CREDIT_COST.toLocaleString("en-US")} credits, +${IMAGE_POINTS_REWARD} points)`
-                  )}
-                </button>
               </div>
 
               {imageResults.length === 0 ? (
                 renderImageEmptyState()
               ) : (
                 <>
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    {imageResults.map((result) => (
-                      <div
-                        key={result.id}
-                        className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-black shadow-sm"
-                      >
-                        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500 mb-1">Prompt</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-3">{result.prompt}</p>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                          <img
-                            src={result.imageUrl}
-                            alt={`AI generated result for ${result.prompt}`}
-                            className="w-full h-auto object-contain max-h-[300px] sm:max-h-[400px]"
-                          />
-                        </div>
-                        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
-                          <div className="flex items-center justify-between mb-2 text-xs text-gray-500 dark:text-gray-400">
-                            <span>{result.createdAt.toLocaleString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                      Your Generated Images ({imageResults.length})
+                    </h3>
+                    <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+                      {imageResults.map((result) => (
+                        <div
+                          key={result.id}
+                          className="group rounded-2xl border-2 border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-black shadow-lg hover:shadow-xl transition-all"
+                        >
+                          <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+                            <img
+                              src={result.imageUrl}
+                              alt={`AI generated: ${result.prompt}`}
+                              className="w-full h-auto object-contain max-h-[300px] sm:max-h-[400px]"
+                            />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleCastImage(result.imageUrl, result.prompt)}
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                              </svg>
-                              Cast
-                            </button>
-                            <button
-                              onClick={() => handleDownloadImage(result.imageUrl, result.prompt)}
-                              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-black dark:text-white border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                              Download
-                            </button>
+                          <div className="p-4 space-y-3">
+                            <div>
+                              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                Prompt
+                              </p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
+                                {result.prompt}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {result.createdAt.toLocaleDateString([], { month: 'short', day: 'numeric' })} • {result.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 pt-2">
+                              <button
+                                onClick={() => handleCastImage(result.imageUrl, result.prompt)}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                </svg>
+                                Cast
+                              </button>
+                              <button
+                                onClick={() => handleDownloadImage(result.imageUrl, result.prompt)}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 rounded-lg transition-colors"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   {imageLoading && imageResults.length > 0 && (
