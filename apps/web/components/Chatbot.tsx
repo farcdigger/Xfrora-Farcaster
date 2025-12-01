@@ -506,31 +506,42 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       if (inMiniApp && (sdk.actions as any).composeCast) {
         // Use SDK composeCast action with image embed only (no text, no links)
         try {
-          // Convert base64 to blob URL for embedding
-          const base64Data = imageUrl.split(',')[1];
-          const binaryString = atob(base64Data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: 'image/png' });
-          const blobUrl = URL.createObjectURL(blob);
-          
+          // Farcaster SDK expects the image as a data URL string, not blob URL
+          // Pass the base64 data URL directly
           await (sdk.actions as any).composeCast({
             text: "", // Empty text - only image
-            embeds: [blobUrl] // Only image, no links
+            embeds: [imageUrl] // Pass base64 data URL directly, not blob URL
           });
           
           console.log("✅ Cast composed via SDK with image only");
-          
-          // Cleanup blob URL after a delay
-          setTimeout(() => {
-            URL.revokeObjectURL(blobUrl);
-          }, 1000);
-          
           return;
         } catch (sdkError) {
           console.warn("⚠️ SDK composeCast failed, trying fallback:", sdkError);
+          // Try with blob URL as fallback
+          try {
+            const base64Data = imageUrl.split(',')[1];
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'image/png' });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            await (sdk.actions as any).composeCast({
+              text: "",
+              embeds: [blobUrl]
+            });
+            
+            setTimeout(() => {
+              URL.revokeObjectURL(blobUrl);
+            }, 1000);
+            
+            console.log("✅ Cast composed via SDK with blob URL");
+            return;
+          } catch (blobError) {
+            console.warn("⚠️ Blob URL also failed:", blobError);
+          }
         }
       }
       
