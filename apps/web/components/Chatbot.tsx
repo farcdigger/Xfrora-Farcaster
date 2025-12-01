@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAccount, useWalletClient } from "wagmi";
+import { sdk } from "@farcaster/miniapp-sdk";
 import PaymentModal from "@/components/PaymentModal";
 
 interface Message {
@@ -488,6 +489,93 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
     }
   };
 
+  const handleCastImage = async (imageUrl: string, prompt: string) => {
+    try {
+      console.log("📤 Sharing image on Farcaster:", { prompt, imageUrl: imageUrl.substring(0, 50) + "..." });
+      
+      // Only handle base64 images
+      if (!imageUrl.startsWith('data:image')) {
+        console.warn("Non-base64 image URL detected");
+        alert("Please regenerate the image. Old Pinata URLs are not supported.");
+        return;
+      }
+
+      const miniappUrl = "https://farcaster.xyz/miniapps/KD7K0EBIz173/xfrora";
+      const castText = `🎨 AI-generated image created with xFrora!\n\n"${prompt}"\n\nTransform your profile into art and unlock AI-powered products! ✨\n\n${miniappUrl}`;
+      
+      // Check if we're in Farcaster Mini App
+      const inMiniApp = await sdk.isInMiniApp();
+      
+      if (inMiniApp && (sdk.actions as any).composeCast) {
+        // Use SDK composeCast action with image embed
+        try {
+          // Convert base64 to blob URL for embedding
+          const base64Data = imageUrl.split(',')[1];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'image/png' });
+          const blobUrl = URL.createObjectURL(blob);
+          
+          await (sdk.actions as any).composeCast({
+            text: castText,
+            embeds: [blobUrl, miniappUrl]
+          });
+          
+          console.log("✅ Cast composed via SDK with image");
+          
+          // Cleanup blob URL after a delay
+          setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+          }, 1000);
+          
+          return;
+        } catch (sdkError) {
+          console.warn("⚠️ SDK composeCast failed, trying fallback:", sdkError);
+        }
+      }
+      
+      // Fallback: Use Web Share API with image
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          // Convert base64 to File for sharing
+          const base64Data = imageUrl.split(',')[1];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'image/png' });
+          const file = new File([blob], 'xfrora-image.png', { type: 'image/png' });
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: "🎨 AI-generated image created with xFrora!",
+              text: castText,
+              files: [file],
+              url: miniappUrl
+            });
+            console.log("✅ Shared via Web Share API with image");
+            return;
+          }
+        } catch (shareError) {
+          console.warn("⚠️ Web Share API failed, trying clipboard:", shareError);
+        }
+      }
+      
+      // Final fallback: Copy text to clipboard
+      await navigator.clipboard.writeText(castText);
+      alert("Cast text copied to clipboard! Paste it in Farcaster to share. (Image sharing requires Farcaster Mini App)");
+      console.log("✅ Cast text copied to clipboard");
+      
+    } catch (error: any) {
+      console.error("❌ Error sharing image on Farcaster:", error);
+      alert(`Failed to share image: ${error.message || 'Unknown error'}. Please try again.`);
+    }
+  };
+
   const renderLoadingState = () => (
     <div className="flex flex-col items-center justify-center h-full text-center">
       <div className="w-16 h-16 border-4 border-black dark:border-white border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -857,17 +945,30 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                             className="w-full h-auto object-cover"
                           />
                         </div>
-                        <div className="flex items-center justify-between px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                          <span>{result.createdAt.toLocaleString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                          <button
-                            onClick={() => handleDownloadImage(result.imageUrl, result.prompt)}
-                            className="flex items-center gap-1.5 text-sm font-semibold text-black dark:text-white hover:opacity-70 transition-opacity"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            Download
-                          </button>
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+                          <div className="flex items-center justify-between mb-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span>{result.createdAt.toLocaleString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleCastImage(result.imageUrl, result.prompt)}
+                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                              </svg>
+                              Cast
+                            </button>
+                            <button
+                              onClick={() => handleDownloadImage(result.imageUrl, result.prompt)}
+                              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-black dark:text-white border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              Download
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
