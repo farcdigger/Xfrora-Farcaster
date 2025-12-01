@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // ESLint: Only fail on errors, not warnings (for Vercel builds)
+  eslint: {
+    ignoreDuringBuilds: false, // Still run ESLint
+    // Warnings won't fail the build, only errors will
+  },
+  typescript: {
+    // TypeScript: Only fail on errors, not warnings
+    ignoreBuildErrors: false,
+  },
   // Allow middleware to use Node.js APIs (for x402-next package)
   // Note: This may cause Edge Runtime issues, but x402-next requires Node.js APIs
   experimental: {
