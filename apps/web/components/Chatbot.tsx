@@ -780,16 +780,25 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         } catch (castError: any) {
           console.error("❌ Cast error:", castError);
           
-          // Try alternative: Upload to server and use URL
+          // Try alternative: Upload to server and use URL (with timeout)
           console.log("📤 Trying alternative: Upload to server...");
           try {
-            const uploadResponse = await fetch('/api/chat/upload-temp-image', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ imageData: imageUrl }),
+            const uploadTimeout = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error("Upload timeout after 10 seconds")), 10000);
             });
+            
+            const uploadResponse = await Promise.race([
+              fetch('/api/chat/upload-temp-image', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ imageData: imageUrl }),
+              }),
+              uploadTimeout
+            ]) as Response;
+            
+            console.log("✅ Upload response received:", uploadResponse.status);
             
             if (uploadResponse.ok) {
               const uploadData = await uploadResponse.json();
@@ -827,9 +836,14 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                 }
               }, 2000);
               return;
+            } else {
+              const errorData = await uploadResponse.json().catch(() => ({ error: 'Unknown error' }));
+              console.error("❌ Upload failed:", uploadResponse.status, errorData);
+              throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
             }
-          } catch (uploadError) {
+          } catch (uploadError: any) {
             console.error("❌ Upload fallback also failed:", uploadError);
+            throw uploadError;
           }
           
           // If all fails, show error
