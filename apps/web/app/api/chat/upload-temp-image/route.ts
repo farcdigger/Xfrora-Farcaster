@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pinToIPFS } from "@/lib/ipfs";
 import { env } from "@/env.mjs";
+import { optimizeImage } from "@/lib/image-optimizer";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
