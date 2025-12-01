@@ -695,68 +695,63 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       // Check if we're in Farcaster Mini App
       const inMiniApp = await sdk.isInMiniApp();
       console.log("🔍 In Mini App:", inMiniApp);
-      console.log("🔍 SDK actions available:", !!(sdk.actions as any).composeCast);
+      console.log("🔍 SDK object:", sdk);
+      console.log("🔍 SDK actions:", sdk.actions);
+      console.log("🔍 SDK actions keys:", Object.keys(sdk.actions || {}));
+      console.log("🔍 composeCast available:", !!(sdk.actions as any)?.composeCast);
+      console.log("🔍 composeCast type:", typeof (sdk.actions as any)?.composeCast);
       
-      if (inMiniApp && (sdk.actions as any).composeCast) {
+      if (!inMiniApp) {
+        alert("Image sharing requires Farcaster Mini App. Please use the Cast button from within Farcaster.");
+        return;
+      }
+      
+      if (!(sdk.actions as any)?.composeCast) {
+        console.error("❌ composeCast not available in SDK");
+        alert("Cast functionality not available. Please update your Farcaster client.");
+        return;
+      }
+      
+      try {
+        // Convert base64 to File object (most reliable method)
+        console.log("📤 Converting base64 to File object...");
+        const base64Match = imageUrl.match(/data:image\/([^;]+);base64,(.+)/);
+        if (!base64Match) {
+          throw new Error("Invalid base64 format");
+        }
+        
+        const mimeType = base64Match[1] || 'png';
+        const base64Data = base64Match[2];
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: `image/${mimeType}` });
+        const file = new File([blob], `xfrora-image.${mimeType}`, { type: `image/${mimeType}` });
+        
+        console.log("✅ File object created:", {
+          name: file.name,
+          type: file.type,
+          size: file.size
+        });
+        
+        // Try multiple approaches with timeout
+        console.log("📤 Attempting to compose cast...");
+        
+        const castPromise = (sdk.actions as any).composeCast({
+          text: "", // Empty text - only image
+          embeds: [file] // Pass File object
+        });
+        
+        // Add timeout (5 seconds)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Cast timeout: No response after 5 seconds")), 5000);
+        });
+        
         try {
-          // Try uploading to server first
-          console.log("📤 Uploading image to temporary endpoint...");
-          
-          let publicImageUrl: string;
-          try {
-            const uploadResponse = await fetch('/api/chat/upload-temp-image', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ imageData: imageUrl }),
-            });
-            
-            if (!uploadResponse.ok) {
-              const errorData = await uploadResponse.json().catch(() => ({ error: 'Unknown error' }));
-              console.warn("⚠️ Upload failed, trying direct File object:", errorData);
-              throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
-            }
-            
-            const uploadData = await uploadResponse.json();
-            publicImageUrl = uploadData.url;
-            console.log("✅ Image uploaded, public URL:", publicImageUrl);
-          } catch (uploadError) {
-            console.warn("⚠️ Server upload failed, trying direct File object approach:", uploadError);
-            
-            // Fallback: Convert to File object and try direct upload
-            const base64Match = imageUrl.match(/data:image\/([^;]+);base64,(.+)/);
-            if (!base64Match) {
-              throw new Error("Invalid base64 format");
-            }
-            
-            const mimeType = base64Match[1] || 'png';
-            const base64Data = base64Match[2];
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: `image/${mimeType}` });
-            const file = new File([blob], `xfrora-image.${mimeType}`, { type: `image/${mimeType}` });
-            
-            // Try with File object directly
-            console.log("📤 Trying direct File object upload...");
-            await (sdk.actions as any).composeCast({
-              text: "",
-              embeds: [file]
-            });
-            console.log("✅ Cast composed via SDK with File object");
-            return;
-          }
-          
-          // Use the real HTTP URL for Farcaster cast
-          console.log("📤 Composing cast with public URL:", publicImageUrl);
-          await (sdk.actions as any).composeCast({
-            text: "", // Empty text - only image
-            embeds: [publicImageUrl] // Pass real HTTP URL
-          });
-          console.log("✅ Cast composed via SDK with public image URL");
+          await Promise.race([castPromise, timeoutPromise]);
+          console.log("✅ Cast composed successfully!");
           
           // Show success message
           const message = document.createElement('div');
@@ -782,15 +777,69 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
             }
           }, 2000);
           
-          return;
-        } catch (sdkError) {
-          console.error("❌ SDK composeCast error:", sdkError);
-          alert(`Failed to share image: ${sdkError instanceof Error ? sdkError.message : 'Unknown error'}\n\nPlease try again or check the console for details.`);
-          throw sdkError;
+        } catch (castError: any) {
+          console.error("❌ Cast error:", castError);
+          
+          // Try alternative: Upload to server and use URL
+          console.log("📤 Trying alternative: Upload to server...");
+          try {
+            const uploadResponse = await fetch('/api/chat/upload-temp-image', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ imageData: imageUrl }),
+            });
+            
+            if (uploadResponse.ok) {
+              const uploadData = await uploadResponse.json();
+              const publicImageUrl = uploadData.url;
+              console.log("✅ Image uploaded, trying with URL:", publicImageUrl);
+              
+              const urlCastPromise = (sdk.actions as any).composeCast({
+                text: "",
+                embeds: [publicImageUrl]
+              });
+              
+              await Promise.race([urlCastPromise, timeoutPromise]);
+              console.log("✅ Cast composed with URL!");
+              
+              const message = document.createElement('div');
+              message.textContent = '✅ Cast opened!';
+              message.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 14px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+              `;
+              document.body.appendChild(message);
+              setTimeout(() => {
+                if (message.parentNode) {
+                  document.body.removeChild(message);
+                }
+              }, 2000);
+              return;
+            }
+          } catch (uploadError) {
+            console.error("❌ Upload fallback also failed:", uploadError);
+          }
+          
+          // If all fails, show error
+          alert(`Failed to share image: ${castError.message || 'Unknown error'}\n\nPlease check the console for details.`);
+          throw castError;
         }
-      } else {
-        console.warn("⚠️ Not in Mini App or composeCast not available");
-        alert("Image sharing requires Farcaster Mini App. Please use the Cast button from within Farcaster.");
+        
+      } catch (error: any) {
+        console.error("❌ Final error:", error);
+        alert(`Failed to share image: ${error.message || 'Unknown error'}\n\nPlease try again or check the console for details.`);
       }
       
       // Fallback: Use Web Share API with image only
