@@ -1,25 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { pinToIPFS } from "@/lib/ipfs";
+import { env } from "@/env.mjs";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Temporary image storage directory (in public folder so images are accessible)
-const TEMP_IMAGE_DIR = join(process.cwd(), 'public', 'temp-images');
-
-// Ensure temp directory exists
-async function ensureTempDir() {
-  if (!existsSync(TEMP_IMAGE_DIR)) {
-    await mkdir(TEMP_IMAGE_DIR, { recursive: true });
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
-    await ensureTempDir();
-    
     const body = await request.json();
     const { imageData } = body; // base64 data URL
     
@@ -42,23 +29,44 @@ export async function POST(request: NextRequest) {
     const mimeType = base64Match[1] || 'png';
     const base64Data = base64Match[2];
     
-    // Generate unique filename
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${mimeType}`;
-    const filePath = join(TEMP_IMAGE_DIR, filename);
-    
     // Convert base64 to buffer
     const buffer = Buffer.from(base64Data, 'base64');
     
-    // Write file
-    await writeFile(filePath, buffer);
+    // Generate unique filename
+    const filename = `cast-${Date.now()}-${Math.random().toString(36).substring(7)}.${mimeType}`;
     
-    // Return public URL (use production URL to avoid preview URLs)
-    const PRODUCTION_URL = "https://xfrora-farcaster-web.vercel.app";
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || PRODUCTION_URL;
+    // Upload to Pinata (IPFS) for temporary storage
+    // This works in Vercel serverless environment
+    console.log("📤 Uploading image to Pinata for cast...");
     
-    const imageUrl = `${baseUrl}/temp-images/${filename}`;
-    
-    console.log("✅ Temporary image uploaded:", imageUrl);
+    let imageUrl: string;
+    try {
+      const ipfsUrl = await pinToIPFS(buffer, filename);
+      
+      // Convert IPFS URL to Pinata gateway URL
+      if (ipfsUrl.startsWith("ipfs://")) {
+        const ipfsHash = ipfsUrl.replace("ipfs://", "");
+        imageUrl = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+      } else {
+        imageUrl = ipfsUrl;
+      }
+      
+      console.log("✅ Temporary image uploaded to Pinata:", imageUrl);
+    } catch (pinataError: any) {
+      console.error("❌ Pinata upload failed:", pinataError);
+      
+      // If Pinata fails and we're in development, return a data URL (won't work in cast but at least won't crash)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("⚠️ Development mode: Returning data URL (won't work in cast)");
+        return NextResponse.json({
+          url: imageData, // Return data URL as fallback
+          filename,
+          warning: "Using data URL - may not work in Farcaster cast"
+        });
+      }
+      
+      throw new Error(`Failed to upload to Pinata: ${pinataError.message || 'Unknown error'}`);
+    }
     
     return NextResponse.json({ 
       url: imageUrl,

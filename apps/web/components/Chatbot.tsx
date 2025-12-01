@@ -694,42 +694,103 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
       // Check if we're in Farcaster Mini App
       const inMiniApp = await sdk.isInMiniApp();
+      console.log("🔍 In Mini App:", inMiniApp);
+      console.log("🔍 SDK actions available:", !!(sdk.actions as any).composeCast);
       
       if (inMiniApp && (sdk.actions as any).composeCast) {
         try {
-          // Upload image to temporary endpoint to get a real HTTP URL
-          // Blob URLs don't work with Farcaster SDK - it needs a real HTTP URL
+          // Try uploading to server first
           console.log("📤 Uploading image to temporary endpoint...");
           
-          const uploadResponse = await fetch('/api/chat/upload-temp-image', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ imageData: imageUrl }),
-          });
-          
-          if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json();
-            throw new Error(`Failed to upload image: ${errorData.error || 'Unknown error'}`);
+          let publicImageUrl: string;
+          try {
+            const uploadResponse = await fetch('/api/chat/upload-temp-image', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ imageData: imageUrl }),
+            });
+            
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse.json().catch(() => ({ error: 'Unknown error' }));
+              console.warn("⚠️ Upload failed, trying direct File object:", errorData);
+              throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
+            }
+            
+            const uploadData = await uploadResponse.json();
+            publicImageUrl = uploadData.url;
+            console.log("✅ Image uploaded, public URL:", publicImageUrl);
+          } catch (uploadError) {
+            console.warn("⚠️ Server upload failed, trying direct File object approach:", uploadError);
+            
+            // Fallback: Convert to File object and try direct upload
+            const base64Match = imageUrl.match(/data:image\/([^;]+);base64,(.+)/);
+            if (!base64Match) {
+              throw new Error("Invalid base64 format");
+            }
+            
+            const mimeType = base64Match[1] || 'png';
+            const base64Data = base64Match[2];
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: `image/${mimeType}` });
+            const file = new File([blob], `xfrora-image.${mimeType}`, { type: `image/${mimeType}` });
+            
+            // Try with File object directly
+            console.log("📤 Trying direct File object upload...");
+            await (sdk.actions as any).composeCast({
+              text: "",
+              embeds: [file]
+            });
+            console.log("✅ Cast composed via SDK with File object");
+            return;
           }
           
-          const { url: publicImageUrl } = await uploadResponse.json();
-          console.log("✅ Image uploaded, public URL:", publicImageUrl);
-          
           // Use the real HTTP URL for Farcaster cast
+          console.log("📤 Composing cast with public URL:", publicImageUrl);
           await (sdk.actions as any).composeCast({
             text: "", // Empty text - only image
             embeds: [publicImageUrl] // Pass real HTTP URL
           });
           console.log("✅ Cast composed via SDK with public image URL");
           
+          // Show success message
+          const message = document.createElement('div');
+          message.textContent = '✅ Cast opened!';
+          message.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+          `;
+          document.body.appendChild(message);
+          setTimeout(() => {
+            if (message.parentNode) {
+              document.body.removeChild(message);
+            }
+          }, 2000);
+          
           return;
         } catch (sdkError) {
           console.error("❌ SDK composeCast error:", sdkError);
-          alert(`Failed to share image: ${sdkError instanceof Error ? sdkError.message : 'Unknown error'}`);
+          alert(`Failed to share image: ${sdkError instanceof Error ? sdkError.message : 'Unknown error'}\n\nPlease try again or check the console for details.`);
           throw sdkError;
         }
+      } else {
+        console.warn("⚠️ Not in Mini App or composeCast not available");
+        alert("Image sharing requires Farcaster Mini App. Please use the Cast button from within Farcaster.");
       }
       
       // Fallback: Use Web Share API with image only
@@ -900,7 +961,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
                     {button.label}
                   </button>
                 ))}
-              </div>
+          </div>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -1200,7 +1261,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
 
         {mode === "chat" && (hasNFT || (tokenBalance !== null && tokenBalance > 0)) && (
           <div className="p-3 sm:p-4 border-t border-gray-200 dark:border-gray-800">
-              {tokenBalance !== null && tokenBalance <= 0 && (
+            {tokenBalance !== null && tokenBalance <= 0 && (
               <div className="mb-3 p-3 border border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
                   <p className="text-xs sm:text-sm text-black dark:text-white">
