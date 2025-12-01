@@ -436,6 +436,24 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         return;
       }
       
+      // Convert data URL to Blob (required for reliable downloads)
+      const parts = imageUrl.split(',');
+      const mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+      const base64Data = parts[1];
+      
+      // Decode base64 to binary
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Create Blob
+      const blob = new Blob([bytes], { type: mimeType });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      console.log("✅ Blob created, size:", blob.size, "bytes");
+      
       // Create filename
       const sanitizedPrompt = prompt
         .replace(/[^a-z0-9\s]/gi, '_')
@@ -445,29 +463,32 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
       
-      // Create temporary download link
+      // Create temporary download link with blob URL
       const link = document.createElement('a');
-      link.href = imageUrl;
+      link.href = blobUrl;
       link.download = filename;
-      
-      // Important: Must be added to DOM for Firefox
       link.style.display = 'none';
+      
+      // Add to DOM (required for Firefox)
       document.body.appendChild(link);
       
       // Trigger download
       link.click();
       
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(link);
-      }, 100);
-      
       console.log("✅ Download triggered:", filename);
       
+      // Cleanup after delay to ensure download starts
+      setTimeout(() => {
+        if (link.parentNode) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(blobUrl);
+        console.log("🧹 Cleanup completed");
+      }, 1000);
+      
       // Show user feedback
-      // Create a temporary success message
       const message = document.createElement('div');
-      message.textContent = '✅ Download started!';
+      message.textContent = '💾 Downloading...';
       message.style.cssText = `
         position: fixed;
         top: 20px;
@@ -481,23 +502,19 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         font-size: 14px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         z-index: 10000;
-        animation: slideDown 0.3s ease-out;
       `;
       document.body.appendChild(message);
       
       // Remove message after 2 seconds
       setTimeout(() => {
-        message.style.animation = 'slideUp 0.3s ease-out';
-        setTimeout(() => {
-          if (message.parentNode) {
-            document.body.removeChild(message);
-          }
-        }, 300);
+        if (message.parentNode) {
+          document.body.removeChild(message);
+        }
       }, 2000);
       
     } catch (error) {
       console.error("❌ Error downloading image:", error);
-      alert("Download failed. Please try again.");
+      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
