@@ -153,8 +153,14 @@ export default function ReferralsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isConnected]);
 
+  // Use Farcaster Mini App format for referral links
+  // Format: https://farcaster.xyz/miniapps/{MINI_APP_ID}/{APP_NAME}?ref={CODE}
+  const FARCASTER_MINI_APP_ID = "KD7K0EBIz173";
+  const FARCASTER_APP_NAME = "xfrora";
+  const FARCASTER_MINI_APP_BASE_URL = `https://farcaster.xyz/miniapps/${FARCASTER_MINI_APP_ID}/${FARCASTER_APP_NAME}`;
+  
   const referralLink = referralCode 
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}?ref=${referralCode}`
+    ? `${FARCASTER_MINI_APP_BASE_URL}?ref=${referralCode}`
     : "";
 
   return (
