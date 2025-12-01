@@ -436,7 +436,7 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         return;
       }
       
-      // Convert data URL to Blob (required for reliable downloads)
+      // Convert data URL to Blob
       const parts = imageUrl.split(',');
       const mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
       const base64Data = parts[1];
@@ -463,32 +463,52 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const filename = `xfrora-${sanitizedPrompt}-${timestamp}.png`;
       
-      // Create temporary download link with blob URL
+      // Try multiple download methods
+      // Method 1: Direct download link (works in most browsers)
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = filename;
       link.style.display = 'none';
-      
-      // Add to DOM (required for Firefox)
       document.body.appendChild(link);
       
-      // Trigger download
-      link.click();
+      // Use requestAnimationFrame to ensure DOM is ready and user gesture is preserved
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            // Try direct download
+            link.click();
+            console.log("✅ Download triggered via link.click():", filename);
+          } catch (clickError) {
+            console.warn("⚠️ link.click() failed, opening in new tab:", clickError);
+            // Fallback: Open in new tab (user can right-click to save)
+            window.open(blobUrl, '_blank');
+            console.log("✅ Opened image in new tab (fallback - right-click to save)");
+          }
+        });
+      });
       
-      console.log("✅ Download triggered:", filename);
-      
-      // Cleanup after delay to ensure download starts
+      // Cleanup after longer delay (give download time to start)
       setTimeout(() => {
         if (link.parentNode) {
           document.body.removeChild(link);
         }
-        URL.revokeObjectURL(blobUrl);
-        console.log("🧹 Cleanup completed");
-      }, 1000);
+        // Don't revoke blob URL immediately - give download time
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+          console.log("🧹 Cleanup completed");
+        }, 5000);
+      }, 2000);
       
-      // Show user feedback
+      // Show user feedback with instructions
       const message = document.createElement('div');
-      message.textContent = '💾 Downloading...';
+      message.innerHTML = `
+        <div style="text-align: center;">
+          <div style="font-size: 16px; margin-bottom: 8px;">💾 Downloading...</div>
+          <div style="font-size: 12px; opacity: 0.9;">
+            If download doesn't start, check the new tab or right-click the image
+          </div>
+        </div>
+      `;
       message.style.cssText = `
         position: fixed;
         top: 20px;
@@ -496,25 +516,31 @@ export default function Chatbot({ isOpen, onClose, walletAddress }: ChatbotProps
         transform: translateX(-50%);
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
-        padding: 12px 24px;
+        padding: 16px 24px;
         border-radius: 8px;
         font-weight: 600;
-        font-size: 14px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         z-index: 10000;
+        max-width: 90%;
       `;
       document.body.appendChild(message);
       
-      // Remove message after 2 seconds
+      // Remove message after 3 seconds
       setTimeout(() => {
         if (message.parentNode) {
-          document.body.removeChild(message);
+          message.style.transition = 'opacity 0.3s';
+          message.style.opacity = '0';
+          setTimeout(() => {
+            if (message.parentNode) {
+              document.body.removeChild(message);
+            }
+          }, 300);
         }
-      }, 2000);
+      }, 3000);
       
     } catch (error) {
       console.error("❌ Error downloading image:", error);
-      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try right-clicking the image and selecting "Save As".`);
     }
   };
 
