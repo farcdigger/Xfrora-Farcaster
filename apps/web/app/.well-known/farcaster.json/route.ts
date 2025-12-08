@@ -31,7 +31,7 @@ export async function GET() {
   let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || PRODUCTION_URL;
   
   // Ensure baseUrl always has https:// protocol and remove trailing slash
-  if (!baseUrl.startsWith('http')) {
+  if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
   }
   baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
@@ -85,7 +85,8 @@ export async function GET() {
       splashBackgroundColor: splashBackgroundColor,
       themeColor: themeColor,
       subtitle: "AI-generated identity avatars",
-      description: "Generate unique NFTs from your Farcaster profile and chat with your AI-powered identity.",
+      description:
+        "Generate unique NFTs from your Farcaster profile and chat with your AI-powered identity.",
       tagline: "Your Farcaster AI twin",
       primaryCategory: "Art",
       tags: ["nft", "base", "ai", "avatar", "identity"],
@@ -94,26 +95,29 @@ export async function GET() {
       ogDescription: "AI-crafted identity NFTs. Chat with your digital twin.",
       ogImageUrl: sharingBannerUrl,
       noindex: true,
-      screenshotUrls: [
-        sharingBannerUrl
-      ],
+      screenshotUrls: [sharingBannerUrl],
       canonicalDomain: canonicalDomain,
       requiredChains: ["eip155:8453"], // Base Mainnet (chain ID: 8453)
-      requiredCapabilities: [
-        "actions.signIn",
-        "wallet.getEthereumProvider"
-      ],
-      castShareUrl: `${baseUrl}/share` // Enable share extensions - allows users to share casts to this Mini App
+      requiredCapabilities: ["actions.signIn", "wallet.getEthereumProvider"],
+      castShareUrl: `${baseUrl}/share`, // Enable share extensions - allows users to share casts to this Mini App
     },
-    
+
     // Account Association (Domain Verification)
     // Domain ownership verification signature for Farcaster
     // See: https://docs.farcaster.xyz/miniapps/sharing#domain-verification
     accountAssociation: {
-      header: "eyJmaWQiOjI1MTYxOSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk3Njc1RjAzRDY1RkFCNzM3MWZhMkJlQjNkYkY5YzY4NDJjOGQ1MjUifQ",
-      payload: "eyJkb21haW4iOiJ4ZnJvcmEtZmFyY2FzdGVyLXdlYi52ZXJjZWwuYXBwIn0",
-      signature: "icCQq88CLuv68KkTwZySK/iCjXdwdgOVfejhii7cBx1xXvc0HbMvpj0R0hP0y2ghL8cYxLus9UzhbMC2MPYHihw="
-    }
+      header:
+        "eyJmaWQiOjI1MTYxOSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk3Njc1RjAzRDY1RkFCNzM3MWZhMkJlQjNkYkY5YzY4NDJjOGQ1MjUifQ",
+      payload:
+        "eyJkb21haW4iOiJ4ZnJvcmEtZmFyY2FzdGVyLXdlYi52ZXJjZWwuYXBwIn0",
+      signature:
+        "icCQq88CLuv68KkTwZySK/iCjXdwdgOVfejhii7cBx1xXvc0HbMvpj0R0hP0y2ghL8cYxLus9UzhbMC2MPYHihw=",
+    },
+
+    // Base App / Base Builder doğrulaması
+    baseBuilder: {
+      ownerAddress: "0xcF1B5d6CD8e0bfd6B1a8B2c2ceAb0bc165EEE5B3",
+    },
   };
 
   return NextResponse.json(manifest, {
@@ -122,12 +126,4 @@ export async function GET() {
       "Cache-Control": "public, max-age=3600", // Cache for 1 hour
     },
   });
-}
-
-{
-  "accountAssociation": { ... },
-  "miniapp": { ... },
-  "baseBuilder": {
-    "ownerAddress": "0xcF1B5d6CD8e0bfd6B1a8B2c2ceAb0bc165EEE5B3"
-  }
 }
