@@ -93,6 +93,7 @@ export async function GET() {
       ogTitle: "xFrora",
       ogDescription: "AI-crafted identity NFTs. Chat with your digital twin.",
       ogImageUrl: sharingBannerUrl,
+      noindex: true,
       screenshotUrls: [
         sharingBannerUrl
       ],
