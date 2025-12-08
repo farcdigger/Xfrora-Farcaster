@@ -124,8 +124,10 @@ export async function GET() {
   });
 }
 
-
+{
+  "accountAssociation": { ... },
+  "miniapp": { ... },
   "baseBuilder": {
     "ownerAddress": "0xcF1B5d6CD8e0bfd6B1a8B2c2ceAb0bc165EEE5B3"
   }
-
+}
