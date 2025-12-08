@@ -87,7 +87,7 @@ export async function GET() {
       subtitle: "AI-generated identity avatars",
       description: "Generate unique NFTs from your Farcaster profile and chat with your AI-powered identity.",
       tagline: "Your Farcaster AI twin",
-      primaryCategory: "art-creativity",
+      primaryCategory: "Art",
       tags: ["nft", "base", "ai", "avatar", "identity"],
       heroImageUrl: heroImageUrl,
       ogTitle: "xFrora",
