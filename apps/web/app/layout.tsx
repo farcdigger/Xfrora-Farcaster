@@ -41,7 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
       // Format must match Base App documentation exactly
       "fc:miniapp": JSON.stringify({
         version: "next",
-        imageUrl: `${baseUrl}/sharing-banner.png`,
+        imageUrl: `${baseUrl}/image.png`,
         button: {
           title: "Generate NFT",
           action: {
