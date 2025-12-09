@@ -35,11 +35,20 @@ export const metadata: Metadata = {
   },
   other: {
     // Farcaster Mini App Embed - Makes this page shareable as a rich card
-    "fc:miniapp": baseUrl,
-    "fc:miniapp:version": "1.0.0",
-    "fc:miniapp:image": `${baseUrl}/og-xfrora.png`,
-    "fc:miniapp:button": "Generate NFT",
-    "fc:miniapp:action": baseUrl,
+    "fc:miniapp": JSON.stringify({
+      version: "next",
+      imageUrl: `${baseUrl}/og-xfrora.png`,
+      button: {
+        title: "Generate NFT",
+        action: {
+          type: "launch_miniapp",
+          name: "xFrora",
+          url: baseUrl,
+          splashImageUrl: `${baseUrl}/frora-splash.png`,
+          splashBackgroundColor: "#000000",
+        },
+      },
+    }),
   },
 };
 
