@@ -9,6 +9,7 @@
     "name": "xFrora",
     "homeUrl": "https://xfrora-farcaster-web.vercel.app",
     "iconUrl": "https://xfrora-farcaster-web.vercel.app/frora-logo-512.png",
+    "imageUrl": "https://xfrora-farcaster-web.vercel.app/image.png",
     "splashImageUrl": "https://xfrora-farcaster-web.vercel.app/frora-splash.png",
     "splashBackgroundColor": "#000000",
     "webhookUrl": "https://xfrora-farcaster-web.vercel.app/api/webhooks/x402",
