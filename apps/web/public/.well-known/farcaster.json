@@ -21,7 +21,7 @@
     ],
     "heroImageUrl": "https://xfrora-farcaster-web.vercel.app/sharing-banner.png",
     "ogImageUrl": "https://xfrora-farcaster-web.vercel.app/sharing-banner.png",
-    "noindex": true
+    "noindex": false
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjI1MTYxOSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk3Njc1RjAzRDY1RkFCNzM3MWZhMkJlQjNkYkY5YzY4NDJjOGQ1MjUifQ",
